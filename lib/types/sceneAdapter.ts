@@ -20,6 +20,7 @@ import {
   HotspotClickAction,
   HotspotTargetType,
 } from './storyScene';
+import { getCanonEntry } from '@/lib/data/canonLookup';
 
 // ── Gradient fallbacks (from SceneBackground.tsx) ────────────
 
@@ -40,8 +41,36 @@ const SCENE_GRADIENTS: Record<string, string> = {
 
 // ── Convert old Hotspot → new SceneCharacter / SceneObject / SceneHotspot ──
 
-function hotspotToCharacter(h: Hotspot, characters?: Character[]): SceneCharacter {
+// Canon-aware action resolution. When a hotspot's target_id (or label)
+// matches a canon entry that ships `allowed_actions`, we use those.
+// This is the same fallback shape used by generate-scene and prepare-
+// scene — keeps role-locked menus consistent whether a scene came from
+// static book data, the brain pipeline, or fresh AI generation.
+const DEFAULT_CHAR: HotspotClickAction[] = ['talk', 'move', 'change', 'continue'];
+const DEFAULT_OBJ: HotspotClickAction[] = ['ask', 'inspect', 'change', 'animate', 'continue'];
+const DEFAULT_PLACE: HotspotClickAction[] = ['ask', 'change', 'continue'];
+const DEFAULT_EVENT: HotspotClickAction[] = ['ask', 'change', 'continue'];
+
+function resolveActionsForHotspot(
+  bookSlug: string | undefined,
+  kind: 'character' | 'object' | 'place' | 'event',
+  targetId: string,
+  label: string,
+): HotspotClickAction[] {
+  const fallback = kind === 'character' ? DEFAULT_CHAR
+    : kind === 'object' ? DEFAULT_OBJ
+    : kind === 'place' ? DEFAULT_PLACE
+    : DEFAULT_EVENT;
+  if (!bookSlug) return [...fallback];
+  const canon = getCanonEntry(bookSlug, targetId) ?? getCanonEntry(bookSlug, label);
+  const locked = canon?.allowed_actions;
+  if (!locked || locked.length === 0) return [...fallback];
+  return locked as HotspotClickAction[];
+}
+
+function hotspotToCharacter(h: Hotspot, bookSlug: string | undefined, characters?: Character[]): SceneCharacter {
   const char = characters?.find(c => c.slug === h.target_id);
+  const actions = resolveActionsForHotspot(bookSlug, 'character', h.target_id, h.label);
   return {
     id: h.target_id,
     name: h.label,
@@ -53,12 +82,13 @@ function hotspotToCharacter(h: Hotspot, characters?: Character[]): SceneCharacte
     pose: 'standing',
     mood: 'neutral',
     animation: 'idle' as CharacterAnimation,
-    click_actions: ['talk', 'move', 'change', 'continue'] as CharacterClickAction[],
+    click_actions: actions as unknown as CharacterClickAction[],
     character_slug: h.target_id,
   };
 }
 
-function hotspotToObject(h: Hotspot): SceneObject {
+function hotspotToObject(h: Hotspot, bookSlug: string | undefined): SceneObject {
+  const actions = resolveActionsForHotspot(bookSlug, 'object', h.target_id, h.label);
   return {
     id: h.target_id,
     label: h.label,
@@ -69,11 +99,11 @@ function hotspotToObject(h: Hotspot): SceneObject {
     image_url: null,
     state: 'default',
     animation: 'none' as ObjectAnimation,
-    click_actions: ['ask', 'inspect', 'change', 'animate', 'continue'] as ObjectClickAction[],
+    click_actions: actions as unknown as ObjectClickAction[],
   };
 }
 
-function hotspotToSceneHotspot(h: Hotspot): SceneHotspot {
+function hotspotToSceneHotspot(h: Hotspot, bookSlug: string | undefined): SceneHotspot {
   const typeMap: Record<string, HotspotTargetType> = {
     character: 'character',
     object: 'object',
@@ -81,12 +111,9 @@ function hotspotToSceneHotspot(h: Hotspot): SceneHotspot {
     event: 'background',
   };
 
-  const actionsMap: Record<string, HotspotClickAction[]> = {
-    character: ['talk', 'move', 'change', 'continue'],
-    object: ['ask', 'inspect', 'change', 'animate', 'continue'],
-    place: ['ask', 'change', 'continue'],
-    event: ['ask', 'change', 'continue'],
-  };
+  const kind = (h.hotspot_type === 'character' || h.hotspot_type === 'object' || h.hotspot_type === 'place' || h.hotspot_type === 'event')
+    ? h.hotspot_type
+    : 'event';
 
   return {
     id: h.id,
@@ -97,7 +124,7 @@ function hotspotToSceneHotspot(h: Hotspot): SceneHotspot {
     y: h.y,
     width: h.width,
     height: h.height,
-    allowed_actions: actionsMap[h.hotspot_type] ?? ['ask', 'continue'],
+    allowed_actions: resolveActionsForHotspot(bookSlug, kind, h.target_id, h.label),
     tooltip: h.tooltip,
     quick_speak: h.quick_speak,
     character_image_url: h.character_image_url,
@@ -109,6 +136,7 @@ function hotspotToSceneHotspot(h: Hotspot): SceneHotspot {
 export function sceneToStoryScene(
   scene: SceneWithHotspots,
   characters?: Character[],
+  bookSlugOverride?: string,
 ): StoryScene {
   const hotspots = scene.hotspots ?? [];
 
@@ -116,21 +144,30 @@ export function sceneToStoryScene(
   const characterHotspots = hotspots.filter(h => h.hotspot_type === 'character');
   const objectHotspots = hotspots.filter(h => h.hotspot_type === 'object' || h.hotspot_type === 'place');
 
+  // Caller-supplied slug wins. The DB's book_id field is sometimes
+  // suffixed (e.g. "ramayana-livebook") while canon registers under
+  // the bare slug ("ramayana") — passing the URL slug from SceneViewer
+  // keeps canon lookup deterministic. Fallbacks: strip "-livebook" /
+  // "-storybook" suffixes from book_id, then book_id raw.
+  const stripSuffix = (s: string) => s.replace(/-(livebook|storybook|live|story)$/i, '');
+  const bookSlug = bookSlugOverride
+    || (scene.book_id ? stripSuffix(scene.book_id) : undefined);
+
   // Deduplicate characters by target_id (same character may appear in multiple hotspots)
   const seenCharIds = new Set<string>();
   const sceneCharacters: SceneCharacter[] = [];
   for (const h of characterHotspots) {
     if (!seenCharIds.has(h.target_id)) {
       seenCharIds.add(h.target_id);
-      sceneCharacters.push(hotspotToCharacter(h, characters));
+      sceneCharacters.push(hotspotToCharacter(h, bookSlug, characters));
     }
   }
 
   // Convert objects/places
-  const sceneObjects = objectHotspots.map(hotspotToObject);
+  const sceneObjects = objectHotspots.map(h => hotspotToObject(h, bookSlug));
 
   // All hotspots become SceneHotspots (the overlay layer)
-  const sceneHotspots = hotspots.map(hotspotToSceneHotspot);
+  const sceneHotspots = hotspots.map(h => hotspotToSceneHotspot(h, bookSlug));
 
   return {
     scene_id: scene.scene_id,

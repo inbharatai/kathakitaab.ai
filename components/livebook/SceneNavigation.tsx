@@ -6,9 +6,12 @@ interface Props {
   previousSceneId: string | null;
   nextSceneId: string | null;
   onNavigate: (sceneId: string, direction?: 1 | -1) => void;
+  /** Triggered when there is no next static scene — produces a fresh
+   *  generated scene that continues the story past the canon end. */
+  onContinueBeyond?: () => void;
 }
 
-export default function SceneNavigation({ previousSceneId, nextSceneId, onNavigate }: Props) {
+export default function SceneNavigation({ previousSceneId, nextSceneId, onNavigate, onContinueBeyond }: Props) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 40, paddingBottom: 60 }}>
       {previousSceneId ? (
@@ -36,6 +39,21 @@ export default function SceneNavigation({ previousSceneId, nextSceneId, onNaviga
             style={{ display: 'inline-block', marginRight: 4 }}
           >▶</motion.span>
           Next Scene
+        </motion.button>
+      ) : onContinueBeyond ? (
+        <motion.button
+          whileHover={{ x: 4, scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          className="btn-primary"
+          onClick={onContinueBeyond}
+          style={{ position: 'relative', overflow: 'hidden' }}
+        >
+          <motion.span
+            animate={{ x: [0, 4, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ display: 'inline-block', marginRight: 4 }}
+          >✨</motion.span>
+          Continue the Journey
         </motion.button>
       ) : (
         <motion.div

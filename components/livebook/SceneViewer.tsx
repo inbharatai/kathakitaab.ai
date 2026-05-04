@@ -287,7 +287,7 @@ export default function SceneViewer({
       onSceneChange?.(loadedScene);
 
       // Convert to StoryScene
-      const converted = sceneToStoryScene(loadedScene, bookCharacters);
+      const converted = sceneToStoryScene(loadedScene, bookCharacters, bookSlug);
       setStoryScene(converted);
       setSceneState(createInitialSceneState(converted));
 
@@ -403,6 +403,35 @@ export default function SceneViewer({
       setSceneState(createInitialSceneState(generatedScene));
       setRawScene(null); // No raw scene for generated content
       setMode('story');
+      // Clear any branch overlay from the previous scene — otherwise it
+      // would obscure the freshly generated scene's hotspots.
+      setActiveBranch(null);
+
+      // Pre-warm hotspot branches for the new scene the same way
+      // loadScene does for static scenes. Without this, the user's
+      // first click on any hotspot waits 25–45s for fresh generation
+      // instead of hitting a warm cache.
+      const hotspotEntities = generatedScene.hotspots.map(h => ({
+        entityId: h.target_id,
+        label: h.label,
+        type: h.type === 'character' ? 'character' : h.type === 'object' ? 'object' : 'location',
+        x: h.x,
+        y: h.y,
+      }));
+      if (hotspotEntities.length > 0) {
+        fetch('/api/livebook/pregenerate-branches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookSlug,
+            bookTitle: generatedScene.story_id || bookSlug,
+            sceneId: generatedScene.scene_id,
+            sceneTitle: generatedScene.page_title,
+            sceneNarration: generatedScene.story_text,
+            entities: hotspotEntities,
+          }),
+        }).catch(() => { /* fire-and-forget */ });
+      }
 
       if (!isMutedRef.current) {
         soundEngine?.playSceneTransitionSound();
@@ -523,6 +552,10 @@ export default function SceneViewer({
 
       const result = await handleEntityClick(entityCtx);
       setActiveBranch(result.branch);
+      // Auto-expand the text panel so the user sees the fresh branch
+      // narration right away. The collapsed preview ellipsis-truncates
+      // the first ~100 chars and reads as "old text" if not expanded.
+      setTextExpanded(true);
 
       // Save scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);
@@ -563,7 +596,6 @@ export default function SceneViewer({
     setBgMenu(null);
     setBranchLoading(true);
     setActiveBranch(null);
-    setTextExpanded(false); // Auto-collapse text when clicking the image
 
     try {
       // Step 1: Classify what was clicked (via API — server has the API keys)
@@ -618,6 +650,9 @@ export default function SceneViewer({
 
       const result = await handleEntityClick(entityCtx);
       setActiveBranch(result.branch);
+      // Match the hotspot path — expand the text panel so the fresh
+      // branch narration is visible alongside the new image.
+      setTextExpanded(true);
 
       // Save to scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);
@@ -925,7 +960,13 @@ export default function SceneViewer({
               </AnimatePresence>
             </div>
 
-            {/* Collapsible text panel below scene */}
+            {/* Collapsible text panel below scene.
+                When a branch overlay is active, the panel mirrors the
+                branch's narration so the text below the image always
+                matches what's on screen. Otherwise it shows the parent
+                scene's narration. Without this the user sees a fresh
+                branch image up top while the panel below still reads
+                the previous static scene — looks broken. */}
             {!flipOpen && (
               <div style={{ maxWidth: 820, margin: '0 auto' }}>
                 {/* Toggle bar — always visible */}
@@ -939,7 +980,7 @@ export default function SceneViewer({
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
                     opacity: textExpanded ? 0.4 : 1,
                   }}>
-                    {(rawScene?.narration ?? storyScene.story_text).slice(0, 100)}...
+                    {(activeBranch?.narration ?? rawScene?.narration ?? storyScene.story_text ?? '').slice(0, 100)}...
                   </p>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     {showModeSwitcher && (
@@ -968,7 +1009,17 @@ export default function SceneViewer({
                       transition={{ duration: 0.3 }}
                       style={{ overflow: 'hidden' }}
                     >
-                      {(mode === 'story' || mode === 'learn') && rawScene && (
+                      {(mode === 'story' || mode === 'learn') && activeBranch && (
+                        <div style={{ padding: '12px 0' }}>
+                          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gold-light)', margin: '0 0 8px' }}>
+                            {activeBranch.title}
+                          </h4>
+                          <p className="narration-text font-serif" style={{ fontSize: '1rem', lineHeight: 1.8, color: 'var(--color-text-light)', margin: 0 }}>
+                            {activeBranch.narration}
+                          </p>
+                        </div>
+                      )}
+                      {(mode === 'story' || mode === 'learn') && !activeBranch && rawScene && (
                         <NarrationPanel
                           scene={rawScene}
                           onReadAloud={handleToggleNarration}
@@ -977,7 +1028,7 @@ export default function SceneViewer({
                           showReadAloudButton={showNarrationButton}
                         />
                       )}
-                      {(mode === 'story' || mode === 'learn') && !rawScene && (
+                      {(mode === 'story' || mode === 'learn') && !activeBranch && !rawScene && (
                         <div style={{ padding: '12px 0' }}>
                           <p className="narration-text font-serif" style={{ fontSize: '1rem', lineHeight: 1.8, color: 'var(--color-text-light)' }}>
                             {storyScene.story_text}
@@ -1007,12 +1058,15 @@ export default function SceneViewer({
                   )}
                 </AnimatePresence>
 
-                {/* Scene navigation — always visible */}
+                {/* Scene navigation — always visible. When the canon
+                    journey is complete, "Continue the Journey" triggers
+                    fresh AI generation past the static end. */}
                 {showSceneNavigation && (
                   <SceneNavigation
                     previousSceneId={storyScene.previous_scene_id}
                     nextSceneId={storyScene.next_scene_id}
                     onNavigate={(id, dir) => loadScene(id, dir ?? 1)}
+                    onContinueBeyond={() => generateNewScene('continue')}
                   />
                 )}
               </div>
