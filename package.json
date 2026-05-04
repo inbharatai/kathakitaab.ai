@@ -6,7 +6,9 @@
     "dev": "next dev -p 5009",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prebake:anchors": "npx tsx scripts/prebake-anchors.ts",
+    "migrate": "npx tsx scripts/apply-supabase-migrations.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

@@ -37,6 +37,17 @@ interface EntityInteractRequest {
   entityType: 'character' | 'object' | 'location' | 'background';
   entityLabel: string;
   characterNames: string[];
+  /**
+   * What the user *did* to this entity — talk / move / fight / leap /
+   * confront / observe / inspect / ask / continue. Locks the cache key
+   * so different actions on the same entity don't collide. Universal
+   * — the canon registry decides which set is valid per character/role
+   * (see allowed_actions on CanonEntry); this field just records the
+   * user's choice. Optional for back-compat with older clients.
+   */
+  actionType?: string;
+  /** Narrative theme — same universal axis used by generate-scene. */
+  theme?: string;
 }
 
 const PROMPTS: Record<string, string> = {
@@ -58,6 +69,30 @@ Generate an atmospheric detail — what the user notices, hears, or discovers in
 Make it feel like the world is alive and responsive to exploration.`,
 };
 
+// Universal action vocabulary. The verb the user clicks shapes the
+// *kind* of moment we generate — without this, every click on a
+// character collapses to "introspective dialogue", regardless of
+// whether they tapped 'talk' or 'fight'. Unknown verbs (rare books
+// with novel canon vocab) fall through to the entityType prompt.
+const ACTION_GUIDANCE: Record<string, string> = {
+  talk: 'Frame this as a spoken exchange — the user addresses the character; render their reply as a short cinematic line plus inner thought.',
+  move: 'Frame this as movement — the character leads the user a few steps toward something significant; describe what they pass and arrive at.',
+  leap: 'Frame this as a powerful leap or flight — describe the launch, what the character sees in motion, and where they land.',
+  fight: 'Frame this as a controlled, age-appropriate combat moment — strikes, courage under pressure, no graphic violence; resolve quickly.',
+  confront: 'Frame this as a tense confrontation — the user challenges the character; render the verbal exchange and the unspoken stakes.',
+  observe: 'Frame this as quiet observation — the user watches without engaging; render what is noticed, with no dialogue.',
+  comfort: 'Frame this as a moment of comfort — the user reaches out; render a small grounding gesture and the character\'s soft reply.',
+  guard: 'Frame this as a protective stance — the character shields someone or something; render the readiness and the silent vow.',
+  counsel: 'Frame this as receiving counsel — the character offers a brief teaching or warning; render it as memorable parable-like advice.',
+  ally: 'Frame this as forging or affirming an alliance — render the pledge, the gesture sealing it, and the new shared intent.',
+  learn: 'Frame this as receiving teaching — the character imparts a lesson; render the lesson and the moment of recognition.',
+  petition: 'Frame this as a petition or plea — the user asks something hard; render the response weighing duty against feeling.',
+  honor: 'Frame this as an act of honoring — render the gesture (touching feet, offering, silent bow) and what it means to both.',
+  follow: 'Frame this as following — the character moves and the user trails; render what is glimpsed along the way.',
+  inspect: 'Frame this as close inspection of an object or detail — render what is noticed up close that was invisible from afar.',
+  ask: 'Frame this as the user asking a question — render the answer with one vivid concrete detail.',
+};
+
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
@@ -69,6 +104,10 @@ export async function POST(request: Request) {
 
     const body: EntityInteractRequest = await request.json();
     const { bookTitle, sceneId, sceneTitle, sceneNarration, entityId, entityType, entityLabel, characterNames } = body;
+    // Normalise the action axis. Older clients won't send this — we
+    // default to a sentinel ("auto") so the cache key shape is stable.
+    const actionType = (body.actionType || 'auto').toLowerCase();
+    const theme = body.theme;
 
     // Helper: any cached/pre-gen branch may have arrived without an
     // image (pregenerate-branches deliberately leaves `imageUrl: null`
@@ -95,6 +134,7 @@ export async function POST(request: Request) {
             bookSlug: body.bookSlug,
             characters: canonCharacters,
             mood: 'serene',
+            theme,
           }));
         });
         return { ...base, branchId, imageStatus: 'pending' as const };
@@ -143,16 +183,33 @@ export async function POST(request: Request) {
       }));
     }
 
-    // Check regular cache
-    const cacheKey = buildCacheKey({ type: 'entity', sceneId, entityId, entityType });
+    // Check regular cache. Key now includes bookSlug + actionType +
+    // theme so a "talk to Rama" hit doesn't collide with "fight Rama"
+    // or with the same beat retold under a different motif. This is
+    // what makes warm hits feel right — same intent → same cached
+    // response — without bleeding semantics across actions.
+    const cacheKey = buildCacheKey({
+      type: 'entity',
+      bookSlug: body.bookSlug,
+      sceneId,
+      entityId,
+      entityType,
+      actionType,
+      theme: theme || 'none',
+    });
     const cached = await getCachedResponse(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    // Build prompt
+    // Build prompt — base prompt by entity type, then layer the
+    // action guidance so the user's verb actually shapes the output.
     const template = PROMPTS[entityType] || PROMPTS.background;
-    const prompt = template
-      .replace('{label}', entityLabel)
-      .replace('{sceneTitle}', sceneTitle);
+    const actionLine = ACTION_GUIDANCE[actionType];
+    const prompt = [
+      template
+        .replace('{label}', entityLabel)
+        .replace('{sceneTitle}', sceneTitle),
+      actionLine ? `Action verb: "${actionType}". ${actionLine}` : '',
+    ].filter(Boolean).join('\n\n');
 
     // Inject canonical context if this entity exists in the per-book
     // canon registry. For books without a canon file or for entities
@@ -223,6 +280,7 @@ Scene context: ${sceneNarration.slice(0, 300)}${canonFragment ? `\n\n${canonFrag
           bookSlug: body.bookSlug,
           characters: canonCharacters,
           mood: 'serene',
+          theme,
         }));
       });
     }

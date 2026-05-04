@@ -55,6 +55,28 @@ export interface CanonEntry {
    * weapons, wrong era). Becomes the negative side of the prompt.
    */
   negative_appearance?: string[];
+  /**
+   * Role-locked action menu. When the user clicks this entity in a
+   * scene, only these actions are offered — Rama gets `talk/move/
+   * continue`, Hanuman gets `talk/leap/fight/continue`, Ravana gets
+   * `confront/observe/continue`, etc. Empty/missing → falls back to a
+   * generic default in the UI.
+   */
+  allowed_actions?: string[];
+  /**
+   * Public CDN URL of a pre-baked canonical portrait. Generated once
+   * by `scripts/prebake-portraits.ts` and stored in Supabase Storage,
+   * then referenced as the anchor image for `images.edit` calls so
+   * faces stay locked across scenes (especially deities).
+   */
+  anchor_image_url?: string;
+  /**
+   * Marks deity / sacred figures whose appearance must be especially
+   * guarded — these get routed to anchor-portrait-based generation
+   * (images.edit) when present alone in a scene, instead of free
+   * text-to-image. Avoids the "Rama looks different every time" drift.
+   */
+  divine?: boolean;
 }
 
 /** Per-book visual style bible. Locks palette/medium/framing so every

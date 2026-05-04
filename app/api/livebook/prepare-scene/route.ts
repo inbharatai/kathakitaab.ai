@@ -12,8 +12,9 @@
 
 import { NextResponse } from 'next/server';
 import { prepareScene, type BrainRequest } from '@/lib/brain/LivingBookBrain';
-import type { StoryScene, SceneHotspot, SceneCharacter } from '@/lib/types/storyScene';
+import type { StoryScene, SceneHotspot, SceneCharacter, HotspotClickAction, CharacterClickAction } from '@/lib/types/storyScene';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { getCanonEntry } from '@/lib/data/canonLookup';
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'expensive' });
@@ -29,33 +30,52 @@ export async function POST(request: Request) {
     // Run the full brain pipeline
     const result = await prepareScene(body);
 
+    // Default action menus per kind. Canon-locked actions take
+    // precedence so role-aware menus surface universally for any book
+    // that ships canon roles.
+    const DEFAULT_CHAR: HotspotClickAction[] = ['talk', 'move', 'change', 'continue'];
+    const DEFAULT_OBJ: HotspotClickAction[] = ['ask', 'inspect', 'change', 'continue'];
+
+    const resolveActions = (kind: 'character' | 'object' | 'place', targetId: string, label: string): HotspotClickAction[] => {
+      const fallback = kind === 'character' ? [...DEFAULT_CHAR] : [...DEFAULT_OBJ];
+      const canon = getCanonEntry(body.bookSlug ?? '', targetId)
+        ?? getCanonEntry(body.bookSlug ?? '', label);
+      const locked = canon?.allowed_actions;
+      if (!locked || locked.length === 0) return fallback;
+      return locked as HotspotClickAction[];
+    };
+
     // Convert to StoryScene format for the frontend
-    const hotspots: SceneHotspot[] = result.entities.map((e, i) => ({
-      id: `${result.sceneId}-hs-${i}`,
-      target_id: e.entityId,
-      label: e.label,
-      type: e.type === 'animal' ? 'object' as const : e.type === 'background' ? 'place' as const : e.type as 'character' | 'object' | 'place',
-      x: e.x,
-      y: e.y,
-      width: e.width,
-      height: e.height,
-      allowed_actions: e.type === 'character'
-        ? ['talk' as const, 'move' as const, 'change' as const, 'continue' as const]
-        : ['ask' as const, 'inspect' as const, 'change' as const, 'continue' as const],
-      tooltip: e.label,
-      quick_speak: result.branches.find(b => b.entityId === e.entityId)?.narration?.slice(0, 60),
-    }));
+    const hotspots: SceneHotspot[] = result.entities.map((e, i) => {
+      const kind = e.type === 'animal' ? 'object' as const : e.type === 'background' ? 'place' as const : e.type as 'character' | 'object' | 'place';
+      return {
+        id: `${result.sceneId}-hs-${i}`,
+        target_id: e.entityId,
+        label: e.label,
+        type: kind,
+        x: e.x,
+        y: e.y,
+        width: e.width,
+        height: e.height,
+        allowed_actions: resolveActions(kind, e.entityId, e.label),
+        tooltip: e.label,
+        quick_speak: result.branches.find(b => b.entityId === e.entityId)?.narration?.slice(0, 60),
+      };
+    });
 
     const characters: SceneCharacter[] = result.entities
       .filter(e => e.type === 'character')
-      .map(e => ({
-        id: e.entityId, name: e.label,
-        x: e.x, y: e.y, width: e.width, height: e.height,
-        image_url: null, pose: 'standing', mood: result.mood,
-        animation: 'breathe' as const,
-        click_actions: ['talk' as const, 'move' as const, 'change' as const, 'continue' as const],
-        character_slug: e.entityId,
-      }));
+      .map(e => {
+        const resolved = resolveActions('character', e.entityId, e.label) as unknown as CharacterClickAction[];
+        return {
+          id: e.entityId, name: e.label,
+          x: e.x, y: e.y, width: e.width, height: e.height,
+          image_url: null, pose: 'standing', mood: result.mood,
+          animation: 'breathe' as const,
+          click_actions: resolved,
+          character_slug: e.entityId,
+        };
+      });
 
     const scene: StoryScene = {
       scene_id: result.sceneId,

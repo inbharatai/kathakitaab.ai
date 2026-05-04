@@ -32,7 +32,7 @@ export interface UploadedImage {
  */
 export async function uploadGeneratedImage(
   dataUriOrBase64: string,
-  opts: { mimeType?: string; pathHint?: string } = {},
+  opts: { mimeType?: string; pathHint?: string; path?: string } = {},
 ): Promise<string> {
   if (!dataUriOrBase64) return '';
 
@@ -51,13 +51,22 @@ export async function uploadGeneratedImage(
   const { mime, base64 } = parseDataUri(dataUriOrBase64, opts.mimeType);
   const bytes = Buffer.from(base64, 'base64');
 
-  // Use a content hash as the filename so identical bytes always land
-  // at the same path — that gives us free dedup at the storage layer
-  // for repeated cache misses.
-  const hash = createHash('sha1').update(bytes).digest('hex');
+  // Two pathing modes:
+  //   1. Caller supplies an explicit `path` — used by pre-bake scripts
+  //      that need stable, predictable URLs (e.g. anchor portraits).
+  //      The caller is responsible for collision/sanitization.
+  //   2. Otherwise we use a content-hash filename so identical bytes
+  //      always land at the same path — that gives us free dedup at
+  //      the storage layer for repeated cache misses.
   const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
-  const prefix = opts.pathHint ? `${slug(opts.pathHint)}/` : '';
-  const path = `${prefix}${hash}.${ext}`;
+  let path: string;
+  if (opts.path) {
+    path = opts.path;
+  } else {
+    const hash = createHash('sha1').update(bytes).digest('hex');
+    const prefix = opts.pathHint ? `${slug(opts.pathHint)}/` : '';
+    path = `${prefix}${hash}.${ext}`;
+  }
 
   const { error } = await supabase.storage
     .from(BUCKET)

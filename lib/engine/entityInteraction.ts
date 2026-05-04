@@ -26,6 +26,16 @@ export interface EntityClickContext {
   entityType: 'character' | 'object' | 'location' | 'background';
   entityLabel: string;
   characterNames: string[];
+  /**
+   * The verb the user clicked — talk / leap / fight / confront /
+   * observe / inspect / etc. Optional for back-compat. Threaded into
+   * the cache key so the same entity yields different responses for
+   * different actions, instead of every action collapsing to one
+   * cached "default" reply.
+   */
+  actionType?: string;
+  /** Narrative theme — universal axis used by generate-scene + image. */
+  theme?: string;
 }
 
 export interface EntityInteractionResult {
@@ -105,13 +115,17 @@ export async function handleEntityClick(
     return { branch, cached: true, imageGenerating: false };
   }
 
-  // 3. Check response cache
+  // 3. Check response cache. Cache key shape now matches the server's
+  // entity-interact key so client + server stay coherent: same intent
+  // → same cached response, different intent → different bucket.
   const cacheKey = buildCacheKey({
     type: 'entity-branch',
     bookSlug: ctx.bookSlug,
     sceneId: ctx.sceneId,
     entityId: ctx.entityId,
     entityType: ctx.entityType,
+    actionType: (ctx.actionType || 'auto').toLowerCase(),
+    theme: ctx.theme || 'none',
   });
   const cachedBranch = (await getCachedResponse(cacheKey)) as SceneBranch | null;
   if (cachedBranch) {

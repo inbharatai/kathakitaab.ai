@@ -50,6 +50,16 @@ export interface StoryDirectorContext {
   sceneIndex?: number;
   /** Web-grounded research context for accuracy */
   sourceContext?: string;
+  /**
+   * Narrative theme — guides the emotional motif of the scene
+   * (duty / courage / sacrifice / devotion / loss / love / betrayal /
+   * hope / wonder / fear / redemption, plus tradition-specific aliases
+   * like dharma / bhakti / karma / hubris). Optional. When supplied,
+   * the LLM is asked to lean into this motif without forcing it. The
+   * same string is also passed through to the image prompt builder so
+   * visual + narrative tone stay aligned.
+   */
+  theme?: string;
 }
 
 // ── System Prompt ────────────────────────────────────────────
@@ -226,6 +236,15 @@ function buildUserPrompt(ctx: StoryDirectorContext): string {
   }
 
   if (ctx.sceneIndex !== undefined) lines.push(`\nThis is scene #${ctx.sceneIndex + 1}`);
+
+  // Theme — purely guidance. We do NOT want the LLM to bend the source
+  // material to fit a theme. We only ask it to lean into the motif if
+  // the canonical events naturally support it. This keeps the system
+  // book-agnostic: any tradition can pass a theme without distorting
+  // its source.
+  if (ctx.theme) {
+    lines.push(`\nNarrative motif: lean into the theme of "${ctx.theme}" where the canonical material naturally supports it. Do not invent events to force the motif.`);
+  }
 
   switch (ctx.actionType) {
     case 'continue':

@@ -16,6 +16,60 @@ import { getGeminiClient } from '@/lib/openai/client';
 import { isGeminiConfigured } from '@/lib/openai/client';
 import { buildVisualPrompt } from './visualPromptBuilder';
 import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
+import { getCanonEntry } from '@/lib/data/canonLookup';
+import { toFile } from 'openai';
+
+// ── Anchor Reference Resolution ──────────────────────────────
+
+/**
+ * Collect pre-baked anchor portraits for the canon characters present
+ * in the scene. Universal — works for any book whose canon entries
+ * have `anchor_image_url`. Prefers `divine: true` entries when there
+ * are more candidates than gpt-image-1's reference cap (4).
+ *
+ * Returns an empty array on any failure path (no canon, no anchors,
+ * fetch errors) so the caller silently falls back to free generation.
+ */
+async function collectAnchorReferences(
+  bookSlug: string,
+  characters: string[],
+): Promise<Array<{ id: string; file: Awaited<ReturnType<typeof toFile>> }>> {
+  if (!characters?.length) return [];
+
+  // Resolve each name through canon and collect those with anchors.
+  const seen = new Set<string>();
+  const candidates: { id: string; url: string; divine: boolean }[] = [];
+  for (const name of characters) {
+    const entry = getCanonEntry(bookSlug, name);
+    if (!entry || !entry.anchor_image_url || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    candidates.push({ id: entry.id, url: entry.anchor_image_url, divine: !!entry.divine });
+  }
+  if (candidates.length === 0) return [];
+
+  // gpt-image-1 accepts up to 4 reference images. When over the cap,
+  // keep divine entries first (those are the highest-stakes for face
+  // consistency), then truncate.
+  candidates.sort((a, b) => Number(b.divine) - Number(a.divine));
+  const top = candidates.slice(0, 4);
+
+  const out: Array<{ id: string; file: Awaited<ReturnType<typeof toFile>> }> = [];
+  for (const c of top) {
+    try {
+      const res = await fetch(c.url);
+      if (!res.ok) {
+        console.warn(`[VisualAgent] anchor fetch failed for ${c.id}: ${res.status}`);
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      const file = await toFile(buf, `${c.id}.png`, { type: 'image/png' });
+      out.push({ id: c.id, file });
+    } catch (err) {
+      console.warn(`[VisualAgent] anchor fetch error for ${c.id}:`, err);
+    }
+  }
+  return out;
+}
 
 // ── Image Generation ─────────────────────────────────────────
 
@@ -35,6 +89,9 @@ export interface SceneImageContext {
   characters?: string[];
   /** Mood tag from scene metadata. */
   mood?: string;
+  /** Narrative theme (universal: courage / sacrifice / love / loss / …
+   *  + tradition aliases dharma / bhakti / karma / hubris). Optional. */
+  theme?: string;
 }
 
 /**
@@ -58,21 +115,55 @@ export async function generateSceneImage(
     description: visualDescription,
     bookSlug: ctx.bookSlug,
     mood: ctx.mood,
+    theme: ctx.theme,
     characters: ctx.characters,
   });
+
+  // Resolve anchor references for any canon character in the scene
+  // that has a pre-baked portrait. This is universal — any book that
+  // ships canon with `anchor_image_url` gets face-locked generation
+  // for free. We cap at 4 anchors (gpt-image-1 limit) and prefer
+  // `divine: true` entries when there are too many candidates.
+  const anchorRefs = ctx.bookSlug
+    ? await collectAnchorReferences(ctx.bookSlug, ctx.characters ?? [])
+    : [];
 
   // Try OpenAI gpt-image-1 first
   if (isOpenAIConfigured()) {
     try {
       const client = getOpenAIClient();
-      const response = await client.images.generate({
-        model: 'gpt-image-1',
-        prompt: built.prompt,
-        size: '1536x1024', // 3:2 landscape, close to 16:9
-        quality: 'medium',
-      });
+      let b64: string | undefined;
+      if (anchorRefs.length > 0) {
+        // images.edit with anchor portraits as references — locks
+        // faces / setting to the canonical look. Falls through to
+        // plain generate if the edit call fails for any reason
+        // (e.g. anchor URL 404, network blip).
+        try {
+          const edited = await client.images.edit({
+            model: 'gpt-image-1',
+            image: anchorRefs.map(r => r.file),
+            prompt: built.prompt,
+            size: '1536x1024',
+            quality: 'medium',
+            // Anchors exist *for* face fidelity — without 'high' the
+            // model is allowed to drift and the whole point is lost.
+            input_fidelity: 'high',
+          });
+          b64 = edited.data?.[0]?.b64_json;
+        } catch (editErr) {
+          console.error('[VisualAgent] images.edit with anchors failed, falling back to generate:', editErr);
+        }
+      }
+      if (!b64) {
+        const response = await client.images.generate({
+          model: 'gpt-image-1',
+          prompt: built.prompt,
+          size: '1536x1024', // 3:2 landscape, close to 16:9
+          quality: 'medium',
+        });
+        b64 = response.data?.[0]?.b64_json;
+      }
 
-      const b64 = response.data?.[0]?.b64_json;
       if (b64) {
         // Upload to Supabase Storage and return the public URL.
         // Falls back to the data URI when Supabase isn't configured.

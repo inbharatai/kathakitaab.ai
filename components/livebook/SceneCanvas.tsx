@@ -58,6 +58,10 @@ function HotspotActionMenu({
   onAction: (hotspot: SceneHotspot, action: HotspotClickAction) => void;
   onClose: () => void;
 }) {
+  // Universal labels — extended for the role-locked actions surfaced
+  // by canon (Hanuman.leap, Ravana.confront, Lakshmana.guard, etc.).
+  // Any unknown action falls back to a Title-cased label so books with
+  // novel canon vocabularies still render readably.
   const labels: Record<HotspotClickAction, string> = {
     ask: 'Ask',
     talk: 'Talk',
@@ -66,7 +70,21 @@ function HotspotActionMenu({
     change: 'Change',
     animate: 'Animate',
     continue: 'Continue',
+    leap: 'Leap',
+    fight: 'Fight',
+    confront: 'Confront',
+    observe: 'Observe',
+    comfort: 'Comfort',
+    guard: 'Guard',
+    counsel: 'Counsel',
+    ally: 'Ally',
+    learn: 'Learn',
+    petition: 'Petition',
+    honor: 'Honor',
+    follow: 'Follow',
   };
+  const labelFor = (a: HotspotClickAction): string =>
+    labels[a] ?? (String(a).charAt(0).toUpperCase() + String(a).slice(1));
 
   return (
     <motion.div
@@ -113,7 +131,7 @@ function HotspotActionMenu({
               textAlign: 'left',
             }}
           >
-            {labels[action]}
+            {labelFor(action)}
             {action === 'animate' && (
               <span style={{ marginLeft: 6, fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)' }}>beta</span>
             )}

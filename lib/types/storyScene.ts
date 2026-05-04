@@ -37,9 +37,21 @@ export type EffectAnimation =
 
 // ── Click Actions ────────────────────────────────────────────
 
-export type CharacterClickAction = 'talk' | 'move' | 'change' | 'continue';
+// Base actions that exist for any book. The role-locked extensions
+// below are universal too — any tradition with warrior/antagonist/
+// witness archetypes can use them. Canon entries pick which subset is
+// valid for a given character via `allowed_actions`.
+export type CharacterClickAction =
+  | 'talk' | 'move' | 'change' | 'continue'
+  | 'leap' | 'fight' | 'confront' | 'observe'
+  | 'comfort' | 'guard' | 'counsel' | 'ally' | 'learn'
+  | 'petition' | 'honor' | 'follow';
 export type ObjectClickAction = 'ask' | 'inspect' | 'change' | 'animate' | 'continue';
-export type HotspotClickAction = 'ask' | 'talk' | 'inspect' | 'move' | 'change' | 'animate' | 'continue';
+export type HotspotClickAction =
+  | 'ask' | 'talk' | 'inspect' | 'move' | 'change' | 'animate' | 'continue'
+  | 'leap' | 'fight' | 'confront' | 'observe'
+  | 'comfort' | 'guard' | 'counsel' | 'ally' | 'learn'
+  | 'petition' | 'honor' | 'follow';
 
 // ── Safety ───────────────────────────────────────────────────
 

@@ -14,6 +14,8 @@
 
 import { NextResponse } from 'next/server';
 import { generateScene, type StoryDirectorContext } from '@/lib/agents/storyDirector';
+import { getCanonEntry } from '@/lib/data/canonLookup';
+import type { HotspotClickAction, CharacterClickAction, ObjectClickAction } from '@/lib/types/storyScene';
 import { generateSceneImage } from '@/lib/agents/visualAgent';
 import { analyzeImageForTargets } from '@/lib/agents/visionAgent';
 import { checkContentSafety } from '@/lib/agents/safetyAgent';
@@ -37,6 +39,12 @@ interface GenerateSceneRequest {
   actionType?: 'continue' | 'change' | 'branch' | 'generate';
   worldStateSummary?: string;
   sceneIndex?: number;
+  /** Optional narrative motif (duty / courage / sacrifice / devotion /
+   * loss / love / betrayal / hope / wonder / fear / redemption, plus
+   * tradition-specific aliases like dharma / bhakti / karma / hubris).
+   * Universal — any book may pass any string. Unrecognised values are
+   * silently ignored at the visual layer. */
+  theme?: string;
   // Game loop fields
   characterBonds?: Record<string, { level: number; label: string }>;
   userChoices?: string[];
@@ -75,6 +83,7 @@ export async function POST(request: Request) {
       actionType = 'continue',
       worldStateSummary,
       sceneIndex,
+      theme,
       characterBonds,
       userChoices,
       previousActions,
@@ -85,13 +94,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'bookTitle is required' }, { status: 400 });
     }
 
-    // ── Step 0: Check prefetch cache ──
+    // ── Step 0: Check prefetch cache. Cache identity now includes the
+    // theme so the same scene with a different motif (duty vs loss,
+    // bhakti vs hubris) doesn't collide on the same key.
     const cacheKey = buildCacheKey({
       type: 'scene',
       bookSlug,
       previousSceneId: previousSceneId || 'start',
       actionType,
       instruction: userInstruction || 'continue',
+      theme: theme || 'none',
     });
     const cached = await getCachedResponse(cacheKey);
     if (cached) {
@@ -152,6 +164,7 @@ export async function POST(request: Request) {
       worldStateSummary: fullWorldState || undefined,
       sceneIndex,
       sourceContext,
+      theme,
     };
 
     const narrative = await generateScene(directorCtx);
@@ -183,6 +196,7 @@ export async function POST(request: Request) {
         ...(narrative.characters_present ?? []),
       ])),
       mood: narrative.mood,
+      theme,
     });
 
     // ── Step 6: Vision-verify hotspot positions ──
@@ -212,23 +226,42 @@ export async function POST(request: Request) {
     // ── Step 7: Assemble StoryScene ──
     const sceneId = `gen-${bookSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
+    // Default action menus per hotspot kind. Canon `allowed_actions`
+    // (when present for the entity) override these so role-locked
+    // characters get role-appropriate menus universally — Hanuman gets
+    // talk/leap/fight/continue, Ravana gets confront/observe/continue,
+    // any book that ships canon roles gets the same treatment.
+    const DEFAULT_CHAR_ACTIONS: CharacterClickAction[] = ['talk', 'move', 'change', 'continue'];
+    const DEFAULT_OBJ_ACTIONS: ObjectClickAction[] = ['ask', 'inspect', 'change', 'animate', 'continue'];
+
+    const resolveActions = (kind: 'character' | 'object' | 'place', targetId: string, label: string): HotspotClickAction[] => {
+      const fallback: HotspotClickAction[] = kind === 'character'
+        ? [...DEFAULT_CHAR_ACTIONS]
+        : [...DEFAULT_OBJ_ACTIONS];
+      const canon = getCanonEntry(bookSlug, targetId) ?? getCanonEntry(bookSlug, label);
+      const locked = canon?.allowed_actions;
+      if (!locked || locked.length === 0) return fallback;
+      // Trust canon vocabulary even if it includes verbs the type
+      // doesn't list — the menu UI labels unknown verbs gracefully.
+      return locked as HotspotClickAction[];
+    };
+
     // Apply vision-verified positions (or keep LLM-guessed ones)
     const hotspots: SceneHotspot[] = narrative.hotspots.map((h, idx) => {
       const verified = verifiedPositions?.get(h.label.toLowerCase());
       const pos = verified || { x: h.x, y: h.y, width: h.width, height: h.height };
+      const kind = h.hotspot_type === 'character' ? 'character' as const : h.hotspot_type === 'object' ? 'object' as const : 'place' as const;
 
       return {
         id: `${sceneId}-hs-${idx}`,
         target_id: h.target_id,
         label: h.label,
-        type: h.hotspot_type === 'character' ? 'character' as const : h.hotspot_type === 'object' ? 'object' as const : 'place' as const,
+        type: kind,
         x: pos.x,
         y: pos.y,
         width: pos.width,
         height: pos.height,
-        allowed_actions: h.hotspot_type === 'character'
-          ? ['talk' as const, 'move' as const, 'change' as const, 'continue' as const]
-          : ['ask' as const, 'inspect' as const, 'change' as const, 'animate' as const, 'continue' as const],
+        allowed_actions: resolveActions(kind, h.target_id, h.label),
         tooltip: h.tooltip,
         quick_speak: h.quick_speak,
       };
@@ -239,12 +272,15 @@ export async function POST(request: Request) {
       .map(h => {
         const verified = verifiedPositions?.get(h.label.toLowerCase());
         const pos = verified || { x: h.x, y: h.y, width: h.width, height: h.height };
+        // CharacterClickAction is a strict subset of HotspotClickAction,
+        // so canon-locked actions slot in with a safe cast.
+        const resolved = resolveActions('character', h.target_id, h.label) as unknown as CharacterClickAction[];
         return {
           id: h.target_id, name: h.label,
           x: pos.x, y: pos.y, width: pos.width, height: pos.height,
           image_url: null, pose: 'standing', mood: narrative.mood,
           animation: 'breathe' as const,
-          click_actions: ['talk' as const, 'move' as const, 'change' as const, 'continue' as const],
+          click_actions: resolved,
           character_slug: h.target_id,
         };
       });

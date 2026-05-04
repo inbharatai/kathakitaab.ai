@@ -22,8 +22,19 @@
     {
       "id": "rama",
       "label": "Rama",
-      "aliases": ["Sri Ram", "Ramachandra", "Raghava", "Ram"],
+      "aliases": [
+        "Sri Ram",
+        "Ramachandra",
+        "Raghava",
+        "Ram"
+      ],
       "kind": "character",
+      "divine": true,
+      "allowed_actions": [
+        "talk",
+        "move",
+        "continue"
+      ],
       "kanda": "all kandas",
       "summary": "Eldest son of King Dasharatha of Ayodhya and Queen Kausalya, considered the seventh avatar of Vishnu. Embodiment of dharma — calm, truthful, brave, dutiful, compassionate. Husband of Sita; elder brother of Lakshmana, Bharata, and Shatrughna. Wields the divine bow Sharanga and sacred weapons granted by Vishvamitra. Honors his father's word by accepting fourteen years of exile, slays Ravana to recover Sita, and returns to Ayodhya where he is crowned king (Pattabhisheka).",
       "appearance": "Young man around twenty-five, tall and lean-muscular warrior build. Skin a deep blue-tinted dusk hue (Vishnu avatar mark). Long jet-black hair tied in a high topknot fastened with a gold pin, a few strands framing the face. Lotus-shaped almond eyes, calm and serene; gentle strong jaw; small golden tilak on the forehead. Wears a saffron-orange dhoti with marigold-yellow uttariya (shoulder cloth), gold-embroidered borders, gold armbands and earrings, a single sacred thread (yajnopavita) across the chest. Carries the great bow Sharanga slung across the back with a quiver of golden-tipped arrows; a sheathed straight sword at the hip. Posture upright, calm, dignified — never hunched, never aggressive in repose.",
@@ -38,13 +49,25 @@
         "Do not show as breaking a vow once given.",
         "Do not depict in romantic or familial relationships beyond Sita and his canonical kin."
       ],
-      "source_note": "Valmiki Ramayana, Bala through Yuddha Kandas."
+      "source_note": "Valmiki Ramayana, Bala through Yuddha Kandas.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-rama.png"
     },
     {
       "id": "sita",
       "label": "Sita",
-      "aliases": ["Janaki", "Vaidehi", "Maithili", "Bhumija"],
+      "aliases": [
+        "Janaki",
+        "Vaidehi",
+        "Maithili",
+        "Bhumija"
+      ],
       "kind": "character",
+      "divine": true,
+      "allowed_actions": [
+        "talk",
+        "comfort",
+        "continue"
+      ],
       "kanda": "all kandas",
       "summary": "Daughter of King Janaka of Mithila, said to have been found in a furrow during a ploughing ritual; hence called Bhumija (daughter of the earth). Considered an avatar of Lakshmi. Wins Rama as her husband when he alone strings the Bow of Shiva at her swayamvara. Embodiment of strength, purity, and steadfast devotion. Endures abduction by Ravana, a year in Ashoka Vatika, and the Agnipariksha; later returns to the earth, her mother.",
       "appearance": "Young woman around twenty-two, golden-honey complexion with a soft inner glow. Long flowing jet-black hair, often partly braided with woven marigold and jasmine. Almond dark eyes, gentle but steady; small red bindi at the brow; refined high cheekbones; small expressive mouth. Wears a deep crimson-red sari edged with gold zari, a saffron-orange pallu draped over the left shoulder; gold mangalsutra, gold jhumka earrings, gold bangles on both wrists, anklets that suggest soft chime. Slender, graceful posture. During the exile and Ashoka Vatika, the same sari but worn dust-stained and unornamented except for the mangalsutra; hair plain, unbraided.",
@@ -58,13 +81,22 @@
         "Do not depict as voluntarily leaving Rama.",
         "Do not show as failing the agnipariksha."
       ],
-      "source_note": "Valmiki Ramayana, primarily Bala, Aranya, Sundara, Yuddha, and Uttara Kandas."
+      "source_note": "Valmiki Ramayana, primarily Bala, Aranya, Sundara, Yuddha, and Uttara Kandas.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-sita.png"
     },
     {
       "id": "lakshmana",
       "label": "Lakshmana",
-      "aliases": ["Saumitra", "Lakshman"],
+      "aliases": [
+        "Saumitra",
+        "Lakshman"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "guard",
+        "continue"
+      ],
       "kanda": "all kandas",
       "summary": "Younger half-brother of Rama, son of Dasharatha and Queen Sumitra; considered an incarnation of Shesha. Devoted, fierce, and protective; voluntarily accompanies Rama and Sita into exile. Slays Indrajit (Ravana's son) at Lanka. Famed for vows of celibacy and sleeplessness during the exile.",
       "appearance": "Young man around twenty-three, slightly slighter than Rama but visibly the same lineage. Skin a softer blue-tinged dusk hue. Long black hair tied back in a warrior's knot with a simple gold band, a few rebellious locks at the temples. Sharp dark eyes, alert and intense; clean-shaven; protective set to the brow. Wears a saffron dhoti and golden-yellow uttariya like Rama's but with simpler trim, bow always in hand or strung over the shoulder, full quiver, short hunting knife at the belt. Posture forward-leaning, ready, watchful — the bodyguard's stance.",
@@ -81,8 +113,20 @@
     {
       "id": "hanuman",
       "label": "Hanuman",
-      "aliases": ["Anjaneya", "Maruti", "Pavanaputra", "Bajrang Bali"],
+      "aliases": [
+        "Anjaneya",
+        "Maruti",
+        "Pavanaputra",
+        "Bajrang Bali"
+      ],
       "kind": "character",
+      "divine": true,
+      "allowed_actions": [
+        "talk",
+        "leap",
+        "fight",
+        "continue"
+      ],
       "kanda": "Kishkindha onwards",
       "summary": "Vanara hero, son of the wind god Vayu and the apsara Anjana. Possesses immense strength, the power of flight, and the ability to grow or shrink at will. Devoted servant of Rama. Leaps across the ocean to Lanka, finds Sita in Ashoka Vatika, burns Lanka, and later carries the Sanjivani mountain to revive Lakshmana.",
       "appearance": "Vanara (anthropomorphic monkey) of immense, broad-shouldered build. Tawny saffron-orange fur with darker red-gold mane around the head and chest, long expressive prehensile tail with a bright orange tuft. Bright intelligent eyes, kind but fierce; white-tipped muzzle; visible canines when shouting his Jai-Sri-Ram battle cry but never bared in cruelty. Wears a saffron loincloth with a gold belt, gold armband on the right bicep, large heavy gada (mace) gripped in the right hand, sometimes a small Ram-namam scroll or ring tied in a cloth at the waist. Posture devotional when before Rama (kneeling, palms joined), explosive when in flight or battle.",
@@ -95,13 +139,23 @@
         "Do not portray as boastful, lustful, or disloyal to Rama.",
         "Do not depict as motivated by reward."
       ],
-      "source_note": "Valmiki Ramayana, Sundara Kanda is dedicated almost entirely to him."
+      "source_note": "Valmiki Ramayana, Sundara Kanda is dedicated almost entirely to him.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-hanuman.png"
     },
     {
       "id": "ravana",
       "label": "Ravana",
-      "aliases": ["Dashamukha", "Lankapati", "Ravan"],
+      "aliases": [
+        "Dashamukha",
+        "Lankapati",
+        "Ravan"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "confront",
+        "observe",
+        "continue"
+      ],
       "kanda": "Aranya onwards",
       "summary": "Ten-headed rakshasa king of Lanka, son of sage Vishrava and the rakshasi Kaikasi; brother of Kumbhakarna, Vibhishana, and Surpanakha. A learned scholar of the Vedas and a great devotee of Shiva, but corrupted by pride and lust. Receives a boon from Brahma making him invulnerable to gods and rakshasas (but not to humans). Abducts Sita to avenge his sister Surpanakha and is slain by Rama at Lanka.",
       "appearance": "Towering rakshasa king, taller and broader than any human, copper-bronze skin with a faint reddish undertone. Hero-pose iconography uses one prominent face — sharp regal features, fierce kohl-rimmed eyes, thick raven-black moustache and short beard — with nine smaller spectral heads fanned behind in a halo of shadow when he looms. Long wild black hair held by a heavy gold-and-ruby crown studded with skull motifs. Multiple muscular arms (typically twenty in iconography, two foregrounded for action), each armed: gold-hilted scimitar, mace, trident, bow, conch. Wears layered crimson and dark-purple silk robes with gold rakshasa-script trim, heavy gold breastplate stamped with a sun emblem, cloak edged in obsidian-black. Posture imperious, chest forward, never servile.",
@@ -119,8 +173,15 @@
     {
       "id": "dasharatha",
       "label": "Dasharatha",
-      "aliases": ["King Dasharatha"],
+      "aliases": [
+        "King Dasharatha"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "petition",
+        "continue"
+      ],
       "kanda": "Bala, Ayodhya",
       "summary": "Aged king of Ayodhya, father of Rama, Bharata, Lakshmana, and Shatrughna by three queens (Kausalya, Kaikeyi, Sumitra). Once promised Kaikeyi two boons; she calls them in to install Bharata on the throne and exile Rama for fourteen years. Dies of grief shortly after Rama leaves Ayodhya.",
       "appearance": "Aged king in his late sixties. Warm wheat complexion lightly weathered; long silver-white hair flowing past the shoulders; full white beard reaching the chest. Tired but kind dark eyes, deeply set under heavy brows; faint sadness in repose. Wears deep crimson silk royal robes with heavy gold-thread embroidery of solar emblems (Ikshvaku dynasty), thick gold belt, layered gold-and-ruby necklaces, a tall gold crown with a central sunburst jewel, gold rings on multiple fingers. Posture stooped slightly with grief in later scenes; dignified upright when on the throne in court.",
@@ -136,8 +197,15 @@
     {
       "id": "bharata",
       "label": "Bharata",
-      "aliases": ["Bharat"],
+      "aliases": [
+        "Bharat"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "honor",
+        "continue"
+      ],
       "kanda": "Ayodhya onwards",
       "summary": "Half-brother of Rama, son of Dasharatha and Queen Kaikeyi. Refuses the throne his mother won for him; instead places Rama's sandals (paduka) on the throne and rules from Nandigrama as a regent until Rama returns from exile.",
       "appearance": "Young man around twenty-two, similar features to Rama (clearly the same lineage) but with a slightly fairer wheat-gold skin tone. Long black hair tied back simply with a thin cord. Earnest dark eyes, sad and devoted. After Rama's exile he wears simple ascetic white-and-saffron robes (matted hair, deer-skin sash, simple beads) rather than royal finery, in solidarity with the exiled prince. Carries Rama's wooden paduka (sandals) on a small cushion in many iconic depictions.",
@@ -153,8 +221,15 @@
     {
       "id": "kausalya",
       "label": "Kausalya",
-      "aliases": ["Queen Kausalya"],
+      "aliases": [
+        "Queen Kausalya"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "comfort",
+        "continue"
+      ],
       "kanda": "Bala, Ayodhya",
       "summary": "Senior queen of Dasharatha and mother of Rama. Pious, gentle, and dignified; her grief at Rama's exile is among the most poignant passages of the Ayodhya Kanda.",
       "appearance": "Aged senior queen in her early fifties. Honey-gold complexion. Dark hair streaked heavily with silver, parted at centre and worn pulled back; small red-and-gold sindoor mark in the parting. Gentle wide eyes, soft sad mouth. Wears a cream-white sari with rich gold-zari border (the senior-queen palette), heavy gold queen-mother jewellery (long necklaces, broad earrings, bangles, anklets), modest in cut, dignified in drape. Posture upright, hands often at the heart in worry or worship.",
@@ -163,8 +238,15 @@
     {
       "id": "kaikeyi",
       "label": "Kaikeyi",
-      "aliases": ["Queen Kaikeyi"],
+      "aliases": [
+        "Queen Kaikeyi"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "confront",
+        "observe",
+        "continue"
+      ],
       "kanda": "Ayodhya",
       "summary": "Junior queen of Dasharatha and mother of Bharata. Originally beloved by all, she is persuaded by her servant Manthara to demand the two boons promised her by Dasharatha — the exile of Rama and the coronation of Bharata. Later repents bitterly.",
       "appearance": "Beautiful queen in her mid-forties, striking and proud. Wheat complexion with a faint pearl glow. Raven-black hair worn long and loose or in a single thick braid down the back; sharp arched brows, intense dark eyes lined with kohl, full lips with a subtle smile. Wears a deep crimson sari with elaborate gold work, heavy gold-and-ruby jewellery (multiple necklaces, large earrings, gold belt at the waist, layered bangles), tall gold-and-jewel headband. Posture: regal, head high — but in the boon-demanding scene she is shown in the kopabhavana (anger-room) with hair undone, jewels removed, in disarray on the floor.",
@@ -180,8 +262,15 @@
     {
       "id": "sugriva",
       "label": "Sugriva",
-      "aliases": ["Sugreeva"],
+      "aliases": [
+        "Sugreeva"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "ally",
+        "continue"
+      ],
       "kanda": "Kishkindha onwards",
       "summary": "Vanara king of Kishkindha after Rama slays his elder brother Vali. Allies with Rama in exchange for help reclaiming his throne. Commands the vanara army that builds the Ram Setu and crosses to Lanka.",
       "appearance": "Vanara king with golden-brown fur, broader and more grizzled than Hanuman, mature middle-aged. Long-tailed humanoid build, scarred shoulder visible from his fight with Vali. Wears a vanara-king crown of woven gold and forest leaves, gold armbands, a long red-and-saffron loincloth, golden mace at the side. Eyes sharp and kingly, set under a heavy brow.",
@@ -190,8 +279,15 @@
     {
       "id": "vibhishana",
       "label": "Vibhishana",
-      "aliases": ["Vibhishan"],
+      "aliases": [
+        "Vibhishan"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "counsel",
+        "continue"
+      ],
       "kanda": "Yuddha",
       "summary": "Younger brother of Ravana, righteous and devoted to dharma. Counsels Ravana to return Sita peacefully; when refused, defects to Rama's side. After Ravana's death, Rama crowns him king of Lanka.",
       "appearance": "Tall rakshasa with a softer pale-jade green complexion (lighter than Ravana's bronze). Calm, wise face — high forehead, kind dark eyes, neatly trimmed black beard, hair pulled back in a single knot. Wears white-and-saffron silk robes uncommon among rakshasas (signalling his dharmic nature), a simple gold sun pendant, slim gold armbands, no fearsome weapons in repose. Posture quiet, hands often joined in respect.",
@@ -201,6 +297,11 @@
       "id": "jatayu",
       "label": "Jatayu",
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "fight",
+        "continue"
+      ],
       "kanda": "Aranya",
       "summary": "Aged demigod-eagle, friend of Dasharatha. Witnesses Ravana abducting Sita and attacks his chariot in defense; mortally wounded, he survives just long enough to tell Rama what he saw before dying in Rama's arms.",
       "appearance": "Massive aged eagle-vulture demigod, wingspan wider than a man is tall. Plumage golden-brown along the body, deeper red-bronze on the wings, white at the throat. Aged, dignified raptor face with humanlike intelligent dark eyes; sharp curved gold beak; powerful talons. Often shown wounded with one wing torn, blood streaking the chest in his final scene.",
@@ -210,6 +311,11 @@
       "id": "kumbhakarna",
       "label": "Kumbhakarna",
       "kind": "character",
+      "allowed_actions": [
+        "confront",
+        "fight",
+        "continue"
+      ],
       "kanda": "Yuddha",
       "summary": "Younger brother of Ravana, immense rakshasa cursed by Brahma to sleep for six months at a time. Awakened during the war at Lanka, he reluctantly fights for his brother and is slain by Rama.",
       "appearance": "Towering rakshasa, twice the height of an ordinary man, gigantic muscular build. Bronze-copper skin like Ravana's but coarser, weathered. Wild long black hair and unkempt beard streaked with grey, drowsy half-shut eyes (the sleep curse), broad blunt features. Wears simple banded armour over a crimson loincloth, a giant club or bone-staff, no fine ornaments. Posture lumbering, half-roused.",
@@ -218,8 +324,16 @@
     {
       "id": "indrajit",
       "label": "Indrajit",
-      "aliases": ["Meghnad", "Meghnatha"],
+      "aliases": [
+        "Meghnad",
+        "Meghnatha"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "confront",
+        "fight",
+        "continue"
+      ],
       "kanda": "Yuddha",
       "summary": "Eldest son of Ravana and Mandodari; named Indrajit (\"conqueror of Indra\") for once defeating the king of the gods. A master of celestial weapons and illusion. Slain by Lakshmana at Nikumbhila yajna.",
       "appearance": "Rakshasa prince in his mid-twenties, fairer skin than his father — pale bronze. Sharp elegant features, intelligent piercing dark eyes, dark hair tied back in a high warrior's knot, neatly trimmed dark moustache. Wears ornate prince's armour: black-and-gold cuirass etched with celestial weapon glyphs, layered crimson cape, gold gauntlets, a tall jewelled circlet. Always armed with a great bow and a quiver of celestial astras (arrows sometimes shown trailing serpent-coil illusions).",
@@ -229,6 +343,11 @@
       "id": "maricha",
       "label": "Maricha",
       "kind": "character",
+      "allowed_actions": [
+        "observe",
+        "follow",
+        "continue"
+      ],
       "kanda": "Aranya",
       "summary": "Rakshasa, uncle of Ravana. At Ravana's command, takes the form of a beautiful golden deer to lure Rama and Lakshmana away from Sita's hut, enabling Sita's abduction. Slain by Rama's arrow as he reverts to his rakshasa form.",
       "appearance": "Shapeshifter — primarily depicted in his deer form: a magnificent stag with shimmering metallic-gold coat, silver-white spots, long jewel-eyed face, antlers tipped with gold and small sapphires, an unnatural inner glow that hints at illusion. In his true rakshasa form (final scene only) he reverts to a tall bronze-skinned rakshasa with wild dark hair, fanged grin, and torn ascetic robes.",
@@ -238,6 +357,11 @@
       "id": "surpanakha",
       "label": "Surpanakha",
       "kind": "character",
+      "allowed_actions": [
+        "confront",
+        "observe",
+        "continue"
+      ],
       "kanda": "Aranya",
       "summary": "Sister of Ravana. Sees Rama in the forest of Panchavati and demands he marry her; when rebuffed and after attacking Sita, she is humiliated by Lakshmana, who cuts off her nose. Her revenge-seeking complaint to Ravana sets the abduction of Sita in motion.",
       "appearance": "Rakshasi shapeshifter — often appears in a glamoured human form (dusky-bronze skin, raven-black wild hair, sharp beautiful face with kohl-rimmed dark eyes, heavy dark-red robes with jangling gold). When her glamour breaks she reveals fanged teeth, claw-like nails, fierce inhuman features. After Lakshmana's blade her nose is shorn — a small but unmistakable detail in any post-incident scene.",
@@ -247,6 +371,11 @@
       "id": "vishvamitra",
       "label": "Vishvamitra",
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "learn",
+        "continue"
+      ],
       "kanda": "Bala",
       "summary": "Once-warrior-now-sage who takes the young Rama and Lakshmana from Ayodhya into the forest to protect his yajna from rakshasas. Teaches Rama divine astras and brings him to Mithila for Sita's swayamvara.",
       "appearance": "Aged sage-warrior in his seventies, lean and tall. Wheat complexion bronzed by sun. Long flowing white hair and a long white beard reaching the chest, both untrimmed. Bright, fierce dark eyes that hint at his warrior past. Wears simple saffron-orange ascetic robes wrapped over one shoulder, deer-skin shawl, simple rudraksha bead necklace, sacred thread across the chest. Carries a tall wooden danda (staff) and a small kamandalu (water pot). Posture upright and powerful despite age.",
@@ -255,8 +384,16 @@
     {
       "id": "janaka",
       "label": "Janaka",
-      "aliases": ["King Janaka", "Videha"],
+      "aliases": [
+        "King Janaka",
+        "Videha"
+      ],
       "kind": "character",
+      "allowed_actions": [
+        "talk",
+        "learn",
+        "continue"
+      ],
       "kanda": "Bala",
       "summary": "Philosopher-king of Mithila, father of Sita. Holds her swayamvara with the condition that whoever can string the Bow of Shiva (Pinaka) shall marry her. Renowned for his detachment and wisdom.",
       "appearance": "Mature king in his mid-fifties, dignified philosopher-bearing. Wheat complexion, salt-and-pepper hair pulled back, neat short greying beard. Calm contemplative eyes. Wears simpler royal robes than Dasharatha — soft cream-white silk dhoti and uttariya with deep gold trim, modest gold crown with a single sapphire, fewer jewels. Often holds a small scroll or rosary.",
@@ -301,7 +438,10 @@
     {
       "id": "lanka",
       "label": "Lanka",
-      "aliases": ["Lankapuri", "Sri Lanka (mythological)"],
+      "aliases": [
+        "Lankapuri",
+        "Sri Lanka (mythological)"
+      ],
       "kind": "place",
       "kanda": "Sundara, Yuddha",
       "summary": "Island fortress kingdom of the rakshasas, built of gold by Vishvakarma and ruled by Ravana. Sita is held in the Ashoka Vatika here. Site of Hanuman's reconnaissance, Lanka Dahana, and the final war.",
@@ -311,7 +451,10 @@
     {
       "id": "ashok_vatika",
       "label": "Ashoka Vatika",
-      "aliases": ["Ashok Vatika", "Ashoka grove"],
+      "aliases": [
+        "Ashok Vatika",
+        "Ashoka grove"
+      ],
       "kind": "place",
       "kanda": "Sundara",
       "summary": "Garden of ashoka trees within Ravana's palace complex in Lanka where Sita is held captive for a year, refusing food and finery. Hanuman finds her here and identifies himself with Rama's signet ring.",
@@ -321,7 +464,10 @@
     {
       "id": "bow_of_shiva",
       "label": "Bow of Shiva",
-      "aliases": ["Pinaka", "Shiva Dhanush"],
+      "aliases": [
+        "Pinaka",
+        "Shiva Dhanush"
+      ],
       "kind": "object",
       "kanda": "Bala",
       "summary": "Divine bow originally belonging to Shiva, kept in the court of Janaka of Mithila. So heavy that no king or warrior could lift or string it. At Sita's swayamvara, Rama not only lifts and strings it but breaks it; thus he wins Sita's hand.",
@@ -331,7 +477,11 @@
     {
       "id": "golden_deer",
       "label": "Golden Deer",
-      "aliases": ["Mareecha", "Maricha as deer", "Maya Mriga"],
+      "aliases": [
+        "Mareecha",
+        "Maricha as deer",
+        "Maya Mriga"
+      ],
       "kind": "object",
       "kanda": "Aranya",
       "summary": "An illusion — Maricha taking the form of a beautiful golden deer at Ravana's command, to draw Rama away from the hut at Panchavati. Sita asks Rama to capture it; when Rama wounds it, the dying Maricha cries out in Rama's voice, drawing Lakshmana away as well, leaving Sita unprotected.",
@@ -344,7 +494,9 @@
     {
       "id": "pushpaka_vimana",
       "label": "Pushpaka Vimana",
-      "aliases": ["Pushpak"],
+      "aliases": [
+        "Pushpak"
+      ],
       "kind": "object",
       "kanda": "Yuddha",
       "summary": "Self-moving aerial chariot originally owned by Kubera, taken by Ravana. After Ravana's death, Rama uses it to carry Sita, Lakshmana, Vibhishana, Sugriva, and the vanara entourage back from Lanka to Ayodhya for his coronation.",
@@ -354,7 +506,11 @@
     {
       "id": "ram_setu",
       "label": "Ram Setu",
-      "aliases": ["Setubandha", "Adam's Bridge", "Nala Setu"],
+      "aliases": [
+        "Setubandha",
+        "Adam's Bridge",
+        "Nala Setu"
+      ],
       "kind": "object",
       "kanda": "Yuddha",
       "summary": "Causeway built across the ocean from Rameshwaram to Lanka by the vanara army, designed by Nala (a vanara architect, son of Vishvakarma). Stones thrown by the vanaras float when inscribed with Rama's name, allowing the army to cross.",
@@ -364,7 +520,10 @@
     {
       "id": "sanjivani",
       "label": "Sanjivani",
-      "aliases": ["Sanjeevani", "Sanjeevani booti"],
+      "aliases": [
+        "Sanjeevani",
+        "Sanjeevani booti"
+      ],
       "kind": "object",
       "kanda": "Yuddha",
       "summary": "Life-restoring herb growing on Mount Dronagiri (or Mount Sumeru in some texts) in the Himalayas. Hanuman, unable to identify the specific herb, lifts the entire mountain and carries it to Lanka to revive the unconscious Lakshmana after Indrajit's attack.",
@@ -382,7 +541,10 @@
     {
       "id": "vanavasa",
       "label": "Vanavasa",
-      "aliases": ["The Exile", "Fourteen-year exile"],
+      "aliases": [
+        "The Exile",
+        "Fourteen-year exile"
+      ],
       "kind": "event",
       "kanda": "Ayodhya, Aranya, Kishkindha",
       "summary": "The fourteen-year forest exile of Rama, Sita, and Lakshmana, demanded by Kaikeyi as one of the boons owed by Dasharatha. Spans residence at Chitrakoot, Dandakaranya, and Panchavati.",
@@ -391,7 +553,10 @@
     {
       "id": "sita_apaharana",
       "label": "Sita's Abduction",
-      "aliases": ["Sita Haran", "Sita Apaharana"],
+      "aliases": [
+        "Sita Haran",
+        "Sita Apaharana"
+      ],
       "kind": "event",
       "kanda": "Aranya",
       "summary": "Ravana, disguised as a wandering ascetic, lures Sita past the protective Lakshman Rekha and abducts her in the Pushpaka Vimana while Rama and Lakshmana are drawn away by the golden-deer illusion. Jatayu attempts to rescue her and is mortally wounded.",
@@ -400,7 +565,9 @@
     {
       "id": "lanka_dahana",
       "label": "Burning of Lanka",
-      "aliases": ["Lanka Dahana"],
+      "aliases": [
+        "Lanka Dahana"
+      ],
       "kind": "event",
       "kanda": "Sundara",
       "summary": "After meeting Sita in Ashoka Vatika and being captured by Indrajit, Hanuman is brought before Ravana, who orders his tail set on fire. Hanuman escapes, and using his burning tail, sets fire to the city of Lanka before leaping back across the ocean to Rama.",
@@ -409,7 +576,10 @@
     {
       "id": "pattabhisheka",
       "label": "Rama's Coronation",
-      "aliases": ["Pattabhisheka", "Ram Rajyabhishek"],
+      "aliases": [
+        "Pattabhisheka",
+        "Ram Rajyabhishek"
+      ],
       "kind": "event",
       "kanda": "Yuddha (final), Uttara (opening)",
       "summary": "After fourteen years of exile and the defeat of Ravana, Rama returns to Ayodhya in the Pushpaka Vimana and is crowned king. The reign that follows, Ram Rajya, is held in tradition as the ideal of just rule.",

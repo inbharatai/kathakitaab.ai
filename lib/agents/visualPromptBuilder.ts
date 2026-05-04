@@ -28,6 +28,36 @@ const MOOD_LIGHTING: Record<string, string> = {
   fearful: 'Long shadows, low-key cyan-blue cast, tight close-up framing.',
 };
 
+// Theme axis — narrative motif. Modulates the *feel* of the image
+// independently of mood (which is mostly lighting). A duty-themed
+// scene should look weighty and resolute even if its mood is joyful;
+// a devotion-themed scene should look intimate even if its mood is
+// dramatic. Keep these short — they stack on top of mood, not replace
+// it. The map mixes universal themes (courage, love, betrayal, hope…)
+// with culture-specific aliases (dharma → duty, bhakti → devotion) so
+// any book — Ramayana, Iliad, Aesop — can pick the closest motif.
+const THEME_GUIDANCE: Record<string, string> = {
+  // Universal — work for any tradition.
+  duty: 'Compositional weight on moral duty — upright postures, frontal hero placement, balanced symmetrical staging, clean horizon line.',
+  courage: 'Forward-leaning silhouettes, open chest poses, weapons or tools in hand, elevated camera angle looking up at the protagonist.',
+  sacrifice: 'Solitary figure framed against a wide empty backdrop, palms open or laid down, muted saturation, downcast eyes.',
+  devotion: 'Intimate close framing, soft gaze upward or toward the beloved/divine, joined palms or reaching hands, warm low light, candles or garlands.',
+  loss: 'Figures half-turned away from each other, foreground emptiness, drifting petals or rain, desaturated periphery, single warm focal point.',
+  love: 'Two figures sharing a small private space, soft eye-contact, gentle warm rim-light, blossoms or fluttering cloth in the foreground.',
+  betrayal: 'Off-balance composition, one figure in shadow looking back at another in light, cold-warm split palette, broken or tilted symmetry.',
+  hope: 'Figure looking toward a brightening horizon or rising sun, low-angle composition, distant warm light breaking through clouds.',
+  wonder: 'Wide awe-struck framing, small figure beneath a vast luminous sky or interior, dust motes / fireflies / particles catching light.',
+  fear: 'Tight cropped framing, predator silhouette in negative space, cold cyan-violet shadows, single small protected light source.',
+  redemption: 'Kneeling or rising figure bathed in directional light from above, dropped weapon at the feet, soft pastel halo, opening clouds.',
+  // Culture-specific aliases — map to the closest universal motif so
+  // a book can ship its native vocabulary without us hard-coding every
+  // tradition's nuance.
+  dharma: 'Compositional weight on dharmic duty — upright postures, frontal hero placement, balanced symmetrical staging, clean horizon line.',
+  bhakti: 'Intimate devotional close framing, soft gaze upward toward the divine, joined palms, garlands and lamps, warm low light.',
+  karma: 'Cause-and-effect staging — past action visible in the background, present consequence framed in the foreground, soft motion-blur connecting them.',
+  hubris: 'Figure raised too high — towering pose, looking down, cracked or tilting ground beneath, crown or weapon catching too much light.',
+};
+
 export interface BuildVisualPromptInput {
   /** The LLM's raw scene description ("Rama and Sita walk through the forest..."). */
   description: string;
@@ -35,6 +65,12 @@ export interface BuildVisualPromptInput {
   bookSlug?: string;
   /** Mood tag from the scene metadata. */
   mood?: string;
+  /**
+   * Narrative theme — independent of mood. Modulates composition and
+   * tone (dharma vs courage vs sacrifice vs bhakti vs loss). Optional;
+   * empty string skips theme guidance entirely.
+   */
+  theme?: string;
   /** Characters explicitly known to be in the scene (from scene metadata).
    *  These are always injected even if the description doesn't name them. */
   characters?: string[];
@@ -62,7 +98,7 @@ export interface BuiltVisualPrompt {
  * Pure function — safe to unit-test, no I/O.
  */
 export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPrompt {
-  const { description, bookSlug, mood = 'serene' } = input;
+  const { description, bookSlug, mood = 'serene', theme } = input;
   const clamp = input.appearanceClampPerChar ?? 600;
 
   const detected = detectCharacters(description, bookSlug, input.characters ?? []);
@@ -97,6 +133,14 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
   }
 
   positiveParts.push(`Lighting and mood: ${moodLine}`);
+
+  // Theme stacks on top of mood — its job is composition + emotional
+  // motif, not lighting. Skip silently when the theme isn't recognised
+  // so callers can pass an arbitrary string without breaking prompts.
+  if (theme) {
+    const themeLine = THEME_GUIDANCE[theme.toLowerCase()];
+    if (themeLine) positiveParts.push(`Theme (${theme}): ${themeLine}`);
+  }
 
   if (style?.framing) {
     positiveParts.push(`Composition: ${style.framing}`);

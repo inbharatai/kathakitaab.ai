@@ -518,6 +518,7 @@ export default function SceneViewer({
         entityType: isCharacter ? 'character' : hotspot.type === 'object' ? 'object' : 'location',
         entityLabel: hotspot.label,
         characterNames: storyScene.characters.map(c => c.name),
+        actionType: action,
       };
 
       const result = await handleEntityClick(entityCtx);
