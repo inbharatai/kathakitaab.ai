@@ -70,28 +70,57 @@ export async function POST(request: Request) {
     const body: EntityInteractRequest = await request.json();
     const { bookTitle, sceneId, sceneTitle, sceneNarration, entityId, entityType, entityLabel, characterNames } = body;
 
+    // Helper: any cached/pre-gen branch may have arrived without an
+    // image (pregenerate-branches deliberately leaves `imageUrl: null`
+    // to save cost). When that happens we still want the client to
+    // poll for a freshly generated image — so attach a `branchId` and
+    // set `imageStatus: 'pending'`, then kick off the background job
+    // through `after()` exactly like the fresh-generation path does.
+    const ensureImageJob = (
+      base: { title: string; narration: string; sceneText: string; imagePrompt: string; imageUrl: string | null; nextActions: string[] },
+    ) => {
+      if (base.imageUrl) {
+        // Already has an image — no polling needed.
+        return { ...base, branchId: undefined, imageStatus: 'none' as const };
+      }
+      const branchId = `${sceneId}__${entityId}__${Date.now().toString(36)}`;
+      if (base.imagePrompt) {
+        const focusEntity = entityLabel;
+        const canonCharacters = Array.from(new Set([focusEntity, ...characterNames]));
+        after(() => {
+          startBranchImageJob(branchId, () => generateSceneImage(base.imagePrompt, {
+            bookSlug: body.bookSlug,
+            characters: canonCharacters,
+            mood: 'serene',
+          }));
+        });
+        return { ...base, branchId, imageStatus: 'pending' as const };
+      }
+      return { ...base, branchId: undefined, imageStatus: 'none' as const };
+    };
+
     // Check pre-generated branch cache (from brain or pregenerate-branches)
     // Try exact sceneId match first, then try any scene for this entity
     for (const sid of [sceneId, `brain-${body.bookSlug}`]) {
       const preGen = await getCachedBranch(sid, entityId);
       if (preGen && preGen.status === 'ready' && preGen.narration) {
-        return NextResponse.json({
+        return NextResponse.json(ensureImageJob({
           title: preGen.title,
           narration: preGen.narration,
           sceneText: preGen.sceneText,
           imagePrompt: preGen.imagePrompt,
           imageUrl: preGen.imageUrl,
           nextActions: preGen.nextActions,
-        });
+        }));
       }
       const manifest = await getManifest(sid);
       if (manifest) {
         const mb = manifest.branches.find(b => b.entityId === entityId && b.status === 'ready' && b.narration);
         if (mb) {
-          return NextResponse.json({
+          return NextResponse.json(ensureImageJob({
             title: mb.title, narration: mb.narration, sceneText: mb.sceneText,
             imagePrompt: mb.imagePrompt, imageUrl: mb.imageUrl, nextActions: mb.nextActions,
-          });
+          }));
         }
       }
     }
@@ -101,10 +130,14 @@ export async function POST(request: Request) {
     const brainCached = await getCachedResponse(brainKey);
     if (brainCached && typeof brainCached === 'object' && (brainCached as Record<string, unknown>).narration) {
       const bc = brainCached as Record<string, unknown>;
-      return NextResponse.json({
-        title: bc.title, narration: bc.narration, sceneText: bc.sceneText,
-        imagePrompt: bc.imagePrompt, imageUrl: bc.imageUrl, nextActions: bc.nextActions,
-      });
+      return NextResponse.json(ensureImageJob({
+        title: bc.title as string,
+        narration: bc.narration as string,
+        sceneText: bc.sceneText as string,
+        imagePrompt: bc.imagePrompt as string,
+        imageUrl: (bc.imageUrl as string | null) ?? null,
+        nextActions: (bc.nextActions as string[]) ?? [],
+      }));
     }
 
     // Check regular cache
