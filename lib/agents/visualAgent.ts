@@ -15,6 +15,7 @@ import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { getGeminiClient } from '@/lib/openai/client';
 import { isGeminiConfigured } from '@/lib/openai/client';
 import { buildVisualPrompt } from './visualPromptBuilder';
+import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
 
 // ── Image Generation ─────────────────────────────────────────
 
@@ -73,8 +74,14 @@ export async function generateSceneImage(
 
       const b64 = response.data?.[0]?.b64_json;
       if (b64) {
+        // Upload to Supabase Storage and return the public URL.
+        // Falls back to the data URI when Supabase isn't configured.
+        const imageUrl = await uploadGeneratedImage(`data:image/png;base64,${b64}`, {
+          mimeType: 'image/png',
+          pathHint: ctx.bookSlug,
+        });
         return {
-          imageUrl: `data:image/png;base64,${b64}`,
+          imageUrl,
           source: 'openai',
           promptUsed: built.prompt,
           charactersLocked: built.charactersInjected,
@@ -101,8 +108,12 @@ export async function generateSceneImage(
 
       const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
       if (imageBytes) {
+        const imageUrl = await uploadGeneratedImage(`data:image/jpeg;base64,${imageBytes}`, {
+          mimeType: 'image/jpeg',
+          pathHint: ctx.bookSlug,
+        });
         return {
-          imageUrl: `data:image/jpeg;base64,${imageBytes}`,
+          imageUrl,
           source: 'gemini',
           promptUsed: built.prompt,
           charactersLocked: built.charactersInjected,
@@ -148,8 +159,12 @@ export async function generateCharacterPortrait(
 
       const b64 = response.data?.[0]?.b64_json;
       if (b64) {
+        const imageUrl = await uploadGeneratedImage(`data:image/png;base64,${b64}`, {
+          mimeType: 'image/png',
+          pathHint: bookSlug ? `${bookSlug}/portraits` : 'portraits',
+        });
         return {
-          imageUrl: `data:image/png;base64,${b64}`,
+          imageUrl,
           source: 'openai',
           promptUsed: built.prompt,
           charactersLocked: built.charactersInjected,

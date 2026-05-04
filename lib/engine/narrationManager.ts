@@ -16,6 +16,51 @@ let muted = false;
 let state: NarrationState = 'idle';
 const listeners: Set<Listener> = new Set();
 
+// ── Audio autoplay unlock ────────────────────────────────────
+// Browsers block HTMLAudioElement.play() until the page has seen a
+// user gesture (click/keydown/touch). Once any audio element on the
+// page has been play()-then-paused inside a gesture handler, the
+// browser flips the per-tab autoplay flag and ALL future play() calls
+// — including ones triggered by setTimeout or fetch — succeed without
+// fresh gestures. So the moment the user clicks/taps anywhere, we
+// silently prime the audio system. No more "TTS doesn't auto-start
+// on the next scene" because by then the unlock has already happened.
+
+let audioUnlocked = false;
+
+function installAutoplayUnlock() {
+  if (typeof window === 'undefined' || audioUnlocked) return;
+  const handler = () => {
+    if (audioUnlocked) return;
+    try {
+      // 0.1s of silence — enough to satisfy the gesture requirement
+      // without making any sound. Data URI is a 28-byte WAV header
+      // pointing at zero samples.
+      const primer = new Audio(
+        'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
+      );
+      primer.volume = 0;
+      const p = primer.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => { audioUnlocked = true; primer.pause(); })
+          .catch(() => { /* will retry on the next gesture */ });
+      } else {
+        audioUnlocked = true;
+      }
+    } catch { /* */ }
+  };
+  // `once: true` means we only fire on the first qualifying gesture.
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, handler, { once: true, passive: true, capture: true }),
+  );
+}
+
+if (typeof window !== 'undefined') {
+  // Install on module load — the page is interactive by the time any
+  // narration code runs, so a fresh listener captures the next click.
+  installAutoplayUnlock();
+}
+
 // ── Ambient music volume control ─────────────────────────────
 // Music must always sit BELOW TTS — ducked harshly during speech,
 // restored gently after. Two registration paths:
@@ -158,8 +203,23 @@ export async function speak(
         setState('idle');
       };
       setState('speaking', text);
-      await currentAudio.play();
-      return;
+      try {
+        await currentAudio.play();
+        return;
+      } catch (playErr) {
+        // NotAllowedError on autoplay-blocked browsers. Reset state so
+        // the next user-gesture-triggered narration can fire cleanly,
+        // and fall through to the SpeechSynthesis fallback below — it's
+        // less subject to autoplay rules on some platforms.
+        const name = (playErr as Error)?.name;
+        if (name !== 'NotAllowedError' && name !== 'AbortError') {
+          console.warn('[narrationManager] audio.play() failed:', name, (playErr as Error)?.message);
+        }
+        currentAudio = null;
+        URL.revokeObjectURL(url);
+        restoreMusic();
+        setState('idle');
+      }
     }
   } catch (err) {
     if ((err as Error).name === 'AbortError') return;
