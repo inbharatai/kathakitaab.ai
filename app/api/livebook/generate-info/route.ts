@@ -1,0 +1,59 @@
+import { NextResponse } from 'next/server';
+import { generateInfo } from '@/lib/openai/infoAgent';
+import { getSceneById } from '@/lib/data/ramayanaSeed';
+import { getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
+import { isGeminiConfigured } from '@/lib/openai/client';
+import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
+
+export async function POST(request: Request) {
+  const limited = checkRateLimit(request, { scope: 'default' });
+  if (limited) return limited;
+
+  try {
+    if (!isGeminiConfigured()) {
+      return NextResponse.json({ error: 'Gemini API is not configured' }, { status: 500 });
+    }
+
+    const { sceneId, clickedItem, question, bookSlug, bookTitle } = await request.json();
+
+    if (!sceneId || !clickedItem) {
+      return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
+    }
+
+    const scene = getSceneById(sceneId);
+    if (!scene) {
+      return NextResponse.json({ error: 'Scene not found' }, { status: 404 });
+    }
+
+    const cacheKey = `info:${sceneId}:${clickedItem}:${question || 'default'}`;
+    const cached = getCachedResponse(cacheKey);
+    if (cached) {
+      return NextResponse.json({ response: cached, cached: true });
+    }
+
+    // Inject canon context if the book has a canon file and the
+    // clicked item is a known canonical entity. Empty string when
+    // not found — generateInfo handles that gracefully.
+    const canonContext = bookSlug ? buildCanonPromptFragment(bookSlug, clickedItem) : '';
+
+    const aiResponse = await generateInfo(
+      scene.title,
+      scene.narration,
+      clickedItem,
+      question,
+      canonContext || undefined,
+      bookTitle,
+    );
+    
+    setCachedResponse(cacheKey, aiResponse);
+    return NextResponse.json({ response: aiResponse, cached: false });
+
+  } catch (error: any) {
+    console.error('Error generating info:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate info', details: error.message },
+      { status: 500 }
+    );
+  }
+}

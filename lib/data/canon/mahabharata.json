@@ -1,0 +1,257 @@
+{
+  "meta": {
+    "book_slug": "mahabharata",
+    "book_title": "The Mahabharata",
+    "source": "Vyasa Mahabharata (public domain, Critical Edition reference)",
+    "genre": "mythology-indian",
+    "style": {
+      "tagline": "Bronze-and-indigo war epic — hand-painted 2D animation in the spirit of Ajanta murals fused with cinematic battlefield drama.",
+      "palette": "Burnt bronze (#8C5A2A), war-crimson (#7A1F22), deep indigo (#1B264F), royal purple (#3F2657), antique gold (#C49A3A), ivory linen (#E9DDC2), ash grey for battle smoke.",
+      "medium": "Hand-painted 2D animation cel with heavy chiaroscuro, painterly battlefield smoke, soft grain. No photorealism.",
+      "framing": "Cinematic 3:2 wide; sweeping battlefield panoramas, intimate council-hall close-ups, charioteer compositions with Krishna and Arjuna foregrounded.",
+      "era": "Late dvapara-yuga India — ornate stone palaces, war chariots drawn by white horses, conch-shell standards, banners of solar and lunar dynasties. No anachronisms.",
+      "never_show": [
+        "Modern weapons, modern uniforms, anything post-19th-century.",
+        "Photographic faces, western fantasy aesthetics.",
+        "Romanticised gore — battle is dramatic but not grotesque.",
+        "Text, watermarks, captions."
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "yudhishthira",
+      "label": "Yudhishthira",
+      "aliases": ["Dharmaraja", "Ajatashatru"],
+      "kind": "character",
+      "kanda": "all parvas",
+      "summary": "Eldest of the five Pandava brothers, son of Kunti by the god Dharma. Renowned for his unwavering truthfulness and adherence to dharma. Becomes king of Indraprastha and later, after the Kurukshetra war, of Hastinapura. His one canonical lapse is gambling away his kingdom and brothers in the dice game with Shakuni.",
+      "appearance": "Mature man around thirty, tall, slender, dignified bearing. Wheat-gold complexion. Long black hair tied in a calm topknot with a simple gold cord. Calm thoughtful dark eyes, neat short black beard. Wears ivory-cream silk dhoti with bronze-gold uttariya, gold sun-pendant of the Kuru lineage, simple gold armbands and a slim crown. Carries a spear or rests one hand on its haft; never showy with weapons. Posture upright, contemplative — a king who would rather not be at war.",
+      "negative_appearance": [
+        "Never depicted as bloodthirsty or in heavy battle armour glorying in violence.",
+        "Never armoured with rakshasa motifs."
+      ],
+      "forbidden_changes": [
+        "Do not portray as warlike or vengeful — he is the most reluctant warrior among the Pandavas."
+      ],
+      "source_note": "Mahabharata, Sabha through Shanti Parvas."
+    },
+    {
+      "id": "bhima",
+      "label": "Bhima",
+      "aliases": ["Bhimasena", "Vrikodara"],
+      "kind": "character",
+      "kanda": "all parvas",
+      "summary": "Second Pandava, son of Kunti by the wind god Vayu. Possesses immense physical strength and appetite. Slays Duhshasana and Duryodhana in fulfilment of his battlefield vows. Husband of Hidimba, Draupadi, and Valandhara.",
+      "appearance": "Massively built warrior, tallest and broadest of the Pandavas, around twenty-eight. Bronze complexion. Wild loose black hair to the shoulders, thick black moustache and short beard. Fierce dark eyes, broad chest, scarred forearms. Wears a deep maroon dhoti with a leather-strapped bronze cuirass, heavy gold armband, gigantic studded gada (mace) gripped in the right hand. Posture forward-leaning, bull-shouldered, ready to charge.",
+      "source_note": "Mahabharata, Adi through Shalya Parvas."
+    },
+    {
+      "id": "arjuna",
+      "label": "Arjuna",
+      "aliases": ["Partha", "Dhananjaya", "Savyasachi", "Phalguna"],
+      "kind": "character",
+      "kanda": "all parvas",
+      "summary": "Third Pandava, son of Kunti by Indra; the greatest archer of the age. Wins Draupadi at her swayamvara. Receives the divine bow Gandiva and the Pashupatastra. On the eve of Kurukshetra, his crisis on the battlefield prompts Krishna to deliver the Bhagavad Gita. Slays Karna; Bhishma's eventual fall is also at his hand.",
+      "appearance": "Athletic warrior in his late twenties, lean and tall. Wheat-gold complexion. Long black hair tied back in a tight high topknot with a peacock-feather and a single gold pin (Krishna's gift). Sharp, focused dark eyes; clean-shaven; gentle handsome features that turn fierce in battle. Wears a deep indigo silk dhoti with bronze-gold trim, a sky-blue uttariya across the chest, gold armbands etched with arrows, the great bow Gandiva slung on the back, full quiver of celestial astras. In Kurukshetra scenes he stands in the chariot with Krishna at the reins.",
+      "negative_appearance": [
+        "Never with a weapon other than a bow as his primary armament.",
+        "Never paired alone with Draupadi (she is wife to all five brothers)."
+      ],
+      "source_note": "Mahabharata, Adi through Stree Parvas."
+    },
+    {
+      "id": "nakula",
+      "label": "Nakula",
+      "kind": "character",
+      "summary": "Fourth Pandava, son of Madri by the Ashvini twins. Renowned for beauty and skill with horses and swords.",
+      "appearance": "Strikingly handsome young man, mid-twenties, fair wheat-gold skin, long shining black hair, gentle violet-tinted dark eyes (Ashvini-twin trait), perfectly trimmed face. Wears a pale-gold silk dhoti and ivory uttariya, gold horse-emblem belt, twin curved swords at the hips. Posture refined, almost princely.",
+      "source_note": "Mahabharata."
+    },
+    {
+      "id": "sahadeva",
+      "label": "Sahadeva",
+      "kind": "character",
+      "summary": "Youngest Pandava, son of Madri by the Ashvini twins. Wise, knowledgeable in astrology, and devoted to his elder brothers.",
+      "appearance": "Twin-like resemblance to Nakula but with a quieter, scholar's bearing. Mid-twenties, fair wheat-gold skin, long black hair pulled back, calm intelligent dark eyes. Wears a pale-gold silk dhoti with deeper amber uttariya, often holds a small palm-leaf scroll (his astrological knowledge); short straight sword at the side.",
+      "source_note": "Mahabharata."
+    },
+    {
+      "id": "draupadi",
+      "label": "Draupadi",
+      "aliases": ["Krishnaa", "Panchali", "Yajnaseni"],
+      "kind": "character",
+      "summary": "Daughter of King Drupada of Panchala, born from a yajna fire. Wife of all five Pandava brothers. Publicly humiliated by Duhshasana in the Kuru court when Yudhishthira loses her in the dice game; her vow to leave her hair unbound until washed in Duhshasana's blood becomes a defining cause of the Kurukshetra war. Devoted to Krishna.",
+      "appearance": "Striking woman in her mid-twenties, born of fire — a faintly luminous deep-honey complexion with a coppery undertone. Long jet-black hair, often loose to the waist (her unbound vow); intense dark eyes, fierce and intelligent, lined with kohl. Wears a deep red-and-gold silk sari with intricate flame-pattern zari, heavy gold queen's jewellery, red bindi. After the dice-game scene the sari is shown unending and miraculous in mid-disrobing; from then onwards her hair stays unbound. Posture proud, defiant.",
+      "negative_appearance": [
+        "Never depicted as defeated or yielding in the disrobing — Krishna's intervention saves her dignity.",
+        "Never with hair tied up after the dice-game until after the war."
+      ],
+      "forbidden_changes": [
+        "Do not portray as weak or as accepting the disrobing — she resists and is saved by divine intervention."
+      ],
+      "source_note": "Mahabharata, Adi, Sabha, and later parvas."
+    },
+    {
+      "id": "krishna",
+      "label": "Krishna",
+      "aliases": ["Vasudeva", "Govinda", "Madhava", "Keshava"],
+      "kind": "character",
+      "summary": "Eighth avatar of Vishnu, prince of the Yadavas of Dwaraka, cousin and counselor of the Pandavas. Serves as Arjuna's charioteer at Kurukshetra and delivers the Bhagavad Gita. Champion of dharma; his strategy and guidance are decisive in the Pandavas' victory.",
+      "appearance": "Young man around thirty, lithe and graceful. Skin a deep cobalt-blue (avatar of Vishnu), almost luminous. Long jet-black hair partly tied with a peacock feather woven in at the crown — the iconic mark. Lotus-shaped almond eyes, mischievous and infinitely calm at once; full lips that hold a faint smile. Wears a sunset-yellow silk dhoti (pitambara), deep gold uttariya across the chest, vaijayanti garland of forest flowers around the neck, gold armbands and a flat broad chest medallion of the Vishnu mark. Often holds a flute (peacetime) or the chariot reins (Kurukshetra).",
+      "negative_appearance": [
+        "Never depicted without the peacock feather and the blue skin — these are non-negotiable identifiers.",
+        "Never with a sword as primary weapon (his weapon is the discus Sudarshana, used rarely)."
+      ],
+      "forbidden_changes": [
+        "Do not portray as cruel or capricious — his actions in the war serve the larger arc of dharma."
+      ],
+      "source_note": "Mahabharata, Adi through Mausala Parvas; Bhagavad Gita is in Bhishma Parva."
+    },
+    {
+      "id": "duryodhana",
+      "label": "Duryodhana",
+      "aliases": ["Suyodhana"],
+      "kind": "character",
+      "summary": "Eldest of the Kauravas, son of Dhritarashtra and Gandhari. Antagonist of the Pandavas; his refusal to grant them even five villages makes the Kurukshetra war inevitable. Slain by Bhima.",
+      "appearance": "Tall, powerfully built warrior in his early thirties. Bronze-copper complexion. Long jet-black hair pulled into a tight high topknot, sharp arched brows, fierce dark eyes lined with kohl, neatly groomed dark moustache. Wears a deep crimson silk dhoti with black-and-gold cuirass embossed with the serpent emblem of the Kuru-Kaurava line, heavy gold belt, cape of dark wine-red, jewelled crown of gold. Always armed with a great mace (gada) — his signature weapon. Posture imperious, head high.",
+      "forbidden_changes": [
+        "Do not portray as cowardly — he is canonically a brave and skilled warrior, just bound by adharma."
+      ],
+      "source_note": "Mahabharata, Adi through Shalya Parvas."
+    },
+    {
+      "id": "duhshasana",
+      "label": "Duhshasana",
+      "aliases": ["Dushasan"],
+      "kind": "character",
+      "summary": "Second-eldest Kaurava, brother and right-hand of Duryodhana. Drags Draupadi by the hair into court and attempts to disrobe her. Slain by Bhima, who fulfils his vow to drink his blood.",
+      "appearance": "Powerful warrior in his late twenties, similar bronze-copper colouring to Duryodhana but with shoulder-length wild hair, thicker beard, and a perpetually arrogant sneer. Wears a black-and-blood-red cuirass with serpent embellishments, dark crimson dhoti, heavy gold armbands. Carries a curved scimitar.",
+      "source_note": "Mahabharata, Sabha and later parvas."
+    },
+    {
+      "id": "karna",
+      "label": "Karna",
+      "aliases": ["Vasusena", "Radheya", "Suryaputra"],
+      "kind": "character",
+      "summary": "Eldest son of Kunti by the sun god Surya, born before her marriage and abandoned. Raised by the charioteer Adhiratha. Loyal friend of Duryodhana, who makes him king of Anga. Possesses divine kavacha-kundala (armor and earrings) given by his father. Slain by Arjuna at Kurukshetra after his chariot wheel sinks in the earth.",
+      "appearance": "Tall, noble-bearing warrior in his late twenties, golden-amber skin (Surya's son, faintly sun-glowing). Long black hair tied back, neat short black beard, intense calm dark eyes carrying old sorrow. Born wearing the kavacha (golden breastplate fused to his skin) and kundala (large gold sun-disc earrings) — these glow faintly until he gives them to Indra. Wears a sun-gold dhoti with deep amber uttariya, gold sun-emblem belt, great bow at his back. Posture upright, dignified — a tragic prince in low birth's clothing.",
+      "negative_appearance": [
+        "Never depicted as small, weak, or low-status — his bearing is regal even when called Suta-putra.",
+        "After giving the kavacha to Indra, his chest scar where the armour was must be subtly visible."
+      ],
+      "forbidden_changes": [
+        "Do not portray as villainous — he is a tragic figure of loyalty, generosity, and birthright denied."
+      ],
+      "source_note": "Mahabharata, Adi through Karna Parvas."
+    },
+    {
+      "id": "bhishma",
+      "label": "Bhishma",
+      "aliases": ["Devavrata", "Gangaputra", "Pitamaha"],
+      "kind": "character",
+      "summary": "Grand-uncle of both Pandavas and Kauravas; son of King Shantanu and the river goddess Ganga. Took the terrible vow of lifelong celibacy and unwavering loyalty to the throne of Hastinapura. Commands the Kaurava army for the first ten days of Kurukshetra; falls on a bed of arrows but waits for the auspicious time to die. Delivers the Vishnu Sahasranama on his deathbed.",
+      "appearance": "Aged warrior-patriarch, tall and unstooped despite his years. Wheat complexion weathered by age. Long flowing white hair to the shoulders and a long white beard reaching the chest. Stern noble face, deep-set commanding dark eyes. Wears silver-and-gold cuirass over a white silk dhoti, white-and-gold uttariya, slim simple crown denoting regent rather than king, the river-goddess's pearl pendant at the throat. Carries a great war-bow. In the famous bed-of-arrows scene: prone on a layered bed of arrows, body pierced but radiant, calm.",
+      "source_note": "Mahabharata, Adi through Anushasana Parvas."
+    },
+    {
+      "id": "drona",
+      "label": "Drona",
+      "aliases": ["Dronacharya"],
+      "kind": "character",
+      "summary": "Brahmin master of arms; teacher of both Pandavas and Kauravas. Commands the Kaurava army after Bhishma's fall. Slain on the battlefield through a deception involving the announcement of his son Ashwatthama's death.",
+      "appearance": "Aged brahmin-warrior in his sixties, wheat complexion. White-grey hair tied in a small topknot with a single sacred thread, long white beard. Sharp eyes, ascetic frame but corded with old warrior strength. Wears off-white dhoti with saffron-edged uttariya, simple sacred thread, no royal jewels. Carries his great bow and a danda (staff). Posture upright, mentor's bearing.",
+      "source_note": "Mahabharata, Drona Parva."
+    },
+    {
+      "id": "kunti",
+      "label": "Kunti",
+      "aliases": ["Pritha"],
+      "kind": "character",
+      "summary": "Mother of the elder three Pandavas (Yudhishthira, Bhima, Arjuna) and of Karna. Possessed a mantra given by sage Durvasa allowing her to invoke any deva.",
+      "appearance": "Mature queen in her mid-fifties, dignified and gentle. Wheat complexion. Long dark hair streaked with silver, parted at centre, with a small sindoor mark. Sad calm eyes, refined features. Wears a soft cream-and-saffron silk sari with deep gold trim, modest gold jewellery, no crown. Posture quiet, hands often joined.",
+      "source_note": "Mahabharata, Adi Parva onward."
+    },
+    {
+      "id": "gandhari",
+      "label": "Gandhari",
+      "kind": "character",
+      "summary": "Wife of the blind king Dhritarashtra; voluntarily blindfolds herself for life. Mother of the hundred Kauravas. After the war, she curses Krishna for failing to prevent the carnage; the curse manifests in the destruction of the Yadavas.",
+      "appearance": "Mature queen in her fifties, regal bearing. Wheat complexion. Dark hair streaked silver, neatly braided. Eyes covered always by a wide silken blindfold of deep red-and-gold cloth (her vow). Wears a deep wine-red silk sari with heavy gold border, gold queen-mother jewellery, bindi visible above the blindfold. Posture upright, dignified, a quiet sorrow.",
+      "negative_appearance": [
+        "Never depicted without the blindfold."
+      ],
+      "source_note": "Mahabharata."
+    },
+    {
+      "id": "shakuni",
+      "label": "Shakuni",
+      "kind": "character",
+      "summary": "Prince of Gandhara, brother of Gandhari, uncle of the Kauravas. Master of dice; engineers the rigged game in which Yudhishthira loses everything, including Draupadi.",
+      "appearance": "Lean cunning man in his fifties, wheat complexion with a slight pallor. Salt-and-pepper hair tied back, sharp narrow eyes, neatly trimmed pointed beard, perpetual sly half-smile. Wears a dark indigo silk robe with silver embroidery (Gandhara mountain colours), heavy silver jewellery rather than gold, a small leather pouch of dice always at his belt. Posture stooped slightly, conspiratorial.",
+      "source_note": "Mahabharata, Sabha Parva."
+    },
+    {
+      "id": "vidura",
+      "label": "Vidura",
+      "kind": "character",
+      "summary": "Half-brother of Dhritarashtra and Pandu, born of a maidservant; an incarnation of Dharma. Chief counselor of Hastinapura, voice of dharma at court, openly opposes the dice game and the disrobing of Draupadi.",
+      "appearance": "Calm, lean man in his fifties, wheat complexion. Black hair pulled back simply, neatly trimmed black beard streaked with grey. Kind, deeply intelligent dark eyes. Wears simple cream silk robes with a single gold-trim sash (counselor's attire, no royal regalia), a sacred thread, a slim staff. Posture composed, hands often folded.",
+      "source_note": "Mahabharata, throughout."
+    },
+    {
+      "id": "kurukshetra",
+      "label": "Kurukshetra",
+      "kind": "place",
+      "summary": "The sacred plain (north of modern Delhi) where the eighteen-day war between the Pandavas and the Kauravas is fought. The Bhagavad Gita is delivered by Krishna to Arjuna at its outset.",
+      "appearance": "Vast dust-gold plain stretching to the horizon under bruised indigo storm-clouds. War standards in opposing rows — solar emblems for Pandavas, serpent emblems for Kauravas. Conch-shells in mid-blow, chariots drawn by white horses, elephants in line, archers in formation. Smoke-drift, dust-haze, distant thunder.",
+      "source_note": "Mahabharata, Bhishma through Shalya Parvas."
+    },
+    {
+      "id": "hastinapura",
+      "label": "Hastinapura",
+      "kind": "place",
+      "summary": "Capital of the Kuru kingdom on the Ganga, ruled by the Kuru lineage culminating in Dhritarashtra and after the war by Yudhishthira.",
+      "appearance": "Walled royal city of dark sandstone palaces, broad ghats stepping down to the Ganga, courtyards of black-and-white inlaid stone, banners of the Kuru elephant-emblem on tall poles. Mood: heavy, ceremonial.",
+      "source_note": "Mahabharata."
+    },
+    {
+      "id": "indraprastha",
+      "label": "Indraprastha",
+      "kind": "place",
+      "summary": "Capital city built by the Pandavas on the half-kingdom granted to them, on the site of the burned Khandava forest. Designed by the asura architect Maya.",
+      "appearance": "Marvel-city of pale marble and crystal, courtyards with mirror-pools so still they read as solid floors (the famous illusion that confounded Duryodhana), gardens of jewel-bright flowers, lotus motifs everywhere, golden-cream light.",
+      "source_note": "Mahabharata, Adi Parva."
+    },
+    {
+      "id": "gandiva",
+      "label": "Gandiva",
+      "kind": "object",
+      "summary": "Divine bow of Brahma, given to Arjuna by Varuna at the burning of Khandava forest. The most powerful bow of the age, capable of firing celestial astras.",
+      "appearance": "Massive ornate bow, arched limbs of polished black yew inlaid with silver Brahma-script, golden grip wrapped in serpent-leather, bowstring faintly glowing white-gold when drawn. Larger than any mortal bow.",
+      "source_note": "Mahabharata, Adi Parva."
+    },
+    {
+      "id": "bhagavad_gita",
+      "label": "Bhagavad Gita",
+      "kind": "concept",
+      "summary": "The dialogue between Krishna and Arjuna delivered on the Kurukshetra battlefield in the moment before the war begins. Embedded within the Bhishma Parva (chapters 25–42 in standard editions). 700 verses across 18 chapters articulating yoga, dharma, and devotion.",
+      "source_note": "Mahabharata, Bhishma Parva."
+    },
+    {
+      "id": "kurukshetra_war",
+      "label": "The Kurukshetra War",
+      "kind": "event",
+      "summary": "The climactic eighteen-day war between the Pandavas (with Krishna) and the Kauravas (with Bhishma, Drona, Karna, Shalya, and Ashvatthama as successive commanders). Ends in Pandava victory at terrible cost — almost the entire warrior generation perishes.",
+      "source_note": "Mahabharata, Bhishma through Stree Parvas."
+    },
+    {
+      "id": "dice_game",
+      "label": "The Dice Game",
+      "aliases": ["Dyuta"],
+      "kind": "event",
+      "summary": "Rigged game in the Kuru sabha at Hastinapura, in which Shakuni plays for Duryodhana against Yudhishthira. Yudhishthira loses his kingdom, his brothers, himself, and finally Draupadi, leading to the disrobing attempt and the thirteen-year exile.",
+      "source_note": "Mahabharata, Sabha Parva."
+    }
+  ]
+}

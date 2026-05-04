@@ -1,0 +1,99 @@
+{
+  "meta": {
+    "book_slug": "panchatantra",
+    "book_title": "The Panchatantra",
+    "source": "Vishnu Sharma's Panchatantra (public domain)",
+    "genre": "fable-indian",
+    "style": {
+      "tagline": "Whimsical Indian-fable storybook — soft watercolour and ink on cream paper, Anant Pai meets early Studio Ghibli.",
+      "palette": "Cream paper white (#F4E9CE), forest green (#3F7A4A), warm terracotta (#C2674B), saffron yellow (#F2B72A), riverstone blue (#5B7E8C), gentle ink-black outlines.",
+      "medium": "Watercolour-and-ink storybook illustration, visible brush textures, soft cream paper showing through, hand-drawn linework. Charming, slightly stylised — never photoreal.",
+      "framing": "Square or 3:2 storybook spread compositions; characters expressive and slightly anthropomorphised; gentle pastoral or forest backgrounds.",
+      "era": "Mythic ancient India — neem and banyan forests, simple village huts, ascetic groves, no modern or urban elements.",
+      "never_show": [
+        "Modern objects of any kind.",
+        "Photographic realism, photoreal animal fur.",
+        "Grim or violent imagery — even predator-prey moments are storybook-stylised.",
+        "Text, captions, watermarks."
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "vishnu_sharma",
+      "label": "Vishnu Sharma",
+      "kind": "character",
+      "summary": "Aged Brahmin scholar to whom King Amarashakti entrusts his three dull-witted sons. Vishnu Sharma promises to make them masters of statecraft within six months; he does so by composing the five tantras of fables that become the Panchatantra.",
+      "appearance": "Aged Brahmin sage in his seventies, kindly twinkle in the eyes. Wheat complexion. Long white hair tied in a small topknot, long flowing white beard. Wears soft saffron-and-cream robes (modest ascetic, not royal), simple rudraksha beads, sacred thread, holds a wooden staff or palm-leaf manuscript. Three young princes in simple cream tunics often shown listening at his feet. Watercolour rendering, soft pastoral palette.",
+      "source_note": "Panchatantra, Kathamukha (Frame Story)."
+    },
+    {
+      "id": "tantra_mitra_bheda",
+      "label": "Mitra-bheda — The Loss of Friends",
+      "aliases": ["Tantra 1", "Mitrabheda"],
+      "kind": "concept",
+      "summary": "First book of the Panchatantra. The frame is the friendship between the lion Pingalaka and the bull Sanjivaka, broken by the schemes of two jackals — the cunning Damanaka and the steadier Karataka. Theme: how true friendship is sundered by intrigue.",
+      "source_note": "Panchatantra, Tantra 1."
+    },
+    {
+      "id": "tantra_mitra_samprapti",
+      "label": "Mitra-samprapti — The Winning of Friends",
+      "aliases": ["Tantra 2"],
+      "kind": "concept",
+      "summary": "Second book. Frame: a crow, a mouse, a turtle, and a deer become unlikely allies who repeatedly save each other. Theme: how friendship across kinds is built and how it rescues its members.",
+      "source_note": "Panchatantra, Tantra 2."
+    },
+    {
+      "id": "tantra_kakolukiyam",
+      "label": "Kakolukiyam — Crows and Owls",
+      "aliases": ["Tantra 3"],
+      "kind": "concept",
+      "summary": "Third book. Frame: the long war between crows and owls, won by the crow minister Sthirajivi infiltrating the owl kingdom. Theme: statecraft, espionage, and the perils of trusting an enemy who has come over.",
+      "source_note": "Panchatantra, Tantra 3."
+    },
+    {
+      "id": "tantra_labdha_pranasham",
+      "label": "Labdha-pranasham — Loss of Gains",
+      "aliases": ["Tantra 4"],
+      "kind": "concept",
+      "summary": "Fourth book. Frame: a monkey and a crocodile whose friendship is undone when the crocodile, at his wife's prompting, plots to kill the monkey for his heart. The monkey escapes by claiming his heart is left in the tree. Theme: how things gained through wisdom can be lost through folly.",
+      "source_note": "Panchatantra, Tantra 4."
+    },
+    {
+      "id": "tantra_aparikshita_karakam",
+      "label": "Aparikshita-karakam — Hasty Action",
+      "aliases": ["Tantra 5"],
+      "kind": "concept",
+      "summary": "Fifth book. Contains the famous tale of the Brahmin and the loyal mongoose, killed in haste before the Brahmin sees it has saved his child from a snake. Theme: the disasters of acting before considering.",
+      "source_note": "Panchatantra, Tantra 5."
+    },
+    {
+      "id": "pingalaka",
+      "label": "Pingalaka",
+      "kind": "character",
+      "summary": "Lion, king of the forest in the frame story of Mitra-bheda. Befriended by the bull Sanjivaka; their friendship is later broken by the jackal Damanaka.",
+      "appearance": "Storybook lion, full-grown male with a lush warm-amber mane and gold-tan body, gentle but kingly face, expressive amber eyes, slightly anthropomorphised in posture (sometimes seated like a king on a flat rock throne). Watercolour textures with soft ink outlines. A small leaf-and-flower wreath sometimes hints at his kingly status — never a literal human crown.",
+      "negative_appearance": [
+        "Never depicted in human clothing.",
+        "Never with the wide-mouth fearsome predator look — he is a noble but troubled king."
+      ],
+      "source_note": "Panchatantra, Tantra 1."
+    },
+    {
+      "id": "damanaka",
+      "label": "Damanaka",
+      "kind": "character",
+      "summary": "Cunning jackal-minister to the lion Pingalaka. Engineers the rupture between Pingalaka and Sanjivaka to restore his own position at court. Foil to the more cautious jackal Karataka.",
+      "appearance": "Lean, sharp-faced golden-russet jackal with bright clever amber eyes and a quick conspiratorial grin. Slightly anthropomorphic posture — frequently seated upright, paw lifted in mid-argument. Tail held high. Watercolour rendering.",
+      "source_note": "Panchatantra, Tantra 1."
+    },
+    {
+      "id": "sanjivaka",
+      "label": "Sanjivaka",
+      "kind": "character",
+      "summary": "Bull abandoned by a merchant in the forest, who befriends the lion Pingalaka. Killed by Pingalaka after Damanaka's intrigue convinces each that the other plans treachery.",
+      "appearance": "Strong, gentle ivory-cream bull with long curved horns, broad shoulders, deep dark calm eyes, a small bell on a simple rope around the neck (his merchant-life relic). Watercolour rendering, soft pastoral grass underfoot.",
+      "source_note": "Panchatantra, Tantra 1."
+    }
+  ]
+}
