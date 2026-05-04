@@ -87,8 +87,11 @@ export async function POST(request: Request) {
       if (base.imagePrompt) {
         const focusEntity = entityLabel;
         const canonCharacters = Array.from(new Set([focusEntity, ...characterNames]));
-        after(() => {
-          startBranchImageJob(branchId, () => generateSceneImage(base.imagePrompt, {
+        after(async () => {
+          // Return the promise so Vercel's waitUntil keeps the function
+          // alive until image gen + Redis write both finish. Otherwise
+          // the job entry stays "pending" forever in Redis.
+          await startBranchImageJob(branchId, () => generateSceneImage(base.imagePrompt, {
             bookSlug: body.bookSlug,
             characters: canonCharacters,
             mood: 'serene',
@@ -214,8 +217,9 @@ Scene context: ${sceneNarration.slice(0, 300)}${canonFragment ? `\n\n${canonFrag
       // `after()` keeps the serverless function alive past the response
       // (Vercel routes this through waitUntil). On long-running Node
       // hosts it's a no-op wrapper — the promise just runs as before.
-      after(() => {
-        startBranchImageJob(branchId, () => generateSceneImage(result.imagePrompt, {
+      // Must return the promise so waitUntil knows when we're done.
+      after(async () => {
+        await startBranchImageJob(branchId, () => generateSceneImage(result.imagePrompt, {
           bookSlug: body.bookSlug,
           characters: canonCharacters,
           mood: 'serene',

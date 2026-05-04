@@ -35,29 +35,34 @@ function key(branchId: string): string {
   return `kk:branch-image:${branchId}`;
 }
 
-export function startBranchImageJob(
+export async function startBranchImageJob(
   branchId: string,
   generator: () => Promise<{ imageUrl?: string | null }>,
-): void {
-  const initial: JobStatus = { state: 'pending', startedAt: Date.now() };
-  void writeJob(branchId, initial);
+): Promise<void> {
+  // Returns a Promise that settles only when the image gen + final
+  // status write are both done. The caller wraps this in `after()`
+  // from `next/server` so Vercel's waitUntil extends the function's
+  // lifetime until we resolve. If we returned synchronously here,
+  // Vercel would terminate the function the moment the HTTP response
+  // was sent and the generator() promise would get orphaned —
+  // exactly the bug that left jobs stuck "pending" forever.
 
-  // Fire-and-forget. On Node-server hosts the process stays alive until
-  // the promise settles. On Vercel the caller must wrap us in `after()`
-  // from `next/server` so the function lifetime extends past the
-  // response — see entity-interact/route.ts.
-  generator()
-    .then(result => {
-      if (result.imageUrl) {
-        return writeJob(branchId, { state: 'ready', imageUrl: result.imageUrl, finishedAt: Date.now() });
-      }
-      return writeJob(branchId, { state: 'failed', error: 'no image returned', finishedAt: Date.now() });
-    })
-    .catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'image generation failed';
-      return writeJob(branchId, { state: 'failed', error: msg, finishedAt: Date.now() });
-    })
-    .finally(sweepStale);
+  const initial: JobStatus = { state: 'pending', startedAt: Date.now() };
+  await writeJob(branchId, initial);
+
+  try {
+    const result = await generator();
+    if (result.imageUrl) {
+      await writeJob(branchId, { state: 'ready', imageUrl: result.imageUrl, finishedAt: Date.now() });
+    } else {
+      await writeJob(branchId, { state: 'failed', error: 'no image returned', finishedAt: Date.now() });
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'image generation failed';
+    await writeJob(branchId, { state: 'failed', error: msg, finishedAt: Date.now() });
+  } finally {
+    sweepStale();
+  }
 }
 
 export async function getBranchImageJob(branchId: string): Promise<JobStatus | null> {
