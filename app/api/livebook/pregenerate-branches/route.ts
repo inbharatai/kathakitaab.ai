@@ -38,7 +38,7 @@ interface PregenerateRequest {
 }
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'expensive' });
+  const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
   try {
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     }
 
     // Check if manifest already exists
-    const existing = getManifest(sceneId);
+    const existing = await getManifest(sceneId);
     if (existing && existing.status === 'ready') {
       return NextResponse.json({ status: 'cached', manifest: existing });
     }
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       entities.slice(0, 8),
       MAX_PARALLEL_BRANCHES,
       async (entity): Promise<PreGeneratedBranch> => {
-        const cached = getCachedBranch(sceneId, entity.entityId);
+        const cached = await getCachedBranch(sceneId, entity.entityId);
         if (cached) return cached;
 
         try {
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
             return { ...branch, status: 'failed' as const, narration: 'This content is not available.', sceneText: '' };
           }
 
-          saveCachedBranch(sceneId, entity.entityId, branch);
+          await saveCachedBranch(sceneId, entity.entityId, branch);
           return branch;
         } catch (err) {
           console.error(`[PreGen] Failed for ${entity.label}:`, err);
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       status: readyCount === branches.length ? 'ready' : readyCount > 0 ? 'partial' : 'failed',
     };
 
-    saveManifest(manifest);
+    await saveManifest(manifest);
 
     return NextResponse.json({ status: manifest.status, manifest, readyCount, total: branches.length });
 

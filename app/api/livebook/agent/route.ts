@@ -21,7 +21,7 @@ import { isGeminiConfigured, getTextModel } from '@/lib/openai/client';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'default' });
+  const limited = await checkRateLimit(request, { scope: 'default' });
   if (limited) return limited;
 
   try {
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       clickRegion: clickX && clickY ? `${Math.round(clickX / 10) * 10},${Math.round(clickY / 10) * 10}` : 'none',
     });
 
-    const cached = getCachedResponse(cacheKey);
+    const cached = await getCachedResponse(cacheKey);
     if (cached) {
       return NextResponse.json({ result: cached, cached: true, cacheKey });
     }
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     const result = await runAgent(ctx);
 
     // ---- Cache & Return ----
-    setCachedResponse(cacheKey, result, getTextModel());
+    await setCachedResponse(cacheKey, result, getTextModel());
 
     // Include portrait URL for character interactions
     let portrait_url: string | undefined;

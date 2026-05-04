@@ -46,3 +46,9 @@ next-env.d.ts
 
 # claude code local state
 /.claude/
+
+# upstash setup script auth state
+/.upstash-auth.json
+/.upstash-debug-*
+
+.vercel

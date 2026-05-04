@@ -90,7 +90,7 @@ export async function prepareScene(req: BrainRequest): Promise<BrainSceneResult>
   });
 
   // ── Step 1: Cache Agent — check if we already have this scene
-  const cached = getCachedResponse(sceneKey) as BrainSceneResult | null;
+  const cached = (await getCachedResponse(sceneKey)) as BrainSceneResult | null;
   if (cached) {
     return { ...cached, cached: true };
   }
@@ -202,7 +202,7 @@ export async function prepareScene(req: BrainRequest): Promise<BrainSceneResult>
   };
 
   // ── Step 10: Cache Agent — store everything
-  setCachedResponse(sceneKey, result, 'brain');
+  await setCachedResponse(sceneKey, result, 'brain');
 
   // Also save branch manifest for fast entity-interact lookups
   const manifest: BranchManifest = {
@@ -212,11 +212,11 @@ export async function prepareScene(req: BrainRequest): Promise<BrainSceneResult>
     generatedAt: Date.now(),
     status: qaWarnings.length === 0 ? 'ready' : 'partial',
   };
-  saveManifest(manifest);
+  await saveManifest(manifest);
 
   // Save individual branches for fast lookup
   for (const branch of branches) {
-    saveCachedBranch(sceneId, branch.entityId, branch);
+    await saveCachedBranch(sceneId, branch.entityId, branch);
   }
 
   return result;
@@ -276,7 +276,7 @@ async function pregenerateBranches(
   const jobs = entities.slice(0, 6).map(async (entity): Promise<PreGeneratedBranch> => {
     // Check cache first
     const cacheKey = buildCacheKey({ type: 'entity-branch-content', book: bookTitle, scene: scenePlan.title, entity: entity.entityId });
-    const cached = getCachedResponse(cacheKey) as PreGeneratedBranch | null;
+    const cached = (await getCachedResponse(cacheKey)) as PreGeneratedBranch | null;
     if (cached) return cached;
 
     const actionPrompts: Record<string, string> = {
@@ -312,7 +312,7 @@ Respond with JSON: {"title":"","narration":"2-3 TTS sentences","sceneText":"1 pa
         status: result.narration ? 'ready' : 'failed',
       };
 
-      setCachedResponse(cacheKey, branch, 'branch-agent');
+      await setCachedResponse(cacheKey, branch, 'branch-agent');
       return branch;
     } catch {
       return {

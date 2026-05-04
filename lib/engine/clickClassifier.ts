@@ -41,7 +41,7 @@ export async function classifyImageClick(
 
   // Check cache
   const cacheKey = buildCacheKey({ type: 'click-classify', sceneTitle, x: String(rx), y: String(ry) });
-  const cached = getCachedResponse(cacheKey) as ClickClassification | null;
+  const cached = (await getCachedResponse(cacheKey)) as ClickClassification | null;
   if (cached) return cached;
 
   const prompt = `The user clicked at position (${Math.round(xPercent)}%, ${Math.round(yPercent)}%) on an illustrated scene.
@@ -88,7 +88,7 @@ Respond with JSON:
         temperature: 0.3,
       });
       result = JSON.parse(completion.choices[0]?.message?.content || '{}') as ClickClassification;
-      setCachedResponse(cacheKey, result, 'click-classify');
+      await setCachedResponse(cacheKey, result, 'click-classify');
       return result;
     } catch {
       // Fall through
@@ -107,7 +107,7 @@ Respond with JSON:
         temperature: 0.3,
       });
       result = JSON.parse(completion.choices[0]?.message?.content || '{}') as ClickClassification;
-      setCachedResponse(cacheKey, result, 'click-classify');
+      await setCachedResponse(cacheKey, result, 'click-classify');
       return result;
     } catch {
       // Fall through
@@ -125,7 +125,7 @@ Respond with JSON:
         config: { temperature: 0.3, maxOutputTokens: 300, responseMimeType: 'application/json' },
       });
       result = JSON.parse(res.text || '{}') as ClickClassification;
-      setCachedResponse(cacheKey, result, 'click-classify');
+      await setCachedResponse(cacheKey, result, 'click-classify');
       return result;
     } catch {
       // Fall through

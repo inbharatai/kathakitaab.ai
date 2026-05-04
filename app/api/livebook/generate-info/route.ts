@@ -7,7 +7,7 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'default' });
+  const limited = await checkRateLimit(request, { scope: 'default' });
   if (limited) return limited;
 
   try {
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     const cacheKey = `info:${sceneId}:${clickedItem}:${question || 'default'}`;
-    const cached = getCachedResponse(cacheKey);
+    const cached = await getCachedResponse(cacheKey);
     if (cached) {
       return NextResponse.json({ response: cached, cached: true });
     }
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       bookTitle,
     );
     
-    setCachedResponse(cacheKey, aiResponse);
+    await setCachedResponse(cacheKey, aiResponse);
     return NextResponse.json({ response: aiResponse, cached: false });
 
   } catch (error: any) {

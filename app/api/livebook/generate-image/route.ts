@@ -49,7 +49,7 @@ interface GenerateImageRequest {
 }
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'expensive' });
+  const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
   try {
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     });
 
     // Return cached image URL if exists
-    const cached = getCachedResponse(cacheKey) as string | null;
+    const cached = (await getCachedResponse(cacheKey)) as string | null;
     if (cached) {
       return NextResponse.json({ imageUrl: cached, cached: true });
     }
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     }
 
     // Cache for 24h
-    setCachedResponse(cacheKey, result.imageUrl, result.source);
+    await setCachedResponse(cacheKey, result.imageUrl, result.source);
 
     return NextResponse.json({ imageUrl: result.imageUrl, cached: false, source: result.source });
 

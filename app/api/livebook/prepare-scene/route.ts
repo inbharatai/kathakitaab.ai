@@ -16,7 +16,7 @@ import type { StoryScene, SceneHotspot, SceneCharacter } from '@/lib/types/story
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'expensive' });
+  const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
   try {

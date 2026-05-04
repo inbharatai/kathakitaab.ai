@@ -44,24 +44,24 @@ export function getBranchCacheKey(sceneId: string, entityId: string): string {
   return buildCacheKey({ type: 'entity-branch', sceneId, entityId });
 }
 
-export function getCachedBranch(sceneId: string, entityId: string): PreGeneratedBranch | null {
+export async function getCachedBranch(sceneId: string, entityId: string): Promise<PreGeneratedBranch | null> {
   const key = getBranchCacheKey(sceneId, entityId);
-  return getCachedResponse(key) as PreGeneratedBranch | null;
+  return (await getCachedResponse(key)) as PreGeneratedBranch | null;
 }
 
-export function saveCachedBranch(sceneId: string, entityId: string, branch: PreGeneratedBranch): void {
+export async function saveCachedBranch(sceneId: string, entityId: string, branch: PreGeneratedBranch): Promise<void> {
   const key = getBranchCacheKey(sceneId, entityId);
-  setCachedResponse(key, branch, 'pre-gen');
+  await setCachedResponse(key, branch, 'pre-gen');
 }
 
 // ── Get manifest from cache ──────────────────────────────────
 
-export function getManifest(sceneId: string): BranchManifest | null {
+export async function getManifest(sceneId: string): Promise<BranchManifest | null> {
   const key = buildCacheKey({ type: 'manifest', sceneId });
-  return getCachedResponse(key) as BranchManifest | null;
+  return (await getCachedResponse(key)) as BranchManifest | null;
 }
 
-export function saveManifest(manifest: BranchManifest): void {
+export async function saveManifest(manifest: BranchManifest): Promise<void> {
   const key = buildCacheKey({ type: 'manifest', sceneId: manifest.sceneId });
-  setCachedResponse(key, manifest, 'manifest');
+  await setCachedResponse(key, manifest, 'manifest');
 }

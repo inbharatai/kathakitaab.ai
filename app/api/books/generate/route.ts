@@ -9,7 +9,7 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 // Body: { title: string }
 // Streams progress via SSE or returns completed book
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'expensive' });
+  const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
   if (!isGeminiConfigured() && !isOpenAIConfigured()) {

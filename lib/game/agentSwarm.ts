@@ -79,7 +79,7 @@ class AgentSwarm {
       });
 
       // Already cached → mark as preloaded immediately
-      if (getCachedResponse(cacheKey)) {
+      if (await getCachedResponse(cacheKey)) {
         setTimeout(() => this.emit({ type: 'PRELOAD_COMPLETE', sceneId, hotspotId: hotspot.id }), 50);
         continue;
       }
@@ -113,7 +113,7 @@ class AgentSwarm {
         clickRegion: 'none',
       });
 
-      if (getCachedResponse(cacheKey)) {
+      if (await getCachedResponse(cacheKey)) {
         this.emit({ type: 'PRELOAD_COMPLETE', sceneId: task.sceneId, hotspotId: task.hotspotId });
         continue;
       }

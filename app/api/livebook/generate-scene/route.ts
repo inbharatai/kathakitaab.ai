@@ -50,7 +50,7 @@ interface GenerateSceneRequest {
 }
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'expensive' });
+  const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
   try {
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       actionType,
       instruction: userInstruction || 'continue',
     });
-    const cached = getCachedResponse(cacheKey);
+    const cached = await getCachedResponse(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
     }
@@ -297,7 +297,7 @@ export async function POST(request: Request) {
       visionVerified: !!verifiedPositions,
       webGrounded: !!sourceContext,
     };
-    setCachedResponse(cacheKey, result, 'scene-gen');
+    await setCachedResponse(cacheKey, result, 'scene-gen');
 
     return NextResponse.json(result);
 

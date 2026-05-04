@@ -1,7 +1,21 @@
 // ============================================================
 // KathaKitaab.ai — Universal Response Cache
-// Uses globalThis to survive Next.js dev mode hot reloads.
+//
+// Backed by Upstash Redis when configured, otherwise an in-memory
+// LRU Map. Async API either way so callers don't have to know which
+// store is in use.
+//
+// Why this matters on Vercel:
+//   - Each serverless function instance has its own Node heap.
+//     A pure in-memory cache only helps within a single warm
+//     instance — most requests miss because they hit different
+//     instances. Redis fixes that.
+//   - Image-base64 entries (~1MB each) used to crash dev with
+//     "Ineffective mark-compacts near heap limit" once a few
+//     hundred had piled up. Redis offloads that pressure entirely.
 // ============================================================
+
+import { getRedis } from '@/lib/redis';
 
 interface CachedEntry {
   data: unknown;
@@ -14,15 +28,18 @@ interface CachedEntry {
 
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours default
 
-// Use globalThis to persist cache across hot module reloads in dev
 const CACHE_KEY = '__kathakitaab_cache__';
 
-function getCache(): Map<string, CachedEntry> {
+function getLocalCache(): Map<string, CachedEntry> {
   const g = globalThis as unknown as Record<string, Map<string, CachedEntry>>;
   if (!g[CACHE_KEY]) {
     g[CACHE_KEY] = new Map<string, CachedEntry>();
   }
   return g[CACHE_KEY];
+}
+
+function redisKey(k: string): string {
+  return `kk:cache:${k}`;
 }
 
 // ---- Key Builder ----
@@ -38,26 +55,27 @@ function normalize(s: string): string {
 }
 
 // ---- Read ----
-export function getCachedResponse(key: string): unknown | null {
-  const cache = getCache();
+export async function getCachedResponse(key: string): Promise<unknown | null> {
+  const redis = getRedis();
+  if (redis) {
+    const entry = await redis.get<CachedEntry>(redisKey(key));
+    return entry?.data ?? null;
+  }
+  return getLocalCached(key);
+}
+
+function getLocalCached(key: string): unknown | null {
+  const cache = getLocalCache();
   const entry = cache.get(key);
   if (!entry) return null;
   const ttl = entry.ttl_ms ?? TTL_MS;
   if (Date.now() - entry.timestamp > ttl) { cache.delete(key); return null; }
   entry.hit_count++;
-  // Refresh LRU position so frequently-used entries don't get evicted.
   cache.delete(key);
   cache.set(key, entry);
   return entry.data;
 }
 
-// LRU bound. Image/audio entries can be ~1MB each (base64 PNG, WAV);
-// without a cap the cache can grow into the gigabytes during a long
-// dev session and crash the Node process. Keeping the most-recently-
-// used N entries is good enough — older ones can be regenerated.
-// 200 × ~1MB-per-image-entry ≈ 200MB worst case. Lower than this and
-// frequently-used branches keep getting evicted; higher and dev mode
-// heap creeps toward the 4GB+ pressure threshold.
 const MAX_ENTRIES = numEnv('RESPONSE_CACHE_MAX_ENTRIES', 200);
 
 function numEnv(key: string, fallback: number): number {
@@ -68,17 +86,26 @@ function numEnv(key: string, fallback: number): number {
 }
 
 // ---- Write ----
-export function setCachedResponse(
+export async function setCachedResponse(
   key: string,
   data: unknown,
   modelUsed = 'gemini-2.5-flash',
   ttlMs?: number,
-): void {
-  const cache = getCache();
-  // Refresh LRU position by deleting then re-adding.
+): Promise<void> {
+  const entry: CachedEntry = { data, timestamp: Date.now(), model_used: modelUsed, hit_count: 0, ttl_ms: ttlMs };
+  const redis = getRedis();
+  if (redis) {
+    const ex = Math.ceil((ttlMs ?? TTL_MS) / 1000);
+    await redis.set(redisKey(key), entry, { ex });
+    return;
+  }
+  setLocalCached(key, entry);
+}
+
+function setLocalCached(key: string, entry: CachedEntry): void {
+  const cache = getLocalCache();
   if (cache.has(key)) cache.delete(key);
-  cache.set(key, { data, timestamp: Date.now(), model_used: modelUsed, hit_count: 0, ttl_ms: ttlMs });
-  // Evict oldest insertions until we're back under the cap.
+  cache.set(key, entry);
   while (cache.size > MAX_ENTRIES) {
     const oldest = cache.keys().next().value;
     if (oldest === undefined) break;
@@ -88,11 +115,16 @@ export function setCachedResponse(
 
 // ---- Stats ----
 export function getCacheStats() {
-  const cache = getCache();
+  const cache = getLocalCache();
   return {
     size: cache.size,
     keys: Array.from(cache.keys()),
+    backend: getRedis() ? 'redis' : 'memory',
   };
 }
 
-export function clearCache(): void { getCache().clear(); }
+export async function clearCache(): Promise<void> {
+  getLocalCache().clear();
+  // Redis isn't flushed here — the DB might be shared. Per-key
+  // deletion would need a SCAN, not worth it for a dev-only call.
+}

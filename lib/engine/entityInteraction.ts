@@ -83,7 +83,7 @@ export async function handleEntityClick(
   }
 
   // 2. Check pre-generated branch cache (from pregenerate-branches API)
-  const preGenBranch = getCachedBranch(ctx.sceneId, ctx.entityId);
+  const preGenBranch = await getCachedBranch(ctx.sceneId, ctx.entityId);
   if (preGenBranch && preGenBranch.status === 'ready' && preGenBranch.narration) {
     const branch: SceneBranch = {
       id: preGenBranch.branchId,
@@ -113,7 +113,7 @@ export async function handleEntityClick(
     entityId: ctx.entityId,
     entityType: ctx.entityType,
   });
-  const cachedBranch = getCachedResponse(cacheKey) as SceneBranch | null;
+  const cachedBranch = (await getCachedResponse(cacheKey)) as SceneBranch | null;
   if (cachedBranch) {
     addBranch(ctx.sceneId, cachedBranch);
     markEntityDiscovered(ctx.sceneId, ctx.entityId);
@@ -160,7 +160,7 @@ export async function handleEntityClick(
   // 4. Save to graph + cache
   addBranch(ctx.sceneId, branch);
   markEntityDiscovered(ctx.sceneId, ctx.entityId);
-  setCachedResponse(cacheKey, branch, 'entity-interaction');
+  await setCachedResponse(cacheKey, branch, 'entity-interaction');
 
   // 5. Trigger narration immediately — image keeps generating in
   // the background and the caller polls /branch-image to swap it in.

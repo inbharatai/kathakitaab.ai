@@ -6,7 +6,7 @@ import {
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 
 export async function POST(req: NextRequest) {
-  const limited = checkRateLimit(req, { scope: 'default' });
+  const limited = await checkRateLimit(req, { scope: 'default' });
   if (limited) return limited;
 
   try {

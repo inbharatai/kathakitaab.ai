@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const branchId = url.searchParams.get('branchId');
   if (!branchId) return NextResponse.json({ error: 'branchId required' }, { status: 400 });
 
-  const job = getBranchImageJob(branchId);
+  const job = await getBranchImageJob(branchId);
   if (!job) return NextResponse.json({ status: 'unknown' }, { status: 404 });
 
   if (job.state === 'ready') {

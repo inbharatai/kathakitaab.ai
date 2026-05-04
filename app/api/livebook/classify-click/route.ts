@@ -20,7 +20,7 @@ interface ClassifyRequest {
 }
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'default' });
+  const limited = await checkRateLimit(request, { scope: 'default' });
   if (limited) return limited;
 
   try {

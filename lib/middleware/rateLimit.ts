@@ -1,9 +1,12 @@
 // ============================================================
-// KathaKitaab.ai — Per-IP Rate Limiter (in-memory, single instance)
+// KathaKitaab.ai — Per-IP Rate Limiter
 //
-// No Redis dependency. Uses a sliding-window Map<ip, hits[]>.
-// Good enough for early traffic; swap to Upstash/Redis when
-// the app scales horizontally across instances.
+// Uses Upstash Ratelimit (Redis sliding window) when configured —
+// required on Vercel since each function instance has its own
+// Node heap and an in-memory Map can't enforce a single global
+// limit across instances. Falls back to an in-memory Map when no
+// Upstash credentials are present (local dev / single-process
+// hosts), so nothing breaks if you run without Redis.
 //
 // Three scopes:
 //   - 'default'   : RATE_LIMIT_PER_MIN          (default 30/min)
@@ -11,18 +14,20 @@
 //   - 'tts'       : RATE_LIMIT_TTS_PER_MIN       (default 60/min)
 //
 // TTS gets its own generous bucket because narration fires on every
-// scene change AND every branch click — it's the user-visible audio
-// path, so being throttled here breaks the experience. Routes that
-// hit OpenAI/Gemini for image/scene generation use 'expensive'.
-// Cheaper routes (classify, quiz answer) use default.
+// scene change AND every branch click — being throttled there breaks
+// the experience. Routes that hit OpenAI/Gemini for image/scene
+// generation use 'expensive'. Cheaper routes use default.
 // ============================================================
 
 import { NextResponse } from 'next/server';
+import { Ratelimit } from '@upstash/ratelimit';
+import { getRedis } from '@/lib/redis';
 
 interface Bucket {
   hits: number[];
 }
 
+// In-memory fallback only.
 const buckets = new Map<string, Bucket>();
 
 const WINDOW_MS = 60_000;
@@ -45,16 +50,62 @@ export interface RateLimitOptions {
   windowMs?: number;
 }
 
-export function checkRateLimit(req: Request, opts: RateLimitOptions = {}): NextResponse | null {
+// Cache one Ratelimit instance per scope. Building a new one per call
+// would still work (it's cheap) but the singleton avoids re-reading
+// env every request.
+const RL_CACHE: Partial<Record<RateLimitScope, Ratelimit>> = {};
+
+function getUpstashRatelimit(scope: RateLimitScope): Ratelimit | null {
+  const redis = getRedis();
+  if (!redis) return null;
+  if (RL_CACHE[scope]) return RL_CACHE[scope]!;
+  const limit = scope === 'expensive' ? EXPENSIVE_LIMIT : scope === 'tts' ? TTS_LIMIT : DEFAULT_LIMIT;
+  RL_CACHE[scope] = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(limit, '60 s'),
+    prefix: `kk:rl:${scope}`,
+    analytics: false,
+  });
+  return RL_CACHE[scope]!;
+}
+
+export async function checkRateLimit(req: Request, opts: RateLimitOptions = {}): Promise<NextResponse | null> {
   const scope = opts.scope ?? 'default';
   const limit = opts.limit ?? (
     scope === 'expensive' ? EXPENSIVE_LIMIT
     : scope === 'tts' ? TTS_LIMIT
     : DEFAULT_LIMIT
   );
-  const windowMs = opts.windowMs ?? WINDOW_MS;
 
   const ip = getClientIp(req);
+
+  // Upstash path: shared sliding window across all function instances.
+  const upstash = getUpstashRatelimit(scope);
+  if (upstash) {
+    const result = await upstash.limit(ip);
+    if (!result.success) {
+      const retryAfter = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000));
+      return NextResponse.json(
+        {
+          error: 'rate_limited',
+          message: 'Too many requests. Please slow down.',
+          retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfter),
+            'X-RateLimit-Limit': String(result.limit),
+            'X-RateLimit-Remaining': String(result.remaining),
+          },
+        },
+      );
+    }
+    return null;
+  }
+
+  // In-memory fallback.
+  const windowMs = opts.windowMs ?? WINDOW_MS;
   const key = `${scope}:${ip}`;
   const now = Date.now();
 

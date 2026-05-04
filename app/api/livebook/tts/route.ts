@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     // Cache hits are free — serve before counting against the rate limit.
     // Otherwise re-narrating the same scene burns quota for nothing.
-    const cached = getCachedResponse(cacheKey) as { audioB64: string; mime: string; provider: string } | null;
+    const cached = (await getCachedResponse(cacheKey)) as { audioB64: string; mime: string; provider: string } | null;
     if (cached) {
       const cachedBuf = Buffer.from(cached.audioB64, 'base64');
       return new NextResponse(Uint8Array.from(cachedBuf), {
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     // Cache miss → rate-limit before paying for a provider call.
-    const limited = checkRateLimit(request, { scope: 'tts' });
+    const limited = await checkRateLimit(request, { scope: 'tts' });
     if (limited) return limited;
 
     // Route through Sarvam → Gemini chain
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     });
 
     // Cache for 7 days — narration text is stable, repeats are free
-    setCachedResponse(
+    await setCachedResponse(
       cacheKey,
       {
         audioB64: result.audio.toString('base64'),

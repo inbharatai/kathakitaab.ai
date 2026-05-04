@@ -8,7 +8,7 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'default' });
+  const limited = await checkRateLimit(request, { scope: 'default' });
   if (limited) return limited;
 
   try {
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       mode: safeMode,
     });
 
-    const cached = getCachedResponse(cacheKey);
+    const cached = await getCachedResponse(cacheKey);
     if (cached) {
       return NextResponse.json({ ...(cached as object), cached: true });
     }
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     });
 
     // Cache the response
-    setCachedResponse(cacheKey, response, getTextModel());
+    await setCachedResponse(cacheKey, response, getTextModel());
 
     return NextResponse.json(response);
   } catch (error: unknown) {

@@ -11,7 +11,7 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: NextRequest) {
-  const limited = checkRateLimit(req, { scope: 'default' });
+  const limited = await checkRateLimit(req, { scope: 'default' });
   if (limited) return limited;
 
   try {

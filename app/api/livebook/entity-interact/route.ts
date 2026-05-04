@@ -10,7 +10,7 @@
 // Uses OpenAI (primary) or Gemini (fallback)
 // ============================================================
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { getGeminiClient, getTextModel, isGeminiConfigured } from '@/lib/openai/client';
 import { generateSceneImage } from '@/lib/agents/visualAgent';
@@ -20,6 +20,12 @@ import { getCachedBranch, getManifest } from '@/lib/engine/branchPreGenerator';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 import { startBranchImageJob } from '@/lib/engine/branchImageJobs';
+
+// gpt-image-1 cold gens regularly run 25-45s. Vercel's default 10s
+// (Hobby) and 60s (Pro Node) gates would kill the background image
+// job before it finishes, so request the longest the platform allows.
+// On Hobby, drop this to 60 manually if needed.
+export const maxDuration = 300;
 
 interface EntityInteractRequest {
   bookSlug: string;
@@ -53,7 +59,7 @@ Make it feel like the world is alive and responsive to exploration.`,
 };
 
 export async function POST(request: Request) {
-  const limited = checkRateLimit(request, { scope: 'expensive' });
+  const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
   try {
@@ -67,7 +73,7 @@ export async function POST(request: Request) {
     // Check pre-generated branch cache (from brain or pregenerate-branches)
     // Try exact sceneId match first, then try any scene for this entity
     for (const sid of [sceneId, `brain-${body.bookSlug}`]) {
-      const preGen = getCachedBranch(sid, entityId);
+      const preGen = await getCachedBranch(sid, entityId);
       if (preGen && preGen.status === 'ready' && preGen.narration) {
         return NextResponse.json({
           title: preGen.title,
@@ -78,7 +84,7 @@ export async function POST(request: Request) {
           nextActions: preGen.nextActions,
         });
       }
-      const manifest = getManifest(sid);
+      const manifest = await getManifest(sid);
       if (manifest) {
         const mb = manifest.branches.find(b => b.entityId === entityId && b.status === 'ready' && b.narration);
         if (mb) {
@@ -92,7 +98,7 @@ export async function POST(request: Request) {
 
     // Also check the content-level cache (brain uses this key format)
     const brainKey = buildCacheKey({ type: 'entity-branch-content', book: body.bookTitle, scene: body.sceneTitle, entity: entityId });
-    const brainCached = getCachedResponse(brainKey);
+    const brainCached = await getCachedResponse(brainKey);
     if (brainCached && typeof brainCached === 'object' && (brainCached as Record<string, unknown>).narration) {
       const bc = brainCached as Record<string, unknown>;
       return NextResponse.json({
@@ -103,7 +109,7 @@ export async function POST(request: Request) {
 
     // Check regular cache
     const cacheKey = buildCacheKey({ type: 'entity', sceneId, entityId, entityType });
-    const cached = getCachedResponse(cacheKey);
+    const cached = await getCachedResponse(cacheKey);
     if (cached) return NextResponse.json(cached);
 
     // Build prompt
@@ -172,11 +178,16 @@ Scene context: ${sceneNarration.slice(0, 300)}${canonFragment ? `\n\n${canonFrag
       // appearance for every named character (Rama looks like Rama).
       const focusEntity = entityLabel; // the clicked thing — anchor it
       const canonCharacters = Array.from(new Set([focusEntity, ...characterNames]));
-      startBranchImageJob(branchId, () => generateSceneImage(result.imagePrompt, {
-        bookSlug: body.bookSlug,
-        characters: canonCharacters,
-        mood: 'serene',
-      }));
+      // `after()` keeps the serverless function alive past the response
+      // (Vercel routes this through waitUntil). On long-running Node
+      // hosts it's a no-op wrapper — the promise just runs as before.
+      after(() => {
+        startBranchImageJob(branchId, () => generateSceneImage(result.imagePrompt, {
+          bookSlug: body.bookSlug,
+          characters: canonCharacters,
+          mood: 'serene',
+        }));
+      });
     }
 
     const response = {
@@ -193,7 +204,7 @@ Scene context: ${sceneNarration.slice(0, 300)}${canonFragment ? `\n\n${canonFrag
     // Cache the text-only response. The client refreshes the image
     // via /branch-image polling, so a cached text replay still feels
     // alive (it'll re-trigger image gen via a fresh branchId on miss).
-    setCachedResponse(cacheKey, response, 'entity-interact');
+    await setCachedResponse(cacheKey, response, 'entity-interact');
 
     return NextResponse.json(response);
 
