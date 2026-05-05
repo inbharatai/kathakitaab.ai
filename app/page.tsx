@@ -27,13 +27,14 @@ const COMPARISON = [
   { old: 'Same experience every time', new: 'AI generates new branches on every click' },
   { old: 'Silent pages', new: 'Every scene narrated with cinematic voice' },
   { old: 'One linear path', new: 'Story graph with hidden discoveries' },
+  { old: 'Books vs. movies — pick one', new: 'Every book exports as a cinematic movie too' },
 ];
 
 const STEPS = [
   { num: '01', title: 'A scene appears', desc: 'AI-generated cinematic illustration with ambient music and auto-narration.' },
   { num: '02', title: 'Click anything', desc: 'Characters, objects, paths, rivers — every meaningful element responds.' },
   { num: '03', title: 'AI generates a branch', desc: 'New dialogue, close-up, hidden detail, or entire new scene with its own image.' },
-  { num: '04', title: 'Keep exploring', desc: 'Every click deepens the story. Branches are cached. The world remembers.' },
+  { num: '04', title: 'Or watch it as a movie', desc: 'One click turns the same book into a narrated cinematic cut — Ken-Burns over the canon scenes, captions, chapter cards. No separate workflow, no export wait.' },
 ];
 
 const SUPPORTED_WORLDS = [
@@ -95,7 +96,7 @@ export default function HomePage() {
             </h1>
 
             <p className="lp-hero-sub font-serif">
-              Click any character. Ask any object. Explore any path.<br />
+              Click any character. Ask any object. Or watch the whole book as a movie.<br />
               AI generates new scenes, narration, and images — in real time.
             </p>
 
@@ -104,7 +105,7 @@ export default function HomePage() {
                 <span>Enter the Ramayana</span>
                 <span className="lp-btn-arrow">{'\u2192'}</span>
               </Link>
-              <Link href="/books#create-story" className="lp-btn-outline">Create Your Own Book</Link>
+              <Link href="#movie-mode" className="lp-btn-outline">Watch as a Movie</Link>
             </div>
 
             <p className="lp-hero-hint">Free to explore. No signup required.</p>
@@ -206,7 +207,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Trailer / Movie Mode ── */}
-      <section className="lp-trailer">
+      <section className="lp-trailer" id="movie-mode">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -218,13 +219,35 @@ export default function HomePage() {
             New · Movie Mode
           </span>
           <motion.h2 className="lp-section-title" style={{ marginTop: 8 }}>
-            Every book is also a movie
+            Turn any book into a movie
           </motion.h2>
-          <p className="lp-section-sub" style={{ maxWidth: 640, margin: '10px auto 0' }}>
-            The same engine that runs the interactive reader renders a cinematic
-            cut on demand — narration, ambient pacing, captions, scene cards. No
-            pre-baked MP4. Press play.
+          <p className="lp-section-sub" style={{ maxWidth: 720, margin: '10px auto 0' }}>
+            Every book in KathaKitaab can play as a full cinematic film — narrated
+            end-to-end in Sarvam&apos;s Indian-tuned voice, with Ken-Burns motion over
+            the canon scenes, chapter cards, and burned-in captions. The same engine
+            that runs the interactive reader builds the movie on demand. No render
+            wait. No separate export. Just press play.
           </p>
+          <ul style={{
+            display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap',
+            margin: '20px auto 0', padding: 0, listStyle: 'none', maxWidth: 760,
+          }}>
+            {[
+              ['🎬', 'Cinematic Ken-Burns over every scene'],
+              ['🗣️', 'Sarvam Bulbul narration, character-aware voices'],
+              ['📜', 'Chapter cards & flowing captions'],
+              ['⚡', 'Generated live — no MP4 to wait for'],
+            ].map(([icon, text]) => (
+              <li key={text} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '8px 14px', borderRadius: 999,
+                background: 'rgba(43,27,21,0.6)', border: '1px solid rgba(255,215,0,0.12)',
+                fontSize: '0.82rem', color: 'var(--color-gold-light)',
+              }}>
+                <span aria-hidden>{icon}</span>{text}
+              </li>
+            ))}
+          </ul>
         </motion.div>
         <motion.div
           className="lp-trailer-wrap"
