@@ -15,14 +15,14 @@ test.describe('Landing Page', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Nav
-    await expect(page.locator('.landing-nav')).toBeVisible();
-    await expect(page.locator('.landing-nav-title')).toContainText('KathaKitaab.ai');
+    // Nav (now uses .lp-* class prefix after the landing redesign)
+    await expect(page.locator('.lp-nav')).toBeVisible();
+    await expect(page.locator('.lp-nav-name')).toContainText('KathaKitaab');
 
     // Hero
-    await expect(page.locator('.landing-heading')).toContainText('Read it');
-    await expect(page.locator('.landing-subheading')).toBeVisible();
-    await expect(page.locator('.landing-hero-actions')).toBeVisible();
+    await expect(page.locator('.lp-hero-h1')).toBeVisible();
+    await expect(page.locator('.lp-hero-sub')).toBeVisible();
+    await expect(page.locator('.lp-hero-ctas').first()).toBeVisible();
 
     // Screenshot
     await page.screenshot({ path: `${SCREENSHOT_DIR}/01-landing-desktop.png`, fullPage: true });
@@ -32,44 +32,38 @@ test.describe('Landing Page', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // "Enter Ramayana" button
-    const ramayanaBtn = page.locator('.landing-hero-actions .btn-primary');
-    await expect(ramayanaBtn).toContainText('Enter Ramayana');
+    const ramayanaBtn = page.locator('.lp-hero-ctas .lp-btn-primary').first();
+    await expect(ramayanaBtn).toContainText(/Enter the Ramayana|Enter Ramayana/);
     const href = await ramayanaBtn.getAttribute('href');
     expect(href).toBe('/books/ramayana');
   });
 
-  test('features section renders all 4 features', async ({ page }) => {
+  test('trailer section uses Remotion Player', async ({ page }) => {
     await page.goto('/');
-    const featureCards = page.locator('.landing-feature-card');
-    await expect(featureCards).toHaveCount(4);
-  });
-
-  test('entry points section renders all 3 cards', async ({ page }) => {
-    await page.goto('/');
-    const entryCards = page.locator('.landing-entry-card');
-    await expect(entryCards).toHaveCount(3);
+    await page.locator('.lp-trailer-wrap').scrollIntoViewIfNeeded();
+    await expect(page.locator('.lp-trailer-wrap')).toBeVisible();
+    // Player adds playback controls — confirm at least one control button.
+    await page.waitForTimeout(800);
+    const controls = await page.locator('.lp-trailer-wrap button').count();
+    expect(controls).toBeGreaterThan(0);
   });
 });
 
 test.describe('Mobile Responsiveness', () => {
-  test.use({ viewport: { width: 375, height: 812 } }); // iPhone X
+  test.use({ viewport: { width: 375, height: 812 } });
 
   test('landing page is mobile-optimized', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Nav should be compact
-    const nav = page.locator('.landing-nav');
+    const nav = page.locator('.lp-nav');
     await expect(nav).toBeVisible();
     const navBox = await nav.boundingBox();
     expect(navBox!.width).toBeLessThanOrEqual(375);
 
-    // Heading should be readable
-    const heading = page.locator('.landing-heading');
+    const heading = page.locator('.lp-hero-h1');
     await expect(heading).toBeVisible();
 
-    // Buttons should be full-width on mobile
     await page.screenshot({ path: `${SCREENSHOT_DIR}/02-landing-mobile.png`, fullPage: true });
   });
 

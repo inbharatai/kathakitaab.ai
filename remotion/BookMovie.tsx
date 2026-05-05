@@ -186,23 +186,34 @@ const EndCard: React.FC = () => {
 
 // ── Composition ──────────────────────────────────────────────
 
+// Precompute scene placements so the JSX doesn't mutate a closed-over
+// counter while rendering — Remotion + React-hooks rules flag that as
+// non-deterministic across re-renders.
+function planLayout(manifest: BookMovieManifest) {
+  const placements: Array<{ from: number; frames: number }> = [];
+  let cursor = TITLE_FRAMES;
+  for (const scene of manifest.scenes) {
+    const frames = Math.ceil((scene.durationSeconds + SCENE_TAIL_SECONDS) * BOOK_MOVIE_FPS);
+    placements.push({ from: cursor, frames });
+    cursor += frames;
+  }
+  return { placements, endCardFrom: cursor };
+}
+
 export const BookMovie: React.FC<{ manifest: BookMovieManifest }> = ({ manifest }) => {
-  let cursor = 0;
   const total = manifest.scenes.length;
+  const { placements, endCardFrom } = planLayout(manifest);
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806' }}>
-      <Sequence from={cursor} durationInFrames={TITLE_FRAMES}>
+      <Sequence from={0} durationInFrames={TITLE_FRAMES}>
         <TitleCard bookTitle={manifest.bookTitle} />
       </Sequence>
-      {(() => { cursor += TITLE_FRAMES; return null; })()}
 
       {manifest.scenes.map((scene, index) => {
-        const sceneFrames = Math.ceil((scene.durationSeconds + SCENE_TAIL_SECONDS) * BOOK_MOVIE_FPS);
-        const from = cursor;
-        cursor += sceneFrames;
+        const { from, frames } = placements[index];
         return (
-          <Sequence key={scene.sceneId} from={from} durationInFrames={sceneFrames}>
+          <Sequence key={scene.sceneId} from={from} durationInFrames={frames}>
             <SceneShot
               imagePath={scene.imagePath}
               title={scene.title}
@@ -215,7 +226,7 @@ export const BookMovie: React.FC<{ manifest: BookMovieManifest }> = ({ manifest 
         );
       })}
 
-      <Sequence from={cursor} durationInFrames={END_FRAMES}>
+      <Sequence from={endCardFrom} durationInFrames={END_FRAMES}>
         <EndCard />
       </Sequence>
     </AbsoluteFill>

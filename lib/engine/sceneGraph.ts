@@ -12,6 +12,15 @@ export interface SceneBranch {
   entityId: string;
   entityType: 'character' | 'object' | 'location' | 'background';
   entityLabel: string;
+  /**
+   * The verb the user selected (talk / fight / observe / inspect / …).
+   * Different actions on the same entity produce different branches —
+   * the graph indexes them as `entityId + actionType` so a Talk branch
+   * doesn't shadow a later Fight branch.
+   * Optional for back-compat with branches saved before this field
+   * existed; treated as 'auto' when missing.
+   */
+  actionType?: string;
   title: string;
   narration: string;
   imageUrl: string | null;
@@ -20,6 +29,8 @@ export interface SceneBranch {
   createdAt: number;
   visited: boolean;
 }
+
+const normalizeAction = (a?: string): string => (a || 'auto').toLowerCase();
 
 export interface SceneNode {
   sceneId: string;
@@ -50,15 +61,30 @@ export function markVisited(sceneId: string) {
 export function addBranch(sceneId: string, branch: SceneBranch): void {
   const node = graph.get(sceneId);
   if (!node) return;
-  // Don't add duplicate branches for same entity
-  const existing = node.branches.find(b => b.entityId === branch.entityId && b.entityType === branch.entityType);
+  // Dedup by entity + entityType + action — different verbs on the
+  // same entity (Talk vs Fight) are intentionally distinct branches.
+  const action = normalizeAction(branch.actionType);
+  const existing = node.branches.find(b =>
+    b.entityId === branch.entityId
+    && b.entityType === branch.entityType
+    && normalizeAction(b.actionType) === action,
+  );
   if (existing) return;
   node.branches.push(branch);
 }
 
-export function getBranch(sceneId: string, entityId: string): SceneBranch | null {
+export function getBranch(sceneId: string, entityId: string, actionType?: string): SceneBranch | null {
   const node = graph.get(sceneId);
   if (!node) return null;
+  // If actionType is supplied, look up the matching variant first;
+  // fall back to any branch on the entity for legacy callers.
+  if (actionType) {
+    const action = normalizeAction(actionType);
+    const exact = node.branches.find(b =>
+      b.entityId === entityId && normalizeAction(b.actionType) === action,
+    );
+    if (exact) return exact;
+  }
   return node.branches.find(b => b.entityId === entityId) ?? null;
 }
 

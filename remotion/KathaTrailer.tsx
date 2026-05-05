@@ -159,12 +159,12 @@ function EndCard() {
 // ── Main Composition ─────────────────────────────────────────
 
 export const KathaTrailer: React.FC = () => {
-  let offset = 0;
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806' }}>
       {SLIDES.map((slide, i) => {
-        const from = offset;
-        offset += SLIDE_DURATION;
+        // Index-based offset is deterministic per render — no closed-over
+        // counter mutation, which the React-hooks immutability rule flags.
+        const from = i * SLIDE_DURATION;
         switch (slide.type) {
           case 'title': return <Sequence key={i} from={from} durationInFrames={SLIDE_DURATION}><TitleCard /></Sequence>;
           case 'screenshot': return <Sequence key={i} from={from} durationInFrames={SLIDE_DURATION}><ScreenshotSlide file={slide.file!} caption={slide.caption!} label={slide.label!} /></Sequence>;

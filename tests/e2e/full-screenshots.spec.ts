@@ -15,15 +15,15 @@ test.describe.serial('A-to-Z Full Flow', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1500);
-    await expect(page.locator('.landing-heading')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.lp-hero-h1')).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: `${S}/01-landing-full.png`, fullPage: true });
   });
 
   test('02 — Landing nav visible', async ({ page }) => {
     await page.goto('/');
     await page.waitForTimeout(1000);
-    await expect(page.locator('.landing-nav')).toBeVisible();
-    await expect(page.locator('.landing-nav-title')).toContainText('KathaKitaab');
+    await expect(page.locator('.lp-nav')).toBeVisible();
+    await expect(page.locator('.lp-nav-name')).toContainText('KathaKitaab');
     await page.screenshot({ path: `${S}/02-landing-nav.png` });
   });
 

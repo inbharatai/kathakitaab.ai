@@ -11,7 +11,7 @@
 import Link from 'next/link';
 import { use } from 'react';
 import { Player } from '@remotion/player';
-import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames, type BookMovieManifest } from '@/remotion/BookMovie';
+import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames } from '@/remotion/BookMovie';
 import { getManifestForSlug } from '@/lib/video/manifestRegistry';
 
 export default function BookMoviePage({ params }: { params: Promise<{ slug: string }> }) {

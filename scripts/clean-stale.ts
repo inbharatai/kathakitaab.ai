@@ -102,7 +102,7 @@ async function cleanSupabaseStorage(olderThanDays: number, dry: boolean): Promis
     return;
   }
 
-  let toRemove: string[] = [];
+  const toRemove: string[] = [];
   for (const entry of top ?? []) {
     // Folders show up as entries too; treat anything without a content
     // hash filename as a directory and recurse one level.

@@ -83,8 +83,10 @@ export async function pollBranchImage(
 export async function handleEntityClick(
   ctx: EntityClickContext,
 ): Promise<EntityInteractionResult> {
-  // 1. Check scene graph cache
-  const existing = getBranch(ctx.sceneId, ctx.entityId);
+  // 1. Check scene graph cache. Different actions on the same entity
+  // are intentionally distinct branches — a "Talk to Rama" hit must
+  // not shadow a later "Fight Rama" click.
+  const existing = getBranch(ctx.sceneId, ctx.entityId, ctx.actionType);
   if (existing) {
     existing.visited = true;
     return { branch: existing, cached: true, imageGenerating: false };
@@ -99,6 +101,10 @@ export async function handleEntityClick(
       entityId: preGenBranch.entityId,
       entityType: preGenBranch.entityType as SceneBranch['entityType'],
       entityLabel: preGenBranch.entityLabel,
+      // Pre-gen branches are produced without a user-selected action;
+      // tag them with the click's action so the dedup key still matches
+      // and a follow-up "Fight" doesn't pull a "Talk" pre-gen.
+      actionType: ctx.actionType,
       title: preGenBranch.title,
       narration: preGenBranch.narration,
       imageUrl: preGenBranch.imageUrl,
@@ -153,11 +159,12 @@ export async function handleEntityClick(
     nextActions?: string[];
   };
   const branch: SceneBranch = {
-    id: data.branchId ?? `branch-${ctx.sceneId}-${ctx.entityId}-${Date.now()}`,
+    id: data.branchId ?? `branch-${ctx.sceneId}-${ctx.entityId}-${(ctx.actionType || 'auto')}-${Date.now()}`,
     parentSceneId: ctx.sceneId,
     entityId: ctx.entityId,
     entityType: ctx.entityType,
     entityLabel: ctx.entityLabel,
+    actionType: ctx.actionType,
     title: data.title,
     narration: data.narration,
     imageUrl: data.imageUrl || null,

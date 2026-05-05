@@ -639,7 +639,12 @@ export default function SceneViewer({
           createdAt: Date.now(),
           visited: true,
         });
-        setTimeout(() => setActiveBranch(null), 3000);
+        // Auto-clear ONLY this empty toast — guard against the user
+        // creating a real branch within the 3s window. Without this id
+        // check the timer would clobber a fresh branch.
+        setTimeout(() => {
+          setActiveBranch(prev => (prev?.id === 'empty' ? null : prev));
+        }, 3000);
         return;
       }
 
