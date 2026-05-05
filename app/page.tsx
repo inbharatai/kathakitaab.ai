@@ -205,11 +205,27 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Trailer ── */}
+      {/* ── Trailer / Movie Mode ── */}
       <section className="lp-trailer">
-        <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-          Watch the Trailer
-        </motion.h2>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          style={{ textAlign: 'center', marginBottom: 18 }}
+        >
+          <span className="lp-hero-badge" style={{ marginBottom: 14 }}>
+            <span className="lp-hero-badge-dot" />
+            New · Movie Mode
+          </span>
+          <motion.h2 className="lp-section-title" style={{ marginTop: 8 }}>
+            Every book is also a movie
+          </motion.h2>
+          <p className="lp-section-sub" style={{ maxWidth: 640, margin: '10px auto 0' }}>
+            The same engine that runs the interactive reader renders a cinematic
+            cut on demand — narration, ambient pacing, captions, scene cards. No
+            pre-baked MP4. Press play.
+          </p>
+        </motion.div>
         <motion.div
           className="lp-trailer-wrap"
           initial={{ opacity: 0, scale: 0.97 }}
@@ -229,8 +245,8 @@ export default function HomePage() {
             compositionWidth={1920}
             compositionHeight={1080}
             // Park the playhead 1s into the title card so the spring
-            // has settled — visitors see "The Ramayana" branding,
-            // not a half-faded red gradient.
+            // has settled — visitors see the book branding, not a
+            // half-faded red gradient.
             initialFrame={30}
             controls
             clickToPlay
@@ -238,6 +254,15 @@ export default function HomePage() {
             style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
           />
         </motion.div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 22, flexWrap: 'wrap' }}>
+          <Link href="/books/ramayana/movie" className="lp-btn-primary" style={{ textDecoration: 'none' }}>
+            Open Movie Mode
+            <span className="lp-btn-arrow">{'→'}</span>
+          </Link>
+          <Link href="/books/ramayana" className="lp-btn-outline" style={{ textDecoration: 'none' }}>
+            Read it interactively
+          </Link>
+        </div>
       </section>
 
       {/* ── Supported Worlds ── */}
