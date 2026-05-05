@@ -43,7 +43,7 @@ import {
   type ContinuityState,
 } from '@/lib/agents/continuityAgent';
 import * as narrationManager from '@/lib/engine/narrationManager';
-import { handleEntityClick, type EntityClickContext } from '@/lib/engine/entityInteraction';
+import { handleEntityClick, getVoiceForEntity, type EntityClickContext } from '@/lib/engine/entityInteraction';
 import { getOrCreateNode, markVisited, loadGraph, saveGraph, type SceneBranch } from '@/lib/engine/sceneGraph';
 import type { ClickClassification } from '@/lib/engine/clickClassifier';
 
@@ -557,6 +557,14 @@ export default function SceneViewer({
       // the first ~100 chars and reads as "old text" if not expanded.
       setTextExpanded(true);
 
+      // Speak the BRANCH narration, not the scene's. Without this,
+      // whatever scene-level TTS is mid-playback keeps going and the
+      // user hears the scene narration over a totally different image —
+      // that was the "TTS irrelevant to image" complaint. branch.id as
+      // the dedup key lets the same branch survive re-renders without
+      // restarting playback.
+      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id);
+
       // Save scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);
       markVisited(storyScene.scene_id);
@@ -653,6 +661,10 @@ export default function SceneViewer({
       // Match the hotspot path — expand the text panel so the fresh
       // branch narration is visible alongside the new image.
       setTextExpanded(true);
+
+      // Speak the BRANCH narration so audio matches the branch image
+      // (see handleHotspotAction for the same fix).
+      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id);
 
       // Save to scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);

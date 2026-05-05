@@ -1,23 +1,28 @@
 // ============================================================
-// scripts/build-ramayana-movie.ts
+// scripts/build-book-video.ts
 //
-// Sole pipeline stage for the live Ramayana trailer. This script:
+// Universal book-to-video pipeline. Given any book slug whose
+// canon is registered, produces a manifest the Remotion BookMovie
+// composition can render. Steps per scene:
 //
-//   1. Pulls every static Ramayana scene from the running dev server
+//   1. Pull scene from /api/books/{slug} on the running dev server
 //      (so we get the exact same narration the in-app reader hears).
-//   2. Calls /api/livebook/tts for each scene to render Sarvam Bulbul
-//      narration. Caches mp3/wav locally under public/movies/audio/
-//      (gitignored — the cache speeds up reruns; it's not deployed).
-//   3. Uploads each clip to Supabase Storage (`scene-images` bucket,
-//      `ramayana/movie-audio/` prefix) so the Remotion Player on the
-//      landing page streams them from the CDN, not from /public.
-//   4. Probes each clip's duration with `music-metadata` so the
-//      composition can size each Sequence correctly.
-//   5. Writes `remotion/ramayana-manifest.json` — the single source
-//      of truth the RamayanaMovie composition reads at module load.
+//   2. Call /api/livebook/tts to render Sarvam Bulbul narration.
+//      Cached locally under public/movies/audio/{slug}/ — gitignored
+//      because the cache only speeds up rebuilds, not deploys.
+//   3. Upload the clip to Supabase Storage at
+//      `scene-images/{slug}/movie-audio/` so the Player streams it
+//      from the CDN.
+//   4. Probe each clip's duration (music-metadata, with a WAV-header
+//      fallback for the rare case music-metadata can't read it).
+//   5. Write `remotion/manifests/{slug}.json` — the single source of
+//      truth the BookMovie composition reads via inputProps.
 //
-// Idempotent: existing local audio is reused, existing storage
-// uploads upsert. Run after `next dev` is up on :5009.
+// Idempotent: existing local audio is reused; storage uploads upsert.
+// Run after `next dev` is up on :5009.
+//
+//   npx tsx scripts/build-book-video.ts --slug=ramayana
+//   npx tsx scripts/build-book-video.ts --slug=mahabharata
 // ============================================================
 
 import './_loadEnv';
@@ -27,12 +32,9 @@ import { join } from 'node:path';
 import { getSupabaseService } from '../lib/supabase';
 
 const PUBLIC_DIR = join(process.cwd(), 'public');
-const AUDIO_DIR = join(PUBLIC_DIR, 'movies', 'audio');
-const MANIFEST_PATH = join(process.cwd(), 'remotion', 'ramayana-manifest.json');
-
+const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
 const BASE = process.env.MOVIE_BUILD_BASE || 'http://localhost:5009';
 const STORAGE_BUCKET = 'scene-images';
-const STORAGE_PREFIX = 'ramayana/movie-audio';
 
 interface Scene {
   scene_id: string;
@@ -51,25 +53,32 @@ interface ManifestScene {
 }
 
 interface Manifest {
-  bookSlug: 'ramayana';
+  bookSlug: string;
   bookTitle: string;
   scenes: ManifestScene[];
   generatedAt: string;
 }
 
-async function fetchBook(): Promise<{ scenes: Scene[]; bookTitle: string }> {
-  const res = await fetch(`${BASE}/api/books/ramayana`);
-  if (!res.ok) throw new Error(`/api/books/ramayana → ${res.status}`);
+function parseSlugArg(): string {
+  const fromArg = process.argv.slice(2).find(a => a.startsWith('--slug='));
+  if (fromArg) return fromArg.slice('--slug='.length);
+  // Allow positional: `npx tsx build-book-video.ts ramayana`
+  const positional = process.argv.slice(2).find(a => !a.startsWith('--'));
+  if (positional) return positional;
+  throw new Error('book slug required: pass --slug=<slug> or as the first positional arg');
+}
+
+async function fetchBook(slug: string): Promise<{ scenes: Scene[]; bookTitle: string }> {
+  const res = await fetch(`${BASE}/api/books/${slug}`);
+  if (!res.ok) throw new Error(`/api/books/${slug} → ${res.status}`);
   const data = (await res.json()) as { scenes: Scene[]; book?: { title: string } };
-  // book is sometimes flattened; tolerate both shapes
-  const title = data.book?.title || 'The Ramayana';
+  const title = data.book?.title || slug;
+  if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
+    throw new Error(`/api/books/${slug} returned no scenes`);
+  }
   return { scenes: data.scenes, bookTitle: title };
 }
 
-// Returns { extension, contentType } so caller can pick a sensible filename.
-// Both providers in the chain (Sarvam mp3, Gemini wav) are valid Remotion
-// <Audio> sources, but file-extension must match content or music-metadata
-// chokes on the format probe.
 async function ttsToFile(scene: Scene, outDir: string, basename: string): Promise<string> {
   const res = await fetch(`${BASE}/api/livebook/tts`, {
     method: 'POST',
@@ -98,15 +107,14 @@ async function ttsToFile(scene: Scene, outDir: string, basename: string): Promis
   return fileName;
 }
 
-async function uploadToSupabase(localPath: string, remoteName: string): Promise<string> {
+async function uploadToSupabase(localPath: string, slug: string, remoteName: string): Promise<string> {
   const supabase = getSupabaseService();
   if (!supabase) {
     throw new Error('Supabase service client not configured — set SUPABASE_SERVICE_ROLE_KEY');
   }
   const bytes = readFileSync(localPath);
-  const ext = remoteName.endsWith('.wav') ? 'wav' : 'mp3';
-  const contentType = ext === 'wav' ? 'audio/wav' : 'audio/mpeg';
-  const remotePath = `${STORAGE_PREFIX}/${remoteName}`;
+  const contentType = remoteName.endsWith('.wav') ? 'audio/wav' : 'audio/mpeg';
+  const remotePath = `${slug}/movie-audio/${remoteName}`;
 
   const { error } = await supabase.storage
     .from(STORAGE_BUCKET)
@@ -127,18 +135,15 @@ async function probeDuration(filePath: string): Promise<number> {
   const d = meta.format.duration;
   if (d && Number.isFinite(d) && d > 0) return d;
 
-  // Some Sarvam/Gemini WAV blobs come without a `data` chunk size set,
-  // so music-metadata can't compute duration. Compute from PCM headers
-  // ourselves: bytes / (sampleRate * channels * bytesPerSample).
+  // Sarvam/Gemini WAVs sometimes ship without a `data` chunk size,
+  // so music-metadata can't compute duration. Fall back to the PCM
+  // header math: bytes / (sampleRate * channels * bytesPerSample).
   if (filePath.endsWith('.wav')) {
     const buf = readFileSync(filePath);
     if (buf.subarray(0, 4).toString('ascii') === 'RIFF') {
       const sampleRate = buf.readUInt32LE(24);
       const byteRate = buf.readUInt32LE(28);
-      if (byteRate > 0) {
-        const dataBytes = buf.length - 44; // header is 44 bytes
-        return dataBytes / byteRate;
-      }
+      if (byteRate > 0) return (buf.length - 44) / byteRate;
       const channels = buf.readUInt16LE(22);
       const bitsPerSample = buf.readUInt16LE(34);
       if (sampleRate > 0 && channels > 0 && bitsPerSample > 0) {
@@ -151,36 +156,38 @@ async function probeDuration(filePath: string): Promise<number> {
 }
 
 async function main() {
-  mkdirSync(AUDIO_DIR, { recursive: true });
-  console.log(`[movie-build] base: ${BASE}`);
+  const slug = parseSlugArg();
 
-  const { scenes, bookTitle } = await fetchBook();
+  const audioDir = join(PUBLIC_DIR, 'movies', 'audio', slug);
+  const manifestPath = join(MANIFESTS_DIR, `${slug}.json`);
+  mkdirSync(audioDir, { recursive: true });
+  mkdirSync(MANIFESTS_DIR, { recursive: true });
+
+  console.log(`[movie-build] slug: ${slug} | base: ${BASE}`);
+
+  const { scenes, bookTitle } = await fetchBook(slug);
   console.log(`[movie-build] ${scenes.length} scenes`);
 
   const out: ManifestScene[] = [];
   for (const scene of scenes) {
     // Discover whichever extension is already on disk; rebuild if neither.
-    const candidates = ['mp3', 'wav'].map(ext => `movies/audio/${scene.scene_id}.${ext}`);
-    let audioFileRel = candidates.find(rel => existsSync(join(PUBLIC_DIR, rel)));
+    const relCandidates = ['mp3', 'wav'].map(ext => `movies/audio/${slug}/${scene.scene_id}.${ext}`);
+    let audioFileRel = relCandidates.find(rel => existsSync(join(PUBLIC_DIR, rel)));
 
     if (!audioFileRel) {
       console.log(`[movie-build] tts: ${scene.scene_id} (${scene.narration.length} chars)`);
-      const fileName = await ttsToFile(scene, AUDIO_DIR, scene.scene_id);
-      audioFileRel = `movies/audio/${fileName}`;
+      const fileName = await ttsToFile(scene, audioDir, scene.scene_id);
+      audioFileRel = `movies/audio/${slug}/${fileName}`;
     } else {
       console.log(`[movie-build] tts: ${scene.scene_id} (cached: ${audioFileRel})`);
     }
+
     const audioFileAbs = join(PUBLIC_DIR, audioFileRel);
     const fileName = audioFileRel.split('/').pop()!;
-
     const duration = await probeDuration(audioFileAbs);
     console.log(`[movie-build]    duration: ${duration.toFixed(2)}s`);
 
-    // Upload narration to Supabase Storage so the Remotion Player on
-    // the landing page streams it from the CDN. The local cache stays
-    // around for fast rebuilds but is gitignored — only the public
-    // CDN URL flows into the manifest that ships to the browser.
-    const audioUrl = await uploadToSupabase(audioFileAbs, fileName);
+    const audioUrl = await uploadToSupabase(audioFileAbs, slug, fileName);
     console.log(`[movie-build]    uploaded: ${audioUrl}`);
 
     const imagePath = scene.background_asset_url || `/images/scene_${scene.scene_id}.png`;
@@ -195,13 +202,13 @@ async function main() {
   }
 
   const manifest: Manifest = {
-    bookSlug: 'ramayana',
+    bookSlug: slug,
     bookTitle,
     scenes: out,
     generatedAt: new Date().toISOString(),
   };
-  writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-  console.log(`[movie-build] manifest written: ${MANIFEST_PATH}`);
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  console.log(`[movie-build] manifest written: ${manifestPath}`);
 
   const total = out.reduce((s, x) => s + x.durationSeconds, 0);
   console.log(`[movie-build] total narration: ${(total / 60).toFixed(1)} min across ${out.length} scenes`);
@@ -211,10 +218,3 @@ main().catch(err => {
   console.error(err);
   process.exit(1);
 });
-
-// Tiny helper used when re-imported: lets other scripts read the
-// generated manifest without having to know the path.
-export function readManifest(): Manifest | null {
-  if (!existsSync(MANIFEST_PATH)) return null;
-  return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Manifest;
-}

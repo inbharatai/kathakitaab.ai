@@ -167,8 +167,14 @@ export async function speak(
   voice: string = 'narration',
   sceneId?: string,
 ): Promise<void> {
-  // If same scene is already speaking this text, skip
+  // If the same id is already speaking, skip — prevents re-renders
+  // from restarting playback mid-sentence.
   if (sceneId && sceneId === currentSceneId && state === 'speaking') return;
+
+  // A direct speak() call (e.g., from a branch arrival) supersedes any
+  // pending scene-change timer — otherwise the timer would fire 800ms
+  // later and overwrite the branch narration with scene narration.
+  clearPendingSceneTimer();
 
   stopNarration();
   if (muted || !text || text.trim().length < 10) return;
@@ -242,10 +248,27 @@ export async function speak(
 
 // ── Scene lifecycle hook ─────────────────────────────────────
 
+// The pending scene-narration timer. If the user clicks a hotspot
+// inside the 800ms transition window, the branch TTS would fire and
+// then this timer would land after, overwriting the branch narration
+// with the scene narration — that's the "TTS started from the first"
+// bug the user reported. Track + clear the handle on every new scene
+// change AND on every direct speak() call.
+let pendingSceneTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearPendingSceneTimer() {
+  if (pendingSceneTimer) {
+    clearTimeout(pendingSceneTimer);
+    pendingSceneTimer = null;
+  }
+}
+
 export function onSceneChanged(sceneId: string, narration: string, voice?: string) {
+  clearPendingSceneTimer();
   if (muted) return;
-  // Small delay to let the visual transition complete
-  setTimeout(() => {
+  // Small delay to let the visual transition complete.
+  pendingSceneTimer = setTimeout(() => {
+    pendingSceneTimer = null;
     speak(narration, voice ?? 'narration', sceneId);
   }, 800);
 }

@@ -12,7 +12,6 @@
 // ============================================================
 
 import { getBranch, addBranch, markEntityDiscovered, type SceneBranch } from './sceneGraph';
-import { onEntityInteraction } from './narrationManager';
 import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 import { getCachedBranch } from './branchPreGenerator';
 
@@ -88,7 +87,6 @@ export async function handleEntityClick(
   const existing = getBranch(ctx.sceneId, ctx.entityId);
   if (existing) {
     existing.visited = true;
-    onEntityInteraction(existing.narration, getVoiceForEntity(ctx));
     return { branch: existing, cached: true, imageGenerating: false };
   }
 
@@ -111,7 +109,6 @@ export async function handleEntityClick(
     };
     addBranch(ctx.sceneId, branch);
     markEntityDiscovered(ctx.sceneId, ctx.entityId);
-    onEntityInteraction(branch.narration, getVoiceForEntity(ctx));
     return { branch, cached: true, imageGenerating: false };
   }
 
@@ -131,7 +128,6 @@ export async function handleEntityClick(
   if (cachedBranch) {
     addBranch(ctx.sceneId, cachedBranch);
     markEntityDiscovered(ctx.sceneId, ctx.entityId);
-    onEntityInteraction(cachedBranch.narration, getVoiceForEntity(ctx));
     return { branch: cachedBranch, cached: true, imageGenerating: false };
   }
 
@@ -176,10 +172,10 @@ export async function handleEntityClick(
   markEntityDiscovered(ctx.sceneId, ctx.entityId);
   await setCachedResponse(cacheKey, branch, 'entity-interaction');
 
-  // 5. Trigger narration immediately — image keeps generating in
-  // the background and the caller polls /branch-image to swap it in.
-  onEntityInteraction(branch.narration, getVoiceForEntity(ctx));
-
+  // Narration is fired by the caller (SceneViewer) once the branch
+  // state is committed. Centralizing keeps cache-hit and fresh paths
+  // identical and prevents the double-fire / wrong-narration bug
+  // where TTS would race the scene's auto-narrate timer.
   const imagePending = data.imageStatus === 'pending' && !!data.branchId;
   return {
     branch,
@@ -189,7 +185,19 @@ export async function handleEntityClick(
   };
 }
 
-function getVoiceForEntity(ctx: EntityClickContext): string {
+/**
+ * Pick a voice tag for a branch's narration based on the entity context.
+ * Used by SceneViewer when calling `narrationManager.speak()` so each
+ * character keeps a consistent, recognizable voice across branches.
+ *
+ * Tags map through the legacy voice table in /api/livebook/tts:
+ *   narration → narrator
+ *   male_character → noble-male
+ *   female_character → noble-female
+ *   villain → commanding-male
+ *   sage → wise-male
+ */
+export function getVoiceForEntity(ctx: EntityClickContext): string {
   if (ctx.entityType !== 'character') return 'narration';
   const name = ctx.entityLabel.toLowerCase();
   if (['rama', 'lakshmana', 'bharata', 'hanuman', 'sugriva'].includes(name)) return 'male_character';

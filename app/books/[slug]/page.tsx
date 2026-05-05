@@ -27,9 +27,18 @@ export default function BookPage({ params }: { params: Promise<{ slug: string }>
     <main style={{ minHeight: '100vh', padding: '20px 18px 52px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18, paddingTop: 6 }}>
-          <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none', borderRadius: 999 }}>
-            ← Explore Worlds
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none', borderRadius: 999 }}>
+              ← Explore Worlds
+            </Link>
+            <Link
+              href={`/books/${resolvedParams.slug}/movie`}
+              className="btn-secondary"
+              style={{ textDecoration: 'none', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              ▶ Watch as Movie
+            </Link>
+          </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.68rem', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 2 }}>Read Mode</div>
             <div className="font-serif" style={{ fontSize: '1.15rem', color: 'var(--color-gold-light)' }}>{title}</div>

@@ -5,7 +5,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRef } from 'react';
 import { Player } from '@remotion/player';
-import { RamayanaMovie, RAMAYANA_MOVIE_DURATION, RAMAYANA_MOVIE_FPS } from '@/remotion/RamayanaMovie';
+import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames } from '@/remotion/BookMovie';
+import { getManifestForSlug } from '@/lib/video/manifestRegistry';
+
+const LANDING_MANIFEST = getManifestForSlug('ramayana')!;
+const LANDING_MOVIE_FRAMES = computeBookMovieFrames(LANDING_MANIFEST);
 
 // ── Data ─────────────────────────────────────────────────────
 
@@ -218,14 +222,15 @@ export default function HomePage() {
               No pre-baked MP4: the same engine that runs the in-app reader
               renders the trailer. */}
           <Player
-            component={RamayanaMovie}
-            durationInFrames={RAMAYANA_MOVIE_DURATION}
-            fps={RAMAYANA_MOVIE_FPS}
+            component={BookMovie}
+            inputProps={{ manifest: LANDING_MANIFEST }}
+            durationInFrames={LANDING_MOVIE_FRAMES}
+            fps={BOOK_MOVIE_FPS}
             compositionWidth={1920}
             compositionHeight={1080}
             // Park the playhead 1s into the title card so the spring
-            // animation has settled — visitors see "The Ramayana"
-            // branding, not a half-faded red gradient.
+            // has settled — visitors see "The Ramayana" branding,
+            // not a half-faded red gradient.
             initialFrame={30}
             controls
             clickToPlay

@@ -1,16 +1,17 @@
 // ============================================================
-// remotion/RamayanaMovie.tsx
+// remotion/BookMovie.tsx
 //
-// Cinematic full-narration Ramayana movie. Reads the manifest
-// produced by `scripts/build-ramayana-movie.ts` — every scene gets:
-//   - Ken Burns pan over its illustration
-//   - Narration mp3 layered as the primary audio track
-//   - Title chip + flowing caption with the live narration text
-//   - Cross-fade transitions
+// Universal book-to-video composition. Any book whose canon has
+// been processed by `scripts/build-book-video.ts` produces a
+// matching `manifests/{slug}.json` and feeds this composition.
 //
-// Length is data-driven: scene segment = audio duration + 1.2s
-// outro tail (so the last syllable doesn't get clipped by the
-// next transition). Plus a title card and end card.
+// Per scene: Ken-Burns pan + Sarvam narration + chapter chip +
+// flowing caption + cross-fade. Plus a title card and end card.
+//
+// Length is data-driven — `computeBookMovieFrames(manifest)` is
+// the single source of truth so callers (Player on the landing
+// page, the per-book movie page, future studio renderer) can size
+// their player uniformly without re-doing the math.
 // ============================================================
 
 import React from 'react';
@@ -18,29 +19,50 @@ import {
   AbsoluteFill, Audio, Img, Sequence, interpolate, spring,
   staticFile, useCurrentFrame, useVideoConfig,
 } from 'remotion';
-import manifest from './ramayana-manifest.json';
 
-const FPS = 30;
-// Per-scene tail keeps the cinematic breath after the last word.
-// Below 1s feels rushed; above 2s drags. 1.2s is the sweet spot.
+export interface BookMovieScene {
+  sceneId: string;
+  title: string;
+  narration: string;
+  /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
+  imagePath: string;
+  /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
+  audioPath: string;
+  durationSeconds: number;
+}
+
+export interface BookMovieManifest {
+  bookSlug: string;
+  bookTitle: string;
+  scenes: BookMovieScene[];
+  generatedAt: string;
+}
+
+export const BOOK_MOVIE_FPS = 30;
 const SCENE_TAIL_SECONDS = 1.2;
-const TITLE_DURATION_FRAMES = 4 * FPS;
-const END_DURATION_FRAMES = 4 * FPS;
-// Fade in/out per-scene so they don't snap. 12 frames = 0.4s.
+const TITLE_FRAMES = 4 * BOOK_MOVIE_FPS;
+const END_FRAMES = 4 * BOOK_MOVIE_FPS;
 const SCENE_FADE_FRAMES = 12;
 
-// Manifest paths can be either absolute URLs (Supabase Storage CDN
-// for narration audio) or `/`-prefixed local paths (static images
-// in /public). staticFile() expects bare relative names; absolute
-// URLs must pass through untouched.
+export function computeBookMovieFrames(manifest: BookMovieManifest): number {
+  const scenes = manifest.scenes.reduce(
+    (sum, s) => sum + Math.ceil((s.durationSeconds + SCENE_TAIL_SECONDS) * BOOK_MOVIE_FPS),
+    0,
+  );
+  return TITLE_FRAMES + scenes + END_FRAMES;
+}
+
+// Manifest paths can be absolute URLs (Supabase CDN narration) or
+// `/`-prefixed local paths (static images in /public). staticFile()
+// expects bare relative names; absolute URLs pass through untouched.
 const resolveAsset = (path: string): string =>
   /^https?:\/\//i.test(path)
     ? path
     : staticFile(path.startsWith('/') ? path.slice(1) : path);
 
-// ── Components ───────────────────────────────────────────────
+// ── Cards ─────────────────────────────────────────────────────
 
-const TitleCard: React.FC = () => {
+const TitleCard: React.FC<{ bookTitle: string }> = ({ bookTitle }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const s = spring({ frame, fps, config: { damping: 80, stiffness: 200 } });
@@ -51,8 +73,8 @@ const TitleCard: React.FC = () => {
       <div style={{ width: 140, height: 140, borderRadius: '50%', overflow: 'hidden', border: '4px solid #FFD700', boxShadow: '0 0 60px rgba(255,215,0,0.4)', marginBottom: 40, transform: `scale(${s})` }}>
         <Img src={staticFile('logo.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.25) translateY(-5%)' }} />
       </div>
-      <div style={{ fontSize: 84, fontWeight: 800, color: '#FFD700', textShadow: '0 4px 30px rgba(255,215,0,0.3)', transform: `scale(${s})`, fontFamily: 'serif' }}>
-        The Ramayana
+      <div style={{ fontSize: 84, fontWeight: 800, color: '#FFD700', textShadow: '0 4px 30px rgba(255,215,0,0.3)', transform: `scale(${s})`, fontFamily: 'serif', textAlign: 'center', padding: '0 80px' }}>
+        {bookTitle}
       </div>
       <div style={{ fontSize: 26, color: '#FFF0B3', marginTop: 20, letterSpacing: '0.3em', textTransform: 'uppercase', opacity: interpolate(frame, [30, 60], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }) }}>
         A Living Story
@@ -84,17 +106,13 @@ const SceneShot: React.FC<{
   const tx = interpolate(t, [0, 1], [0, dir * 28]);
   const ty = interpolate(t, [0, 1], [0, -8]);
 
-  // Cross-fades.
   const fadeIn = interpolate(frame, [0, SCENE_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const fadeOut = interpolate(frame, [durationInFrames - SCENE_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const opacity = Math.min(fadeIn, fadeOut);
 
-  // Narration gets a small lead-in (start audio 6 frames after visual
-  // appears) so the first syllable lands after the eye has registered
-  // the new scene. Audio's own length governs the rest.
+  // Audio leads in 6 frames after the visual so the first syllable
+  // lands once the eye has registered the new scene.
   const audioStart = 6;
-
-  // Caption flows in word-by-word over ~1.4s, then holds.
   const captionAppear = interpolate(frame, [12, 50], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
   return (
@@ -108,15 +126,12 @@ const SceneShot: React.FC<{
             filter: 'brightness(0.86) saturate(1.12)',
           }}
         />
-        {/* Bottom gradient guarantees caption legibility regardless of image */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(12,8,6,0.55) 0%, transparent 24%, transparent 56%, rgba(12,8,6,0.92) 100%)' }} />
       </div>
 
-      {/* Top-left chapter chip */}
       <div style={{
         position: 'absolute', top: 40, left: 56,
-        display: 'flex', alignItems: 'center', gap: 14,
-        opacity: captionAppear,
+        display: 'flex', alignItems: 'center', gap: 14, opacity: captionAppear,
       }}>
         <div style={{
           padding: '6px 16px', borderRadius: 30,
@@ -130,10 +145,8 @@ const SceneShot: React.FC<{
         </div>
       </div>
 
-      {/* Bottom narration caption */}
       <div style={{
-        position: 'absolute', bottom: 56, left: 80, right: 80,
-        opacity: captionAppear,
+        position: 'absolute', bottom: 56, left: 80, right: 80, opacity: captionAppear,
       }}>
         <p style={{
           fontSize: 26, lineHeight: 1.55, color: '#FFF0B3',
@@ -173,19 +186,19 @@ const EndCard: React.FC = () => {
 
 // ── Composition ──────────────────────────────────────────────
 
-export const RamayanaMovie: React.FC = () => {
+export const BookMovie: React.FC<{ manifest: BookMovieManifest }> = ({ manifest }) => {
   let cursor = 0;
   const total = manifest.scenes.length;
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806' }}>
-      <Sequence from={cursor} durationInFrames={TITLE_DURATION_FRAMES}>
-        <TitleCard />
+      <Sequence from={cursor} durationInFrames={TITLE_FRAMES}>
+        <TitleCard bookTitle={manifest.bookTitle} />
       </Sequence>
-      {(() => { cursor += TITLE_DURATION_FRAMES; return null; })()}
+      {(() => { cursor += TITLE_FRAMES; return null; })()}
 
       {manifest.scenes.map((scene, index) => {
-        const sceneFrames = Math.ceil((scene.durationSeconds + SCENE_TAIL_SECONDS) * FPS);
+        const sceneFrames = Math.ceil((scene.durationSeconds + SCENE_TAIL_SECONDS) * BOOK_MOVIE_FPS);
         const from = cursor;
         cursor += sceneFrames;
         return (
@@ -202,21 +215,9 @@ export const RamayanaMovie: React.FC = () => {
         );
       })}
 
-      <Sequence from={cursor} durationInFrames={END_DURATION_FRAMES}>
+      <Sequence from={cursor} durationInFrames={END_FRAMES}>
         <EndCard />
       </Sequence>
     </AbsoluteFill>
   );
 };
-
-// Total duration in frames — exported so Root.tsx can size the
-// Composition without re-doing the math.
-export const RAMAYANA_MOVIE_DURATION = (() => {
-  const sceneFrames = manifest.scenes.reduce(
-    (sum, s) => sum + Math.ceil((s.durationSeconds + SCENE_TAIL_SECONDS) * FPS),
-    0,
-  );
-  return TITLE_DURATION_FRAMES + sceneFrames + END_DURATION_FRAMES;
-})();
-
-export const RAMAYANA_MOVIE_FPS = FPS;
