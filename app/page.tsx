@@ -4,6 +4,8 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRef } from 'react';
+import { Player } from '@remotion/player';
+import { RamayanaMovie, RAMAYANA_MOVIE_DURATION, RAMAYANA_MOVIE_FPS } from '@/remotion/RamayanaMovie';
 
 // ── Data ─────────────────────────────────────────────────────
 
@@ -211,9 +213,25 @@ export default function HomePage() {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <video className="lp-trailer-video" controls preload="metadata" playsInline poster="/images/scene_ayodhya_intro.png">
-            <source src="/trailer.mp4" type="video/mp4" />
-          </video>
+          {/* Live Remotion composition — narration streams from Supabase
+              Storage CDN, scene art is static, frames render in-browser.
+              No pre-baked MP4: the same engine that runs the in-app reader
+              renders the trailer. */}
+          <Player
+            component={RamayanaMovie}
+            durationInFrames={RAMAYANA_MOVIE_DURATION}
+            fps={RAMAYANA_MOVIE_FPS}
+            compositionWidth={1920}
+            compositionHeight={1080}
+            // Park the playhead 1s into the title card so the spring
+            // animation has settled — visitors see "The Ramayana"
+            // branding, not a half-faded red gradient.
+            initialFrame={30}
+            controls
+            clickToPlay
+            doubleClickToFullscreen
+            style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
+          />
         </motion.div>
       </section>
 

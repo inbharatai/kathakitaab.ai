@@ -52,3 +52,12 @@ next-env.d.ts
 /.upstash-debug-*
 
 .vercel
+
+# movie pipeline intermediate artifacts (regenerable via `npm run movie:build`)
+# Only the final /public/trailer.mp4 ships; the audio cache is large and
+# only needed at render time. The manifest in /remotion/ stays committed
+# because the composition imports it at module load.
+/public/movies/
+
+# scratch dumps from local debugging
+/.tmp-*.json

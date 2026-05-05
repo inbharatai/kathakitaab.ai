@@ -1,0 +1,103 @@
+{
+  "bookSlug": "ramayana",
+  "bookTitle": "Ramayana LiveBook",
+  "scenes": [
+    {
+      "sceneId": "ayodhya_intro",
+      "title": "The Princes of Ayodhya",
+      "narration": "Long ago, in the golden city of Ayodhya, King Dasharatha ruled a prosperous kingdom with wisdom and love. He was blessed with four sons: Rama, Bharata, Lakshmana, and Shatrughna. Among them, Rama shone brightest — calm, truthful, and compassionate. The great sage Vishwamitra arrived one day, seeking Rama and Lakshmana's help to protect sacred rituals from dark forces. Thus began the journey that would shape the world.",
+      "imagePath": "/images/scene_ayodhya_intro.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/ayodhya_intro.wav",
+      "durationSeconds": 33.721315192743766
+    },
+    {
+      "sceneId": "mithila_bow",
+      "title": "Sita and the Bow of Shiva",
+      "narration": "In the kingdom of Mithila, King Janaka held a great challenge: whoever could lift and string the mighty bow of Shiva would win the hand of his daughter, Sita. Many powerful kings tried and failed. When Rama stepped forward, he not only lifted the bow but broke it with ease. The assembly watched in awe. Sita placed the garland around Rama's neck. Their union was celebrated across both kingdoms.",
+      "imagePath": "/images/scene_mithila_bow.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/mithila_bow.wav",
+      "durationSeconds": 30.82
+    },
+    {
+      "sceneId": "exile",
+      "title": "The Exile",
+      "narration": "Rama was chosen to be the next king of Ayodhya. But Queen Kaikeyi, reminded of an old promise by Dasharatha, demanded that her son Bharata become king and Rama be exiled for fourteen years. Dasharatha's heart shattered, but Rama accepted the exile calmly, saying duty and truth must always be honored. Sita and Lakshmana refused to let him go alone. Together, they left the palace for the forest.",
+      "imagePath": "/images/scene_exile.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/exile.wav",
+      "durationSeconds": 36.79333333333334
+    },
+    {
+      "sceneId": "forest_life",
+      "title": "Life in the Forest",
+      "narration": "Rama, Sita, and Lakshmana built a peaceful home in the forest at Panchavati. They lived simply among nature, learning from sages and protecting the forest dwellers. One day, a golden deer appeared — enchanting and beautiful. Sita was captivated and asked Rama to catch it. Rama followed the deer into the forest, and Lakshmana was drawn away too. It was a trap.",
+      "imagePath": "/images/scene_forest_life.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/forest_life.wav",
+      "durationSeconds": 29.71065759637188
+    },
+    {
+      "sceneId": "ravana_jatayu",
+      "title": "Ravana's Deception and Jatayu's Courage",
+      "narration": "With Rama and Lakshmana away, the demon king Ravana arrived disguised as a sage and abducted Sita, carrying her away in his flying chariot. Jatayu, the noble eagle and old friend of Dasharatha, saw Sita's distress and attacked Ravana with all his might. Though old and outmatched, Jatayu fought bravely before falling. When Rama found the wounded Jatayu, the eagle told him what happened with his last breaths. Rama wept and honored Jatayu as he would his own father.",
+      "imagePath": "/images/scene_ravana_jatayu.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/ravana_jatayu.wav",
+      "durationSeconds": 31.50267573696145
+    },
+    {
+      "sceneId": "hanuman_meets_rama",
+      "title": "The Search and the Meeting with Hanuman",
+      "narration": "Grief-stricken but resolute, Rama and Lakshmana searched the forests for Sita. Their path led them to Kishkindha, where they met Sugriva, the exiled vanara king, and his minister Hanuman. Hanuman felt an instant, deep devotion to Rama. An alliance was formed: Rama would help Sugriva regain his kingdom, and Sugriva would help Rama find Sita. Hanuman pledged his life to Rama's cause.",
+      "imagePath": "/images/scene_hanuman_meets_rama.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/hanuman_meets_rama.wav",
+      "durationSeconds": 27.57732426303855
+    },
+    {
+      "sceneId": "hanuman_lanka",
+      "title": "Hanuman's Leap to Lanka",
+      "narration": "Hanuman stood at the edge of the southern ocean. Lanka lay beyond the vast waters. With a mighty leap powered by devotion, Hanuman soared across the sea, overcoming every obstacle. In Lanka, he searched until he found Sita in the Ashoka Vatika, surrounded by guards. He showed her Rama's ring as proof and gave her hope. Before leaving, Hanuman let himself be captured to deliver a message to Ravana, then set fire to parts of Lanka as a warning.",
+      "imagePath": "/images/scene_hanuman_lanka.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/hanuman_lanka.wav",
+      "durationSeconds": 34.06267573696145
+    },
+    {
+      "sceneId": "bridge_to_lanka",
+      "title": "The Bridge to Lanka",
+      "narration": "With the location of Sita confirmed, Rama led the vanara army to the southern shore. The vast ocean lay between them and Lanka. Under the guidance of Nala and Nila, the vanaras began building a great bridge — each stone placed with devotion, each stone floating upon the water as Rama's name was written upon them. The bridge stretched across the sea, and the army marched toward Lanka.",
+      "imagePath": "/images/scene_bridge_to_lanka.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/bridge_to_lanka.wav",
+      "durationSeconds": 28.94267573696145
+    },
+    {
+      "sceneId": "battle_lanka",
+      "title": "The Battle in Lanka",
+      "narration": "The great battle began. Ravana's mighty army faced Rama's vanara forces. Warriors clashed on both sides. Ravana's brother Vibhishana, unable to support injustice, chose to leave Lanka and join Rama — choosing dharma over blind family loyalty. After fierce battles, Rama faced Ravana in single combat. The demon king fell, and Rama mourned even his enemy, recognizing Ravana's greatness corrupted by pride.",
+      "imagePath": "/images/scene_battle_lanka.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/battle_lanka.wav",
+      "durationSeconds": 31.246666666666666
+    },
+    {
+      "sceneId": "return_ayodhya",
+      "title": "Return to Ayodhya",
+      "narration": "With Sita rescued and the battle won, Rama, Sita, Lakshmana, and Hanuman flew back to Ayodhya in the Pushpaka Vimana. Bharata, who had faithfully kept Rama's sandals on the throne for fourteen years, welcomed his brother with tears of joy. The people of Ayodhya lit thousands of lamps to celebrate Rama's return. The city shone like a constellation on earth. Rama was crowned king, and a golden era of justice began.",
+      "imagePath": "/images/scene_return_ayodhya.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/return_ayodhya.wav",
+      "durationSeconds": 30.990657596371882
+    },
+    {
+      "sceneId": "lessons",
+      "title": "What the Ramayana Teaches",
+      "narration": "The Ramayana is not just a story — it is a guide for life. Rama teaches us about duty and selfless leadership. Sita teaches dignity and inner courage. Lakshmana teaches unwavering loyalty. Hanuman teaches that devotion and humility make us truly strong. Bharata teaches that power without righteousness has no value. Jatayu teaches that courage has no age. Vibhishana teaches that truth must come before blind loyalty. And Ravana reminds us that knowledge without humility can become dangerous.",
+      "imagePath": "/images/scene_lessons.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/lessons.wav",
+      "durationSeconds": 37.73201814058957
+    },
+    {
+      "sceneId": "closing",
+      "title": "The Light of Dharma",
+      "narration": "The Ramayana has been told and retold for thousands of years across countless cultures and languages. Its power lies not just in its epic events, but in the timeless questions it raises: What does it mean to do the right thing? How do we stay strong when the world tests us? What is true courage, true love, true loyalty? Every generation finds its own answers inside this ancient story. The light of dharma continues to shine.",
+      "imagePath": "/images/scene_lessons.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/closing.wav",
+      "durationSeconds": 30.222675736961452
+    }
+  ],
+  "generatedAt": "2026-05-05T07:34:29.905Z"
+}
