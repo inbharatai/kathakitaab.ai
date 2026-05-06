@@ -7,12 +7,30 @@
 // ============================================================
 
 let audioCtx: AudioContext | null = null;
+let audioCtxUnavailable = false;
 
-function getCtx(): AudioContext {
+function getCtx(): AudioContext | null {
+  if (audioCtxUnavailable) return null;
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    // Some headless browsers (Playwright's WebKit driver in CI) and
+    // older Safari builds don't expose either AudioContext nor the
+    // webkit-prefixed one. Returning null lets the rest of the engine
+    // bail out cleanly instead of crashing the whole scene viewer
+    // with `undefined is not a constructor`.
+    const Ctor = (typeof window !== 'undefined') &&
+      (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+    if (!Ctor) {
+      audioCtxUnavailable = true;
+      return null;
+    }
+    try {
+      audioCtx = new Ctor();
+    } catch {
+      audioCtxUnavailable = true;
+      return null;
+    }
   }
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
@@ -51,6 +69,7 @@ const LEGACY_SCENE_FREQS: Record<string, number[]> = {
 export function startAmbientDroneRaw(freqs: number[]) {
   stopAmbientDrone();
   const ctx = getCtx();
+  if (!ctx) return;
 
   const masterGain = ctx.createGain();
   masterGain.gain.setValueAtTime(0, ctx.currentTime);
@@ -95,6 +114,7 @@ export function stopAmbientDrone() {
 // ---- Sound Effects ----
 export function playClickSound() {
   const ctx = getCtx();
+  if (!ctx) return;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
@@ -109,6 +129,7 @@ export function playClickSound() {
 
 export function playAchievementSound() {
   const ctx = getCtx();
+  if (!ctx) return;
   const notes = [523.25, 659.25, 783.99, 1046.5];
   notes.forEach((freq, i) => {
     const osc = ctx.createOscillator();
@@ -127,6 +148,7 @@ export function playAchievementSound() {
 
 export function playSceneTransitionSound() {
   const ctx = getCtx();
+  if (!ctx) return;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);

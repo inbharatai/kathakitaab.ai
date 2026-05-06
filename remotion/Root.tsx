@@ -9,6 +9,7 @@ import React from 'react';
 import { Composition } from 'remotion';
 import { KathaTrailer, TRAILER_DURATION } from './KathaTrailer';
 import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames, type BookMovieManifest } from './BookMovie';
+import { BookTrailer, TRAILER_FPS, computeTrailerFrames } from './BookTrailer';
 import ramayanaManifest from './manifests/ramayana.json';
 
 const defaultManifest = ramayanaManifest as BookMovieManifest;
@@ -38,6 +39,22 @@ export const RemotionRoot: React.FC = () => {
           const m = props.manifest as BookMovieManifest;
           return {
             durationInFrames: computeBookMovieFrames(m),
+            props: { manifest: m },
+          };
+        }}
+      />
+      <Composition
+        id="BookTrailer"
+        component={BookTrailer}
+        defaultProps={{ manifest: defaultManifest }}
+        durationInFrames={computeTrailerFrames(defaultManifest)}
+        fps={TRAILER_FPS}
+        width={1920}
+        height={1080}
+        calculateMetadata={async ({ props }) => {
+          const m = props.manifest as BookMovieManifest;
+          return {
+            durationInFrames: computeTrailerFrames(m),
             props: { manifest: m },
           };
         }}

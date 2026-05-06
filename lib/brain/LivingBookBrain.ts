@@ -26,8 +26,13 @@ import { generateSceneImage } from '@/lib/agents/visualAgent';
 import { analyzeImageForTargets } from '@/lib/agents/visionAgent';
 import { checkContentSafety } from '@/lib/agents/safetyAgent';
 import { researchTopic } from '@/lib/agents/researchAgent';
+import { generateBranch } from '@/lib/agents/branchAgent';
 import { getCachedResponse, setCachedResponse, buildCacheKey } from '@/lib/cache/responseCache';
-import { saveCachedBranch, saveManifest, type PreGeneratedBranch, type BranchManifest } from '@/lib/engine/branchPreGenerator';
+import {
+  saveCachedBranch, saveManifest, getCachedBranch, getPregenActions,
+  type PreGeneratedBranch, type BranchManifest,
+} from '@/lib/engine/branchPreGenerator';
+import { runInBatches, MAX_PARALLEL_BRANCHES } from '@/lib/middleware/rateLimit';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -161,10 +166,13 @@ export async function prepareScene(req: BrainRequest): Promise<BrainSceneResult>
     }));
   }
 
-  // ── Step 7: Branch Agent — pre-generate branches for ALL entities (parallel)
-  const branches = await pregenerateBranches(req.bookTitle, scenePlan, entities);
+  // ── Step 7: Branch Agent — pre-generate branches for ALL (entity × action)
+  // pairs in parallel. Action-aware so a "Talk Rama" hit and a "Fight Rama"
+  // hit are separate warmed branches; one click can't shadow the other.
+  const sceneIdForBranches = `brain-${req.bookSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+  const branches = await pregenerateBranches(req.bookSlug, req.bookTitle, sceneIdForBranches, scenePlan, entities);
 
-  // Mark entities as having ready branches
+  // Mark entities as having ready branches (any action ready counts)
   for (const entity of entities) {
     entity.hasReadyBranch = branches.some(b => b.entityId === entity.entityId && b.status === 'ready');
   }
@@ -177,7 +185,9 @@ export async function prepareScene(req: BrainRequest): Promise<BrainSceneResult>
     }
   }
 
-  const sceneId = `brain-${req.bookSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+  // Reuse the sceneId we generated above so branch parentSceneId lines up
+  // with the manifest sceneId — caches keyed on either point at the same scene.
+  const sceneId = sceneIdForBranches;
 
   // ── Step 9: Assemble result
   const result: BrainSceneResult = {
@@ -214,9 +224,12 @@ export async function prepareScene(req: BrainRequest): Promise<BrainSceneResult>
   };
   await saveManifest(manifest);
 
-  // Save individual branches for fast lookup
+  // Save individual branches for fast lookup. Brain is now action-aware,
+  // so we save each (entity, action) pair under its own key. Entity-interact
+  // hits the verb-specific cache first and falls back to 'auto' only if
+  // nothing matches — the right verb hits the right branch.
   for (const branch of branches) {
-    await saveCachedBranch(sceneId, branch.entityId, branch);
+    await saveCachedBranch(sceneId, branch.entityId, branch.actionType, branch);
   }
 
   return result;
@@ -267,68 +280,45 @@ Create a rich, educational scene. Respond with strict JSON:
 }
 
 // ── Branch Pre-Generation Agent ──────────────────────────────
+// Generates one branch per (entity, action) pair. Action set is
+// chosen by `getPregenActions` — canon's allowed_actions when present,
+// or type defaults otherwise. Verbs become real cache keys, so a
+// later "Talk" or "Fight" click hits the right warmed branch.
 
 async function pregenerateBranches(
+  bookSlug: string,
   bookTitle: string,
+  sceneId: string,
   scenePlan: ScenePlan,
   entities: SceneEntity[],
 ): Promise<PreGeneratedBranch[]> {
-  const jobs = entities.slice(0, 6).map(async (entity): Promise<PreGeneratedBranch> => {
-    // Check cache first
-    const cacheKey = buildCacheKey({ type: 'entity-branch-content', book: bookTitle, scene: scenePlan.title, entity: entity.entityId });
-    const cached = (await getCachedResponse(cacheKey)) as PreGeneratedBranch | null;
-    if (cached) return cached;
+  // Cap entities at 6 (brain budget) and expand into top-2 actions each.
+  // 6 × 2 = 12 jobs max, throttled to MAX_PARALLEL_BRANCHES so the brain
+  // can't melt rate limits when warming a fresh scene.
+  const jobs = entities.slice(0, 6).flatMap(entity => {
+    const actions = getPregenActions(bookSlug, entity.entityId, entity.type);
+    return actions.map(action => ({ entity, action }));
+  });
 
-    const actionPrompts: Record<string, string> = {
-      character: `Character "${entity.label}" speaks. Show inner thoughts, a dialogue line, and next action. Emotional, cinematic.`,
-      object: `Object "${entity.label}" is examined. Reveal history, significance, hidden detail. Like finding a game secret.`,
-      location: `Location "${entity.label}" is explored. Describe atmosphere, hidden paths, what the user discovers.`,
-      animal: `Animal "${entity.label}" is approached. Show behavior, significance, what happens.`,
-      background: `Background element "${entity.label}" is noticed. Atmospheric detail, what the user discovers.`,
-    };
+  return await runInBatches(
+    jobs,
+    MAX_PARALLEL_BRANCHES,
+    async ({ entity, action }): Promise<PreGeneratedBranch> => {
+      const cached = await getCachedBranch(sceneId, entity.entityId, action);
+      if (cached) return cached;
 
-    const prompt = actionPrompts[entity.type] || actionPrompts.background;
-
-    try {
-      const result = await callAI<{ title: string; narration: string; sceneText: string; imagePrompt: string; nextActions: string[] }>(
-        `You are a branch generator for "${bookTitle}", scene "${scenePlan.title}". Context: ${scenePlan.narration.slice(0, 300)}
-Respond with JSON: {"title":"","narration":"2-3 TTS sentences","sceneText":"1 paragraph","imagePrompt":"visual description","nextActions":["3 actions"]}`,
-        prompt,
-      );
-
-      const branch: PreGeneratedBranch = {
-        branchId: `branch-${entity.entityId}-${Date.now()}`,
-        parentSceneId: '',
+      return await generateBranch({
+        bookTitle,
+        sceneId,
+        sceneTitle: scenePlan.title,
+        sceneNarration: scenePlan.narration,
         entityId: entity.entityId,
         entityLabel: entity.label,
         entityType: entity.type,
-        actionType: entity.type === 'character' ? 'character_dialogue' : entity.type === 'animal' ? 'animal_interaction' : entity.type === 'location' ? 'location_branch' : 'object_detail',
-        title: result.title || entity.label,
-        narration: result.narration || '',
-        sceneText: result.sceneText || '',
-        imagePrompt: result.imagePrompt || '',
-        imageUrl: null,
-        nextActions: result.nextActions || [],
-        status: result.narration ? 'ready' : 'failed',
-      };
-
-      await setCachedResponse(cacheKey, branch, 'branch-agent');
-      return branch;
-    } catch {
-      return {
-        branchId: `branch-${entity.entityId}-failed`,
-        parentSceneId: '', entityId: entity.entityId, entityLabel: entity.label,
-        entityType: entity.type, actionType: 'failed',
-        title: entity.label, narration: '', sceneText: '', imagePrompt: '',
-        imageUrl: null, nextActions: [], status: 'failed',
-      };
-    }
-  });
-
-  const results = await Promise.allSettled(jobs);
-  return results
-    .filter((r): r is PromiseFulfilledResult<PreGeneratedBranch> => r.status === 'fulfilled')
-    .map(r => r.value);
+        action,
+      });
+    },
+  );
 }
 
 // ── Generic AI Call (OpenAI primary, Gemini fallback) ────────

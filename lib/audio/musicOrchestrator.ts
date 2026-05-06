@@ -37,16 +37,32 @@ const MUSIC_FILE_TARGET_VOLUME = 0.18;
 const FADE_MS = 1800;
 
 let audioCtx: AudioContext | null = null;
+let audioCtxUnavailable = false;
 let currentVoice: VoiceHandle | null = null;
 let currentAudio: HTMLAudioElement | null = null;
 let currentProfileId: string | null = null;
 
-function getAudioContext(): AudioContext {
+function getAudioContext(): AudioContext | null {
+  if (audioCtxUnavailable) return null;
   if (!audioCtx) {
-    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    audioCtx = new Ctor();
+    // Browsers without AudioContext (some headless drivers, locked-down
+    // Safari) used to throw "undefined is not a constructor" here and
+    // crash the whole SceneViewer. Returning null lets the orchestrator
+    // and its callers degrade silently instead.
+    const Ctor = (typeof window !== 'undefined') &&
+      (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+    if (!Ctor) {
+      audioCtxUnavailable = true;
+      return null;
+    }
+    try {
+      audioCtx = new Ctor();
+    } catch {
+      audioCtxUnavailable = true;
+      return null;
+    }
   }
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
@@ -95,6 +111,7 @@ export async function playSceneMusic(ctx: SceneMusicContext): Promise<MusicProfi
   registerMusicAudio(null);
 
   const audioContext = getAudioContext();
+  if (!audioContext) return profile; // Audio API unavailable — degrade silently.
   const oldVoice = currentVoice;
   const newVoice = playVoice(audioContext, profile.voice, profile.notes_hz);
   currentVoice = newVoice;

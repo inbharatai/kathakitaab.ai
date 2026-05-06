@@ -1,0 +1,254 @@
+// ============================================================
+// KathaKitaab.ai — Server-side MP4 export for BookMovie
+// POST /api/livebook/render-movie
+//
+// Body: { bookSlug }
+//
+// Bundles the Remotion entry, renders the BookMovie composition
+// with the book's manifest as inputProps, uploads the resulting
+// MP4 to Supabase Storage (`scene-images/{slug}/movie.mp4`), and
+// returns the public URL.
+//
+// Why server-side:
+//   - The Remotion live <Player> shows the book in the browser, but
+//     to share or embed we need a real downloadable MP4.
+//   - @remotion/renderer drives a headless Chromium and stitches
+//     frames + audio with FFmpeg. Both are Node-only.
+//
+// Performance:
+//   - 13 scenes × ~32s ≈ 7 minutes of video at 1920×1080 takes a few
+//     minutes to render even on a fast machine. The route is gated
+//     by maxDuration = 600s and rate-limited to expensive scope.
+//   - Output is cached in Supabase by content hash so identical
+//     manifests don't re-render.
+//
+// Required: @remotion/renderer + @remotion/bundler in deps. The
+// route fails gracefully if either is missing or if the local OS
+// cannot run the bundled Chromium (e.g. constrained CI sandboxes).
+// ============================================================
+
+import { NextResponse } from 'next/server';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { createHash } from 'node:crypto';
+
+import { getSupabaseService } from '@/lib/supabase';
+import { getManifestForSlug } from '@/lib/video/manifestRegistry';
+import { checkRateLimit } from '@/lib/middleware/rateLimit';
+
+// 10 minutes — Remotion render of a 7-minute movie typically takes
+// 2-4 minutes depending on hardware. This caps it so a runaway
+// render can't hold the function instance forever.
+export const maxDuration = 600;
+
+const BUCKET = 'scene-images';
+
+interface RenderRequest {
+  bookSlug: string;
+  /** Force re-render even if a cached MP4 with the same manifest
+   *  hash already exists. Useful when the composition itself changed. */
+  force?: boolean;
+  /** Which composition to render. 'movie' = full BookMovie (default).
+   *  'trailer' = the cinematic teaser cut (BookTrailer). Both write
+   *  to the same `public/movies/` folder under different basenames
+   *  so they cache independently. */
+  mode?: 'movie' | 'trailer';
+}
+
+export async function POST(request: Request) {
+  const limited = await checkRateLimit(request, { scope: 'expensive' });
+  if (limited) return limited;
+
+  let body: RenderRequest;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { bookSlug, force = false, mode = 'movie' } = body;
+  if (!bookSlug) {
+    return NextResponse.json({ error: 'bookSlug is required' }, { status: 400 });
+  }
+  if (mode !== 'movie' && mode !== 'trailer') {
+    return NextResponse.json({ error: `mode must be 'movie' or 'trailer', got '${mode}'` }, { status: 400 });
+  }
+
+  const manifest = getManifestForSlug(bookSlug);
+  if (!manifest) {
+    return NextResponse.json({ error: `No manifest for book "${bookSlug}"` }, { status: 404 });
+  }
+
+  // Cache key includes mode so movie + trailer don't collide.
+  const manifestHash = hashManifest({ manifest, mode });
+  const compositionId = mode === 'trailer' ? 'BookTrailer' : 'BookMovie';
+  const filenameStem = mode === 'trailer' ? 'trailer' : 'movie';
+  const objectPath = `${bookSlug}/${filenameStem}.${manifestHash}.mp4`;
+
+  const supabase = getSupabaseService();
+
+  // Cached path — if the same manifest already produced an MP4,
+  // skip the multi-minute render and return the cached URL.
+  if (!force) {
+    if (supabase) {
+      const cached = await getPublicUrlIfExists(supabase, BUCKET, objectPath);
+      if (cached) {
+        return NextResponse.json({ url: cached, cached: true, manifestHash, storageMode: 'supabase' });
+      }
+    }
+    // Local fallback dedup — if a previous run wrote a matching MP4
+    // under public/movies, serve that instead of re-rendering. Hash
+    // collision is effectively impossible for SHA1 over the manifest.
+    const localName = `${bookSlug}.${filenameStem}.${manifestHash}.mp4`;
+    const localPath = path.join(process.cwd(), 'public', 'movies', localName);
+    try {
+      await fs.access(localPath);
+      return NextResponse.json({
+        url: `/movies/${localName}`,
+        cached: true,
+        manifestHash,
+        mode,
+        storageMode: 'local',
+      });
+    } catch { /* not cached locally — proceed to render */ }
+  }
+
+  // Lazily import the renderer so a missing dependency doesn't crash
+  // the whole route module at import time. This lets the route exist
+  // even on hosts where Chromium can't run, surfacing a clean 503
+  // instead of a build-time failure.
+  let bundle: typeof import('@remotion/bundler')['bundle'];
+  let renderMedia: typeof import('@remotion/renderer')['renderMedia'];
+  let selectComposition: typeof import('@remotion/renderer')['selectComposition'];
+  try {
+    ({ bundle } = await import('@remotion/bundler'));
+    ({ renderMedia, selectComposition } = await import('@remotion/renderer'));
+  } catch (err) {
+    return NextResponse.json({
+      error: 'Server-side rendering is not available on this host',
+      detail: err instanceof Error ? err.message : String(err),
+    }, { status: 503 });
+  }
+
+  let outFile: string | null = null;
+  try {
+    const entry = path.join(process.cwd(), 'remotion', 'index.ts');
+    const bundled = await bundle({
+      entryPoint: entry,
+      // The default webpack config is fine for our composition; no
+      // overrides needed. Remotion handles SWC + TS resolution.
+    });
+
+    const composition = await selectComposition({
+      serveUrl: bundled,
+      id: compositionId,
+      inputProps: { manifest },
+    });
+
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), `kk-${filenameStem}-`));
+    outFile = path.join(tmp, `${bookSlug}.${filenameStem}.mp4`);
+
+    await renderMedia({
+      composition,
+      serveUrl: bundled,
+      codec: 'h264',
+      outputLocation: outFile,
+      inputProps: { manifest },
+      // 540p (scale 0.5) keeps render time manageable for share embeds.
+      // The composition's native size is 1920×1080, so 0.5 gives integer
+      // dimensions (960×540) — fractional scales like 0.667 break the
+      // FFmpeg stitch step. Bump to 1.0 for archival quality at 1080p.
+      scale: 0.5,
+      // Constant Rate Factor for H.264. Default 18 produces archival
+      // quality at large file sizes (~250MB for a 7-min 1080p movie);
+      // 28 cuts that to <50MB which fits Supabase free-tier object
+      // limits while staying perceptually close to the original. This
+      // is a share preview — visual fidelity > file precision.
+      crf: 28,
+      audioBitrate: '96k',
+    });
+
+    const bytes = await fs.readFile(outFile);
+
+    // Storage strategy:
+    //   1. Try Supabase first — that gives us a CDN URL anyone can hit.
+    //   2. If Supabase rejects (size limit, no creds, network), fall
+    //      back to /public/movies/{hash}.mp4 so the file is still
+    //      reachable from the same origin. The local fallback keeps
+    //      `npm run dev` working end-to-end without infra changes.
+    let publicUrl: string | null = null;
+    let storageMode: 'supabase' | 'local' = 'supabase';
+
+    if (supabase) {
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(objectPath, bytes, {
+          contentType: 'video/mp4',
+          upsert: true,
+          cacheControl: 'public, max-age=31536000, immutable',
+        });
+      if (!error) {
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
+        publicUrl = data.publicUrl;
+      } else {
+        console.warn('[render-movie] Supabase upload failed, falling back to local:', error.message);
+      }
+    }
+
+    if (!publicUrl) {
+      const moviesDir = path.join(process.cwd(), 'public', 'movies');
+      await fs.mkdir(moviesDir, { recursive: true });
+      const localName = `${bookSlug}.${filenameStem}.${manifestHash}.mp4`;
+      await fs.writeFile(path.join(moviesDir, localName), bytes);
+      publicUrl = `/movies/${localName}`;
+      storageMode = 'local';
+    }
+
+    return NextResponse.json({
+      url: publicUrl,
+      cached: false,
+      sizeBytes: bytes.length,
+      durationFrames: composition.durationInFrames,
+      manifestHash,
+      mode,
+      storageMode,
+    });
+  } catch (err) {
+    return NextResponse.json({
+      error: 'Render failed',
+      detail: err instanceof Error ? err.message : String(err),
+    }, { status: 500 });
+  } finally {
+    // Best-effort cleanup of the tmp file. We deliberately don't
+    // await this in a way that blocks the response — failures here
+    // are silent and the OS will eventually reap /tmp.
+    if (outFile) fs.unlink(outFile).catch(() => {});
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function hashManifest(manifest: unknown): string {
+  return createHash('sha1').update(JSON.stringify(manifest)).digest('hex').slice(0, 12);
+}
+
+async function getPublicUrlIfExists(
+  supabase: NonNullable<ReturnType<typeof getSupabaseService>>,
+  bucket: string,
+  objectPath: string,
+): Promise<string | null> {
+  // Supabase Storage doesn't have a cheap "exists" check; we list the
+  // parent directory with a name filter, which is one round-trip.
+  const dir = path.posix.dirname(objectPath);
+  const file = path.posix.basename(objectPath);
+  const { data, error } = await supabase.storage.from(bucket).list(dir, {
+    search: file,
+    limit: 1,
+  });
+  if (error || !data || data.length === 0) return null;
+  const exact = data.find(d => d.name === file);
+  if (!exact) return null;
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  return pub.publicUrl;
+}

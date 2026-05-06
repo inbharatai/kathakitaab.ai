@@ -49,12 +49,21 @@ interface ActionMenuPopup {
   y: number;
 }
 
+/** SceneStream manifest action status, keyed by `${entityId}:${verb}`.
+ * 'ready'   = warmed branch in cache, instant tap
+ * 'pending' = canon-allowed but not yet warmed, will generate on click
+ * 'none'    = no canon entry, generic fallback
+ * Drives the green/amber dot next to each verb in the action menu. */
+export type ActionStatusMap = Map<string, 'ready' | 'pending' | 'none'>;
+
 function HotspotActionMenu({
   popup,
+  actionStatus,
   onAction,
   onClose,
 }: {
   popup: ActionMenuPopup;
+  actionStatus?: ActionStatusMap;
   onAction: (hotspot: SceneHotspot, action: HotspotClickAction) => void;
   onClose: () => void;
 }) {
@@ -113,30 +122,55 @@ function HotspotActionMenu({
         {popup.hotspot.label}
       </div>
       <div style={{ display: 'grid', gap: 4 }}>
-        {popup.hotspot.allowed_actions.map(action => (
-          <button
-            key={action}
-            onClick={() => { onAction(popup.hotspot, action); onClose(); }}
-            style={{
-              display: 'block',
-              width: '100%',
-              borderRadius: 8,
-              padding: '7px 12px',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              color: 'rgba(255,255,255,0.88)',
-              cursor: 'pointer',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              textAlign: 'left',
-            }}
-          >
-            {labelFor(action)}
-            {action === 'animate' && (
-              <span style={{ marginLeft: 6, fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)' }}>beta</span>
-            )}
-          </button>
-        ))}
+        {popup.hotspot.allowed_actions.map(action => {
+          const statusKey = `${popup.hotspot.target_id}:${action}`;
+          const status = actionStatus?.get(statusKey);
+          const dot =
+            status === 'ready'   ? { color: '#5CDB95', glow: 'rgba(92,219,149,0.6)', title: 'Branch ready — instant' }
+          : status === 'pending' ? { color: '#F4B06A', glow: 'rgba(244,176,106,0.5)', title: 'Branch warming — first tap may take a moment' }
+                                 : null;
+          return (
+            <button
+              key={action}
+              data-testid={`action-${action}`}
+              data-action-status={status ?? 'unknown'}
+              onClick={() => { onAction(popup.hotspot, action); onClose(); }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                width: '100%',
+                borderRadius: 8,
+                padding: '7px 12px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: 'rgba(255,255,255,0.88)',
+                cursor: 'pointer',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ flex: 1 }}>
+                {labelFor(action)}
+                {action === 'animate' && (
+                  <span style={{ marginLeft: 6, fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)' }}>beta</span>
+                )}
+              </span>
+              {dot && (
+                <span
+                  title={dot.title}
+                  style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: dot.color,
+                    boxShadow: `0 0 6px ${dot.glow}`,
+                    marginLeft: 8,
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
     </motion.div>
   );
@@ -151,6 +185,11 @@ interface SceneCanvasProps {
   showHotspotVisuals?: boolean;
   /** Set of hotspot IDs that have been preloaded */
   preloadedHotspots?: Set<string>;
+  /** Per-(entity,action) cache state from the SceneStream manifest.
+   * Keyed by `${entityId}:${verb}`. Drives the green/amber readiness
+   * dot in the action menu so users can see which verbs are warmed
+   * for instant tap and which will trigger a fresh generation. */
+  actionStatus?: ActionStatusMap;
   /** Called when user selects an action on a hotspot */
   onHotspotAction?: (hotspot: SceneHotspot, action: HotspotClickAction) => void;
   /** Called when user clicks the background (no hotspot) */
@@ -168,6 +207,7 @@ export default function SceneCanvas({
   sceneState,
   showHotspotVisuals = false,
   preloadedHotspots,
+  actionStatus,
   onHotspotAction,
   onBackgroundClick,
   onBackgroundDoubleClick,
@@ -400,6 +440,8 @@ export default function SceneCanvas({
           <motion.button
             key={hotspot.id}
             aria-label={hotspot.tooltip ?? hotspot.label}
+            data-testid={`hotspot-${hotspot.target_id}`}
+            data-hotspot-type={hotspot.type}
             onClick={e => handleHotspotClick(hotspot, e)}
             onMouseEnter={() => setHoveredHotspot(hotspot.id)}
             onMouseLeave={() => setHoveredHotspot(null)}
@@ -531,6 +573,7 @@ export default function SceneCanvas({
         {actionPopup && !disabled && (
           <HotspotActionMenu
             popup={actionPopup}
+            actionStatus={actionStatus}
             onAction={handleActionSelect}
             onClose={() => setActionPopup(null)}
           />

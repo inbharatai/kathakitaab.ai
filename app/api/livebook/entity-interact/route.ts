@@ -142,10 +142,13 @@ export async function POST(request: Request) {
       return { ...base, branchId: undefined, imageStatus: 'none' as const };
     };
 
-    // Check pre-generated branch cache (from brain or pregenerate-branches)
-    // Try exact sceneId match first, then try any scene for this entity
+    // Check pre-generated branch cache (from brain or pregenerate-branches).
+    // Look up by the user's chosen action so a "Talk Rama" hit doesn't
+    // pull a "Move Rama" cached narration. Falls back to action='auto'
+    // for compatibility with branches saved before per-action pre-gen.
     for (const sid of [sceneId, `brain-${body.bookSlug}`]) {
-      const preGen = await getCachedBranch(sid, entityId);
+      const preGen = await getCachedBranch(sid, entityId, actionType)
+        ?? await getCachedBranch(sid, entityId, 'auto');
       if (preGen && preGen.status === 'ready' && preGen.narration) {
         return NextResponse.json(ensureImageJob({
           title: preGen.title,

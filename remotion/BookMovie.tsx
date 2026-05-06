@@ -16,19 +16,43 @@
 
 import React from 'react';
 import {
-  AbsoluteFill, Audio, Img, Sequence, interpolate, spring,
+  AbsoluteFill, Audio, Img, Sequence, interpolate, random, spring,
   staticFile, useCurrentFrame, useVideoConfig,
 } from 'remotion';
+
+import type { SceneMotion } from '../lib/video/motion';
+import { motionForMood, motionParams } from '../lib/video/motion';
+import type { SubtitleCue } from '../lib/video/subtitlePlanner';
 
 export interface BookMovieScene {
   sceneId: string;
   title: string;
+  /** Source narration text. Subtitles[] is the rendered, timed
+   *  caption track — keep both so the audio can re-derive cues
+   *  if the manifest lacks them. */
   narration: string;
+  /** Pre-baked sentence cues with explicit start/end ms. The
+   *  composition reads these directly instead of computing in
+   *  React, so the manifest is the single source of truth. */
+  subtitles?: SubtitleCue[];
   /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
   imagePath: string;
   /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
   audioPath: string;
+  /** Per Phase 10 spec — alias of audioPath but explicit. Either is fine. */
+  narrationAudioUrl?: string;
   durationSeconds: number;
+  /** Mood tag (serene|dramatic|somber|joyful|sacred|mysterious).
+   *  Drives the default motion + the procedural ambient bed when
+   *  no explicit `backgroundMusicUrl` is supplied. */
+  mood?: string;
+  /** Per-scene camera motion. Falls back to a mood-derived default
+   *  if absent. See `lib/video/motion.ts` for the vocabulary. */
+  motion?: SceneMotion;
+  /** Explicit ambient bed URL. When set, used instead of the mood
+   *  default. Either http(s) or `/`-prefixed local path — same
+   *  resolveAsset rules as imagePath. */
+  backgroundMusicUrl?: string;
 }
 
 export interface BookMovieManifest {
@@ -68,99 +92,381 @@ const TitleCard: React.FC<{ bookTitle: string }> = ({ bookTitle }) => {
   const s = spring({ frame, fps, config: { damping: 80, stiffness: 200 } });
   const fade = interpolate(frame, [durationInFrames - 18, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
+  // Slow rotating glow ring + drifting embers behind the title.
+  // Cinematic-feeling without licensed assets — pure CSS + Img.
+  const glowAngle = frame * 0.6;
+  const embers = React.useMemo(() => Array.from({ length: 24 }, (_, i) => ({
+    id: i,
+    seedX: random(`tx-${i}`),
+    seedY: random(`ty-${i}`),
+    seedDelay: random(`td-${i}`),
+    seedSize: random(`ts-${i}`),
+  })), []);
+
   return (
-    <AbsoluteFill style={{ background: 'radial-gradient(circle at 50% 30%, #4A0404, #0C0806)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: fade }}>
-      <div style={{ width: 140, height: 140, borderRadius: '50%', overflow: 'hidden', border: '4px solid #FFD700', boxShadow: '0 0 60px rgba(255,215,0,0.4)', marginBottom: 40, transform: `scale(${s})` }}>
-        <Img src={staticFile('logo.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.25) translateY(-5%)' }} />
-      </div>
-      <div style={{ fontSize: 84, fontWeight: 800, color: '#FFD700', textShadow: '0 4px 30px rgba(255,215,0,0.3)', transform: `scale(${s})`, fontFamily: 'serif', textAlign: 'center', padding: '0 80px' }}>
-        {bookTitle}
-      </div>
-      <div style={{ fontSize: 26, color: '#FFF0B3', marginTop: 20, letterSpacing: '0.3em', textTransform: 'uppercase', opacity: interpolate(frame, [30, 60], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }) }}>
-        A Living Story
-      </div>
-      <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.45)', marginTop: 28, opacity: interpolate(frame, [50, 80], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }) }}>
-        Narrated end-to-end. Click anything in the app.
+    <AbsoluteFill style={{ background: 'radial-gradient(circle at 50% 35%, #5A0404 0%, #2A0606 45%, #0C0806 100%)', overflow: 'hidden', opacity: fade }}>
+      {/* Rotating outer glow ring */}
+      <div style={{
+        position: 'absolute', top: '50%', left: '50%',
+        width: 1200, height: 1200, marginLeft: -600, marginTop: -600,
+        borderRadius: '50%',
+        background: `conic-gradient(from ${glowAngle}deg, rgba(255,215,0,0) 0deg, rgba(255,215,0,0.18) 60deg, rgba(255,153,51,0.10) 180deg, rgba(255,215,0,0) 360deg)`,
+        filter: 'blur(40px)',
+        opacity: interpolate(frame, [0, 30], [0, 1], { extrapolateRight: 'clamp' }),
+      }} />
+
+      {/* Drifting embers */}
+      {embers.map(e => {
+        const tt = ((frame + e.seedDelay * 90) / 90) % 1;
+        const x = (e.seedX * 1920) | 0;
+        const y = 1080 + 120 - tt * 1300;
+        const op = Math.sin(tt * Math.PI) * 0.6;
+        const size = 2 + e.seedSize * 4;
+        return (
+          <div key={e.id} style={{
+            position: 'absolute', left: x, top: y,
+            width: size, height: size, borderRadius: '50%',
+            background: '#FFD27A',
+            boxShadow: '0 0 12px rgba(255,210,122,0.85)',
+            opacity: op,
+          }} />
+        );
+      })}
+
+      <div style={{
+        position: 'relative', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', height: '100%',
+      }}>
+        <div style={{ width: 160, height: 160, borderRadius: '50%', overflow: 'hidden', border: '4px solid #FFD700', boxShadow: '0 0 80px rgba(255,215,0,0.55), inset 0 0 40px rgba(255,215,0,0.25)', marginBottom: 44, transform: `scale(${s})` }}>
+          <Img src={staticFile('logo.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.25) translateY(-5%)' }} />
+        </div>
+        <div style={{ fontSize: 96, fontWeight: 800, color: '#FFD700', textShadow: '0 6px 40px rgba(255,215,0,0.45), 0 2px 12px rgba(0,0,0,0.8)', transform: `scale(${s})`, fontFamily: 'serif', textAlign: 'center', padding: '0 80px', lineHeight: 1.05 }}>
+          {bookTitle}
+        </div>
+        <div style={{ fontSize: 28, color: '#FFF0B3', marginTop: 24, letterSpacing: '0.36em', textTransform: 'uppercase', opacity: interpolate(frame, [30, 60], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }), fontWeight: 600 }}>
+          A Living Story
+        </div>
+        <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.5)', marginTop: 32, opacity: interpolate(frame, [50, 80], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }), letterSpacing: 1 }}>
+          Narrated end-to-end · Click highlighted scenes in the app
+        </div>
       </div>
     </AbsoluteFill>
   );
 };
 
+// ── Sentence cue helpers ─────────────────────────────────────
+// The manifest is the source of truth for subtitle timing — these
+// helpers convert ms-anchored cues from the manifest into frame
+// windows for the current Sequence, and provide a fallback that
+// derives cues from raw narration text only when the manifest does
+// not include them (e.g., older manifests built before v2).
+
+interface FrameCue {
+  text: string;
+  fromFrame: number;
+  toFrame: number;
+}
+
+function cuesFromManifest(subtitles: SubtitleCue[], audioStartFrame: number, fps: number): FrameCue[] {
+  return subtitles.map(c => ({
+    text: c.text,
+    fromFrame: audioStartFrame + Math.round((c.startMs / 1000) * fps),
+    toFrame:   audioStartFrame + Math.round((c.endMs   / 1000) * fps),
+  }));
+}
+
+function fallbackCues(narration: string, totalFrames: number, audioStartFrame: number): FrameCue[] {
+  const sentences = narration
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+  if (sentences.length === 0) return [];
+  const audioFrames = Math.max(1, totalFrames - audioStartFrame - SCENE_FADE_FRAMES);
+  const totalChars = sentences.reduce((sum, s) => sum + s.length, 0);
+  let cursor = audioStartFrame;
+  return sentences.map((text, i) => {
+    const isLast = i === sentences.length - 1;
+    const share = totalChars > 0 ? text.length / totalChars : 1 / sentences.length;
+    const span = Math.max(12, Math.round(audioFrames * share));
+    const fromFrame = cursor;
+    const toFrame = isLast ? totalFrames : cursor + span;
+    cursor = toFrame;
+    return { text, fromFrame, toFrame };
+  });
+}
+
+// Music ducking volume function — accepts the absolute frame and
+// returns the appropriate volume so the mood bed stays under TTS
+// during narration and rises gently between cues.
+//   base            : volume between cues / outside the audio window
+//   ducked          : volume during a sentence
+// Defaults give the music a clear "I am there" presence (0.28) that
+// drops to 0.10 under speech, with a small fade between the two.
+function makeMusicVolume(
+  cues: FrameCue[],
+  base: number,
+  ducked: number,
+  rampFrames: number,
+): (frame: number) => number {
+  return (frame: number) => {
+    const inCue = cues.some(c => frame >= c.fromFrame && frame < c.toFrame);
+    if (inCue) return ducked;
+    // Look for a cue starting within rampFrames so we anticipate
+    // the duck — the music drops just before TTS speaks.
+    const upcoming = cues.find(c => frame < c.fromFrame && c.fromFrame - frame < rampFrames);
+    if (upcoming) {
+      const t = (rampFrames - (upcoming.fromFrame - frame)) / rampFrames;
+      return base + (ducked - base) * t;
+    }
+    return base;
+  };
+}
+
 const SceneShot: React.FC<{
-  imagePath: string;
-  title: string;
-  narration: string;
-  audioPath: string;
+  scene: BookMovieScene;
   index: number;
   total: number;
-}> = ({ imagePath, title, narration, audioPath, index, total }) => {
+}> = ({ scene, index, total }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, fps } = useVideoConfig();
 
-  // Ken Burns: subtle 1.04→1.10 scale + slow horizontal drift.
-  // Direction alternates per scene so successive panes don't all
-  // drift the same way and feel monotonous.
-  const dir = index % 2 === 0 ? 1 : -1;
-  const t = frame / durationInFrames;
-  const scale = interpolate(t, [0, 1], [1.04, 1.10]);
-  const tx = interpolate(t, [0, 1], [0, dir * 28]);
-  const ty = interpolate(t, [0, 1], [0, -8]);
+  const motion = scene.motion ?? motionForMood(scene.mood);
+  const params = motionParams(motion);
+
+  // Camera math driven by the motion table — same composition for
+  // every scene, but each scene has its own camera personality.
+  const t = frame / Math.max(1, durationInFrames);
+  const scale = interpolate(t, [0, 1], [params.startScale, params.endScale]);
+  const tx = interpolate(t, [0, 1], [0, params.panX]);
+  const ty = interpolate(t, [0, 1], [0, params.panY]);
+
+  // Battle scenes get a tasteful low-amplitude shake — three
+  // out-of-phase sinusoids so the motion never repeats visibly.
+  const shakeX = params.shake
+    ? Math.sin(frame * 0.41) * params.shake + Math.sin(frame * 0.13) * params.shake * 0.6
+    : 0;
+  const shakeY = params.shake
+    ? Math.cos(frame * 0.37) * params.shake * 0.7
+    : 0;
 
   const fadeIn = interpolate(frame, [0, SCENE_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const fadeOut = interpolate(frame, [durationInFrames - SCENE_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const opacity = Math.min(fadeIn, fadeOut);
 
-  // Audio leads in 6 frames after the visual so the first syllable
-  // lands once the eye has registered the new scene.
   const audioStart = 6;
-  const captionAppear = interpolate(frame, [12, 50], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const headerAppear = interpolate(frame, [12, 50], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+
+  // Cues come from the manifest when present, derived otherwise.
+  // Wrapping in useMemo keeps the array reference stable across
+  // frame ticks so we don't re-render dependents needlessly.
+  const cues = React.useMemo<FrameCue[]>(() => {
+    if (scene.subtitles && scene.subtitles.length > 0) {
+      return cuesFromManifest(scene.subtitles, audioStart, fps);
+    }
+    return fallbackCues(scene.narration, durationInFrames, audioStart);
+  }, [scene.subtitles, scene.narration, durationInFrames, fps]);
+
+  const activeCueIndex = cues.findIndex(c => frame >= c.fromFrame && frame < c.toFrame);
+  const activeCue = activeCueIndex >= 0 ? cues[activeCueIndex] : null;
+
+  // Music ducking — base 0.28, ducked 0.10, ramps over 18 frames
+  // (~600ms at 30fps). The mood bed source comes from the manifest
+  // (`backgroundMusicUrl`) when present, else the procedural mood
+  // WAV inferred from the mood tag.
+  const musicVolume = React.useMemo(
+    () => makeMusicVolume(cues, 0.28, 0.10, 18),
+    [cues],
+  );
+  const musicSrc = scene.backgroundMusicUrl
+    ? resolveAsset(scene.backgroundMusicUrl)
+    : scene.mood
+      ? staticFile(`audio/mood/${scene.mood}.wav`)
+      : null;
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806', opacity }}>
+      {/* ── Background image with motion-driven camera ── */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
         <Img
-          src={resolveAsset(imagePath)}
+          src={resolveAsset(scene.imagePath)}
           style={{
             width: '100%', height: '100%', objectFit: 'cover',
-            transform: `scale(${scale}) translate(${tx}px, ${ty}px)`,
-            filter: 'brightness(0.86) saturate(1.12)',
+            transform: `scale(${scale}) translate(${tx + shakeX}px, ${ty + shakeY}px)`,
+            filter: 'brightness(0.86) saturate(1.15)',
           }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(12,8,6,0.55) 0%, transparent 24%, transparent 56%, rgba(12,8,6,0.92) 100%)' }} />
+        {/* Mood tint overlay — varies the look per motion without
+            touching the underlying image. */}
+        {params.tint && (
+          <div style={{ position: 'absolute', inset: 0, background: params.tint, mixBlendMode: 'multiply' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(12,8,6,0.55) 0%, transparent 22%, transparent 50%, rgba(12,8,6,0.96) 100%)' }} />
       </div>
 
+      {/* ── Divine glow + golden particles for sacred scenes ── */}
+      {params.glow && <DivineGlowOverlay frame={frame} />}
+
+      {/* ── Top header chip + scene title ── */}
       <div style={{
-        position: 'absolute', top: 40, left: 56,
-        display: 'flex', alignItems: 'center', gap: 14, opacity: captionAppear,
+        position: 'absolute', top: 44, left: 60, right: 60,
+        display: 'flex', alignItems: 'center', gap: 16, opacity: headerAppear,
       }}>
         <div style={{
-          padding: '6px 16px', borderRadius: 30,
-          background: 'rgba(255,153,51,0.92)', color: '#0C0806',
-          fontSize: 16, fontWeight: 800, letterSpacing: 1,
+          padding: '7px 18px', borderRadius: 999,
+          background: 'linear-gradient(135deg, #FF9933 0%, #FFD700 100%)',
+          color: '#0C0806', fontSize: 16, fontWeight: 800, letterSpacing: 1.5,
+          boxShadow: '0 4px 16px rgba(255,153,51,0.35)',
         }}>
           Scene {index + 1} / {total}
         </div>
-        <div style={{ fontSize: 36, fontWeight: 800, color: '#FFD700', textShadow: '0 3px 14px rgba(0,0,0,0.7)' }}>
-          {title}
+        <div style={{
+          fontSize: 42, fontWeight: 800, color: '#FFD700',
+          textShadow: '0 3px 16px rgba(0,0,0,0.85), 0 0 24px rgba(255,215,0,0.25)',
+          fontFamily: 'serif', letterSpacing: 0.5,
+        }}>
+          {scene.title}
         </div>
       </div>
 
+      {/* ── Cinematic subtitle panel ── */}
+      <SubtitlePanel
+        cues={cues}
+        activeCueIndex={activeCueIndex}
+        activeCue={activeCue}
+        appearAlpha={headerAppear}
+      />
+
+      {/* ── Narration audio (Sarvam Bulbul) ── */}
+      <Sequence from={audioStart}>
+        <Audio src={resolveAsset(scene.audioPath)} />
+      </Sequence>
+
+      {/* ── Mood bed with frame-accurate ducking ── */}
+      {musicSrc && (
+        <Audio
+          src={musicSrc}
+          volume={musicVolume}
+          loop
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// Cinematic subtitle panel — readable contrast, blur backdrop,
+// segmented progress bar that looks intentional. Lifted into its
+// own component because the styling matters and inlining made the
+// SceneShot return statement hard to read.
+const SubtitlePanel: React.FC<{
+  cues: FrameCue[];
+  activeCueIndex: number;
+  activeCue: FrameCue | null;
+  appearAlpha: number;
+}> = ({ cues, activeCueIndex, activeCue, appearAlpha }) => {
+  return (
+    <div
+      data-testid="movie-caption"
+      data-cue-index={activeCueIndex}
+      data-cue-total={cues.length}
+      style={{
+        position: 'absolute', bottom: 72, left: 120, right: 120,
+        opacity: activeCue ? appearAlpha : 0,
+      }}
+    >
       <div style={{
-        position: 'absolute', bottom: 56, left: 80, right: 80, opacity: captionAppear,
+        padding: '24px 32px',
+        borderRadius: 18,
+        background: 'linear-gradient(180deg, rgba(12,8,6,0.62) 0%, rgba(12,8,6,0.82) 100%)',
+        backdropFilter: 'blur(14px)',
+        border: '1px solid rgba(255,215,0,0.22)',
+        boxShadow: '0 12px 36px rgba(0,0,0,0.45)',
       }}>
         <p style={{
-          fontSize: 26, lineHeight: 1.55, color: '#FFF0B3',
-          fontFamily: 'serif', textShadow: '0 3px 16px rgba(0,0,0,0.85)',
-          margin: 0, maxWidth: 1500,
+          fontSize: 38,
+          lineHeight: 1.42,
+          color: '#FFF7DA',
+          fontFamily: 'serif',
+          fontWeight: 500,
+          textShadow: '0 2px 12px rgba(0,0,0,0.85)',
+          margin: 0,
+          letterSpacing: 0.2,
+          // Cap caption to two visual lines on a 1920px canvas;
+          // anything longer is ellipsised so the panel doesn't
+          // grow taller than the lower-third strip.
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
         }}>
-          {narration}
+          {activeCue?.text ?? ''}
         </p>
+        {cues.length > 1 && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+            {cues.map((_, i) => {
+              const past = i < activeCueIndex;
+              const current = i === activeCueIndex;
+              return (
+                <div key={i} style={{
+                  height: 4,
+                  flex: 1,
+                  borderRadius: 4,
+                  background: past
+                    ? 'linear-gradient(90deg, #FF9933, #FFD700)'
+                    : current
+                      ? 'linear-gradient(90deg, #FFD700, rgba(255,215,0,0.4))'
+                      : 'rgba(255,255,255,0.14)',
+                  boxShadow: current ? '0 0 14px rgba(255,215,0,0.55)' : 'none',
+                  transition: 'background 0.25s ease, box-shadow 0.25s ease',
+                }} />
+              );
+            })}
+          </div>
+        )}
       </div>
+    </div>
+  );
+};
 
-      <Sequence from={audioStart}>
-        <Audio src={resolveAsset(audioPath)} />
-      </Sequence>
-    </AbsoluteFill>
+// Divine glow + golden particle layer used by sacred scenes (the
+// `divine_glow` motion). Subtle radial gradient that breathes,
+// plus 18 drifting golden specks anchored by Remotion's seeded
+// random so they're deterministic across re-renders.
+const DivineGlowOverlay: React.FC<{ frame: number }> = ({ frame }) => {
+  const breath = 0.55 + Math.sin(frame * 0.04) * 0.15;
+  const particles = React.useMemo(
+    () => Array.from({ length: 18 }, (_, i) => ({
+      id: i,
+      x: random(`gx-${i}`) * 1920,
+      yPhase: random(`gy-${i}`),
+      size: 3 + random(`gs-${i}`) * 4,
+      speed: 0.4 + random(`gv-${i}`) * 0.6,
+    })),
+    [],
+  );
+  return (
+    <>
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'radial-gradient(circle at 50% 38%, rgba(255,215,0,0.18) 0%, rgba(255,215,0,0.04) 35%, transparent 65%)',
+        opacity: breath,
+        pointerEvents: 'none',
+        mixBlendMode: 'screen',
+      }} />
+      {particles.map(p => {
+        const phase = (p.yPhase + (frame * p.speed) / 240) % 1;
+        const y = 1080 - phase * 1180;
+        return (
+          <div key={p.id} style={{
+            position: 'absolute', left: p.x, top: y,
+            width: p.size, height: p.size, borderRadius: '50%',
+            background: '#FFE7A6',
+            boxShadow: '0 0 14px rgba(255,231,166,0.85)',
+            opacity: Math.sin(phase * Math.PI) * 0.85,
+            pointerEvents: 'none',
+          }} />
+        );
+      })}
+    </>
   );
 };
 
@@ -168,17 +474,42 @@ const EndCard: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const s = spring({ frame, fps, config: { damping: 80, stiffness: 200 } });
+  const fadeIn = interpolate(frame, [0, 24], [0, 1], { extrapolateRight: 'clamp' });
 
   return (
-    <AbsoluteFill style={{ background: 'radial-gradient(circle at 50% 40%, #4A0404, #0C0806)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ transform: `scale(${s})`, textAlign: 'center' }}>
-        <div style={{ width: 96, height: 96, borderRadius: '50%', overflow: 'hidden', border: '3px solid #FFD700', margin: '0 auto 26px' }}>
+    <AbsoluteFill style={{ background: 'radial-gradient(circle at 50% 42%, #5A0404 0%, #2A0606 50%, #0C0806 100%)', overflow: 'hidden' }}>
+      {/* Slow rotating golden ring */}
+      <div style={{
+        position: 'absolute', top: '50%', left: '50%',
+        width: 1400, height: 1400, marginLeft: -700, marginTop: -700,
+        borderRadius: '50%',
+        background: `conic-gradient(from ${frame * 0.5}deg, rgba(255,215,0,0) 0deg, rgba(255,215,0,0.12) 80deg, rgba(255,153,51,0.10) 200deg, rgba(255,215,0,0) 360deg)`,
+        filter: 'blur(60px)',
+        opacity: fadeIn,
+      }} />
+      <div style={{
+        position: 'relative', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', height: '100%',
+        transform: `scale(${s})`, textAlign: 'center',
+      }}>
+        <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: '3px solid #FFD700', boxShadow: '0 0 60px rgba(255,215,0,0.45)', margin: '0 auto 32px' }}>
           <Img src={staticFile('logo.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.25) translateY(-5%)' }} />
         </div>
-        <div style={{ fontSize: 60, fontWeight: 800, color: '#FFD700', marginBottom: 16, fontFamily: 'serif' }}>Touch the Story</div>
-        <div style={{ fontSize: 24, color: '#FFF0B3', marginBottom: 14 }}>Click any character. Click any object. Click anywhere.</div>
-        <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.45)', marginBottom: 36 }}>Every interaction generates a new branch — narration, image, follow-up actions.</div>
-        <div style={{ fontSize: 24, color: '#0C0806', fontWeight: 800, background: 'linear-gradient(135deg, #FF9933, #FFD700)', padding: '16px 52px', borderRadius: 14, display: 'inline-block' }}>kathakitaab.ai</div>
+        <div style={{ fontSize: 72, fontWeight: 800, color: '#FFD700', marginBottom: 20, fontFamily: 'serif', textShadow: '0 4px 22px rgba(255,215,0,0.35)' }}>Touch the Story</div>
+        <div style={{ fontSize: 26, color: '#FFF0B3', marginBottom: 12, maxWidth: 1100, lineHeight: 1.4 }}>
+          Click highlighted characters and objects. Tap the background to discover hidden details.
+        </div>
+        <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.5)', marginBottom: 44, letterSpacing: 1 }}>
+          Every interaction generates a new branch — narration, image, follow-up actions.
+        </div>
+        <div style={{
+          fontSize: 26, color: '#0C0806', fontWeight: 800, letterSpacing: 1.2,
+          background: 'linear-gradient(135deg, #FF9933, #FFD700)',
+          padding: '18px 56px', borderRadius: 16, display: 'inline-block',
+          boxShadow: '0 12px 36px rgba(255,153,51,0.4)',
+        }}>
+          kathakitaab.ai
+        </div>
       </div>
     </AbsoluteFill>
   );
@@ -214,14 +545,7 @@ export const BookMovie: React.FC<{ manifest: BookMovieManifest }> = ({ manifest 
         const { from, frames } = placements[index];
         return (
           <Sequence key={scene.sceneId} from={from} durationInFrames={frames}>
-            <SceneShot
-              imagePath={scene.imagePath}
-              title={scene.title}
-              narration={scene.narration}
-              audioPath={scene.audioPath}
-              index={index}
-              total={total}
-            />
+            <SceneShot scene={scene} index={index} total={total} />
           </Sequence>
         );
       })}

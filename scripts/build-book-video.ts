@@ -30,6 +30,8 @@ import './_loadEnv';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { getSupabaseService } from '../lib/supabase';
+import { planSubtitles, type SubtitleCue } from '../lib/video/subtitlePlanner';
+import { motionForMood, type SceneMotion } from '../lib/video/motion';
 
 const PUBLIC_DIR = join(process.cwd(), 'public');
 const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
@@ -49,7 +51,25 @@ interface ManifestScene {
   narration: string;
   imagePath: string;
   audioPath: string;
+  /** Same as audioPath — kept under both names so the spec-named
+   *  field exists in the manifest (Phase 10 contract). */
+  narrationAudioUrl: string;
   durationSeconds: number;
+  /** Pre-computed subtitle cues with explicit ms timing. The
+   *  Remotion composition reads this directly so the manifest is
+   *  the single source of subtitle truth. */
+  subtitles: SubtitleCue[];
+  /** Per-scene camera motion. Defaults to the mood-based motion
+   *  when not explicitly set on a prior manifest. */
+  motion: SceneMotion;
+  /** Mood tag drives the default music bed and motion. Preserved
+   *  from any prior manifest so a re-build doesn't wipe hand-picked
+   *  mood overrides. */
+  mood?: string;
+  /** Explicit ambient bed URL. When unset, the Remotion composition
+   *  falls back to the procedural mood WAV at /audio/mood/{mood}.wav.
+   *  Setting this to a real CDN URL lets each book ship its own bed. */
+  backgroundMusicUrl?: string;
 }
 
 interface Manifest {
@@ -168,6 +188,25 @@ async function main() {
   const { scenes, bookTitle } = await fetchBook(slug);
   console.log(`[movie-build] ${scenes.length} scenes`);
 
+  // Preserve hand-authored fields from the existing manifest so a
+  // rebuild doesn't drop per-scene mood, motion, or music overrides.
+  const moodBySceneId: Record<string, string> = {};
+  const motionBySceneId: Record<string, SceneMotion> = {};
+  const musicUrlBySceneId: Record<string, string> = {};
+  if (existsSync(manifestPath)) {
+    try {
+      const prev = JSON.parse(readFileSync(manifestPath, 'utf8')) as Manifest;
+      for (const s of prev.scenes) {
+        if (s.mood) moodBySceneId[s.sceneId] = s.mood;
+        if (s.motion) motionBySceneId[s.sceneId] = s.motion;
+        if (s.backgroundMusicUrl) musicUrlBySceneId[s.sceneId] = s.backgroundMusicUrl;
+      }
+      console.log(`[movie-build] preserving ${Object.keys(moodBySceneId).length} mood, ${Object.keys(motionBySceneId).length} motion, ${Object.keys(musicUrlBySceneId).length} music overrides from prior manifest`);
+    } catch (err) {
+      console.warn(`[movie-build] could not read prior manifest: ${err}`);
+    }
+  }
+
   const out: ManifestScene[] = [];
   for (const scene of scenes) {
     // Discover whichever extension is already on disk; rebuild if neither.
@@ -191,13 +230,21 @@ async function main() {
     console.log(`[movie-build]    uploaded: ${audioUrl}`);
 
     const imagePath = scene.background_asset_url || `/images/scene_${scene.scene_id}.png`;
+    const mood = moodBySceneId[scene.scene_id];
+    const motion = motionBySceneId[scene.scene_id] ?? motionForMood(mood);
+    const subtitles = planSubtitles(scene.narration, duration);
     out.push({
       sceneId: scene.scene_id,
       title: scene.title,
       narration: scene.narration,
       imagePath,
       audioPath: audioUrl,
+      narrationAudioUrl: audioUrl,
       durationSeconds: duration,
+      subtitles,
+      motion,
+      mood,
+      backgroundMusicUrl: musicUrlBySceneId[scene.scene_id],
     });
   }
 

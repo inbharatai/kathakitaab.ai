@@ -3,13 +3,15 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Player } from '@remotion/player';
 import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames } from '@/remotion/BookMovie';
+import { BookTrailer, TRAILER_FPS, computeTrailerFrames } from '@/remotion/BookTrailer';
 import { getManifestForSlug } from '@/lib/video/manifestRegistry';
 
 const LANDING_MANIFEST = getManifestForSlug('ramayana')!;
 const LANDING_MOVIE_FRAMES = computeBookMovieFrames(LANDING_MANIFEST);
+const LANDING_TRAILER_FRAMES = computeTrailerFrames(LANDING_MANIFEST);
 
 // ── Data ─────────────────────────────────────────────────────
 
@@ -22,19 +24,19 @@ const SCENE_PREVIEWS = [
 ];
 
 const COMPARISON = [
-  { old: 'Static pages you flip through', new: 'Living scenes you explore' },
-  { old: 'Read-only text and images', new: 'Click any character or object' },
-  { old: 'Same experience every time', new: 'AI generates new branches on every click' },
-  { old: 'Silent pages', new: 'Every scene narrated with cinematic voice' },
-  { old: 'One linear path', new: 'Story graph with hidden discoveries' },
-  { old: 'Books vs. movies — pick one', new: 'Every book exports as a cinematic movie too' },
+  { old: 'Static pages you flip through', new: 'Living scenes that breathe and move' },
+  { old: 'Read-only text and images', new: 'Highlighted characters and objects respond on click' },
+  { old: 'Same experience every time', new: 'AI generates a fresh branch the first time, caches it after' },
+  { old: 'Silent pages', new: 'Every scene narrated with Sarvam Indian-tuned voice' },
+  { old: 'One linear path', new: 'Story graph with hidden discoveries via tap-anywhere' },
+  { old: 'Books vs. movies — pick one', new: 'Every book also plays as a cinematic movie' },
 ];
 
 const STEPS = [
-  { num: '01', title: 'A scene appears', desc: 'AI-generated cinematic illustration with ambient music and auto-narration.' },
-  { num: '02', title: 'Click anything', desc: 'Characters, objects, paths, rivers — every meaningful element responds.' },
-  { num: '03', title: 'AI generates a branch', desc: 'New dialogue, close-up, hidden detail, or entire new scene with its own image.' },
-  { num: '04', title: 'Or watch it as a movie', desc: 'One click turns the same book into a narrated cinematic cut — Ken-Burns over the canon scenes, captions, chapter cards. No separate workflow, no export wait.' },
+  { num: '01', title: 'A scene appears', desc: 'Hand-painted illustration with a procedural mood bed underneath and auto-narration in Sarvam’s Indian-tuned voice.' },
+  { num: '02', title: 'Click highlighted elements', desc: 'Characters and objects with golden glow rings respond instantly. Tap anywhere else and AI checks if there’s a hidden detail worth surfacing.' },
+  { num: '03', title: 'A branch unfolds', desc: 'New narration, character voice, close-up illustration, follow-up actions — generated once, cached forever, action-keyed so Talk and Fight stay distinct.' },
+  { num: '04', title: 'Or watch it as a movie', desc: 'Same engine renders a cinematic cut: per-scene camera motion, sentence-by-sentence captions, mood music ducked under narration. Plus a 45-second trailer cut on demand.' },
 ];
 
 const SUPPORTED_WORLDS = [
@@ -49,6 +51,12 @@ export default function HomePage() {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
   const heroParallax = useTransform(scrollYProgress, [0, 1], [0, -80]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
+
+  // Movie Mode preview defaults to the 45-second trailer cut for a
+  // snappier first impression. Visitor can switch to the Full Movie
+  // (~6:46) without leaving the section. Same composition vocabulary,
+  // different pacing — built on the same manifest.
+  const [moviePreview, setMoviePreview] = useState<'trailer' | 'movie'>('trailer');
 
   return (
     <main className="lp">
@@ -96,7 +104,8 @@ export default function HomePage() {
             </h1>
 
             <p className="lp-hero-sub font-serif">
-              Click any character. Ask any object. Or watch the whole book as a movie.<br />
+              Click highlighted characters and objects. Tap the background to discover hidden details.<br />
+              Or watch the whole book play as a cinematic movie.<br />
               AI generates new scenes, narration, and images — in real time.
             </p>
 
@@ -122,7 +131,7 @@ export default function HomePage() {
       <section className="lp-demo">
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
           <Image src="/logo.png" alt="KathaKitaab.ai" width={140} height={140} style={{ display: 'block', margin: '0 auto 20px', borderRadius: '18px' }} />
-          <p className="lp-section-sub">Every scene is a living world. Click anywhere meaningful — the AI responds.</p>
+          <p className="lp-section-sub">Highlighted characters and objects respond on click. Tap the background and the AI checks for hidden details worth surfacing.</p>
         </motion.div>
 
         <motion.div
@@ -216,27 +225,28 @@ export default function HomePage() {
         >
           <span className="lp-hero-badge" style={{ marginBottom: 14 }}>
             <span className="lp-hero-badge-dot" />
-            New · Movie Mode
+            New · Movie Mode v2
           </span>
           <motion.h2 className="lp-section-title" style={{ marginTop: 8 }}>
-            Turn any book into a movie
+            Every book also plays as a film
           </motion.h2>
-          <p className="lp-section-sub" style={{ maxWidth: 720, margin: '10px auto 0' }}>
-            Every book in KathaKitaab can play as a full cinematic film — narrated
-            end-to-end in Sarvam&apos;s Indian-tuned voice, with Ken-Burns motion over
-            the canon scenes, chapter cards, and burned-in captions. The same engine
-            that runs the interactive reader builds the movie on demand. No render
-            wait. No separate export. Just press play.
+          <p className="lp-section-sub" style={{ maxWidth: 760, margin: '10px auto 0' }}>
+            One manifest, two cuts. The engine renders a {Math.round(LANDING_TRAILER_FRAMES / TRAILER_FPS)}-second
+            cinematic trailer or the full {Math.round(LANDING_MOVIE_FRAMES / BOOK_MOVIE_FPS / 60)}-minute movie
+            from the same scenes — per-scene camera motion, sentence-by-sentence captions, and a procedural
+            mood bed that ducks under Sarvam&apos;s narration. No licensed soundtrack, no third-party export.
           </p>
           <ul style={{
-            display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap',
-            margin: '20px auto 0', padding: 0, listStyle: 'none', maxWidth: 760,
+            display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
+            margin: '22px auto 0', padding: 0, listStyle: 'none', maxWidth: 920,
           }}>
             {[
-              ['🎬', 'Cinematic Ken-Burns over every scene'],
-              ['🗣️', 'Sarvam Bulbul narration, character-aware voices'],
-              ['📜', 'Chapter cards & flowing captions'],
-              ['⚡', 'Generated live — no MP4 to wait for'],
+              ['🎥', 'Per-scene motion — battle push, divine glow, slow pan'],
+              ['🗣️', 'Sarvam Bulbul narration with role-aware voices'],
+              ['💬', 'Sentence cues with explicit ms timing in the manifest'],
+              ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
+              ['✨', 'Particles & rim light on sacred + dramatic scenes'],
+              ['📥', 'Full-quality MP4 export from the movie page'],
             ].map(([icon, text]) => (
               <li key={text} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -248,7 +258,43 @@ export default function HomePage() {
               </li>
             ))}
           </ul>
+
+          {/* Trailer / Full Movie toggle — same composition vocabulary,
+              different pacing. Visitors land on the trailer (snappy)
+              and can switch to the full cut without leaving the page. */}
+          <div role="tablist" aria-label="Movie preview mode" style={{
+            display: 'inline-flex', gap: 4, marginTop: 26, padding: 4,
+            background: 'rgba(12,8,6,0.7)', borderRadius: 999,
+            border: '1px solid rgba(255,215,0,0.16)',
+          }}>
+            {(['trailer', 'movie'] as const).map(key => {
+              const active = moviePreview === key;
+              const label = key === 'trailer'
+                ? `Trailer · ${Math.round(LANDING_TRAILER_FRAMES / TRAILER_FPS)}s`
+                : `Full Movie · ${Math.round(LANDING_MOVIE_FRAMES / BOOK_MOVIE_FPS / 60)} min`;
+              return (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setMoviePreview(key)}
+                  data-testid={`landing-${key}-toggle`}
+                  style={{
+                    padding: '8px 18px', borderRadius: 999,
+                    background: active ? 'linear-gradient(135deg, #FF9933, #FFD700)' : 'transparent',
+                    color: active ? '#0C0806' : 'var(--color-gold-light)',
+                    border: 'none', cursor: 'pointer',
+                    fontSize: '0.82rem', fontWeight: 700, letterSpacing: 0.4,
+                    transition: 'background 0.2s ease, color 0.2s ease',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </motion.div>
+
         <motion.div
           className="lp-trailer-wrap"
           initial={{ opacity: 0, scale: 0.97 }}
@@ -256,26 +302,42 @@ export default function HomePage() {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          {/* Live Remotion composition — narration streams from Supabase
-              Storage CDN, scene art is static, frames render in-browser.
-              No pre-baked MP4: the same engine that runs the in-app reader
-              renders the trailer. */}
-          <Player
-            component={BookMovie}
-            inputProps={{ manifest: LANDING_MANIFEST }}
-            durationInFrames={LANDING_MOVIE_FRAMES}
-            fps={BOOK_MOVIE_FPS}
-            compositionWidth={1920}
-            compositionHeight={1080}
-            // Park the playhead 1s into the title card so the spring
-            // has settled — visitors see the book branding, not a
-            // half-faded red gradient.
-            initialFrame={30}
-            controls
-            clickToPlay
-            doubleClickToFullscreen
-            style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
-          />
+          {/* Live Remotion composition — same one that exports the MP4.
+              Narration WAVs stream from Supabase CDN, scene art is in
+              /public, mood beds are local procedural WAVs. No pre-render
+              wait. Switching modes swaps the composition + manifest in
+              place; React keys force a fresh Player mount. */}
+          {moviePreview === 'trailer' ? (
+            <Player
+              key="trailer"
+              component={BookTrailer}
+              inputProps={{ manifest: LANDING_MANIFEST }}
+              durationInFrames={LANDING_TRAILER_FRAMES}
+              fps={TRAILER_FPS}
+              compositionWidth={1920}
+              compositionHeight={1080}
+              initialFrame={20}
+              controls
+              clickToPlay
+              doubleClickToFullscreen
+              style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
+            />
+          ) : (
+            <Player
+              key="movie"
+              component={BookMovie}
+              inputProps={{ manifest: LANDING_MANIFEST }}
+              durationInFrames={LANDING_MOVIE_FRAMES}
+              fps={BOOK_MOVIE_FPS}
+              compositionWidth={1920}
+              compositionHeight={1080}
+              initialFrame={30}
+              controls
+              clickToPlay
+              doubleClickToFullscreen
+              style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
+            />
+          )}
         </motion.div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 22, flexWrap: 'wrap' }}>
           <Link href="/books/ramayana/movie" className="lp-btn-primary" style={{ textDecoration: 'none' }}>

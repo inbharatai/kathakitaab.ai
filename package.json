@@ -11,12 +11,16 @@
     "migrate": "npx tsx scripts/apply-supabase-migrations.ts",
     "clean:stale": "npx tsx scripts/clean-stale.ts",
     "movie:build": "npx tsx scripts/build-book-video.ts",
-    "movie:build:ramayana": "npx tsx scripts/build-book-video.ts --slug=ramayana"
+    "movie:build:ramayana": "npx tsx scripts/build-book-video.ts --slug=ramayana",
+    "movie:verify": "npx tsx scripts/verify-manifest.ts --all",
+    "movie:music": "npx tsx scripts/build-mood-music.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
+    "@remotion/bundler": "^4.0.457",
     "@remotion/cli": "^4.0.456",
     "@remotion/player": "^4.0.456",
+    "@remotion/renderer": "^4.0.457",
     "@supabase/supabase-js": "^2.105.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",

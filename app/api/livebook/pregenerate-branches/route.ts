@@ -11,12 +11,10 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai/openaiClient';
-import { getGeminiClient, getTextModel, isGeminiConfigured } from '@/lib/openai/client';
-import { checkContentSafety } from '@/lib/agents/safetyAgent';
+import { generateBranch } from '@/lib/agents/branchAgent';
 import { checkRateLimit, runInBatches, MAX_PARALLEL_BRANCHES } from '@/lib/middleware/rateLimit';
 import {
-  getCachedBranch, saveCachedBranch, saveManifest, getManifest,
+  getCachedBranch, saveCachedBranch, saveManifest, getManifest, getPregenActions,
   type PreGeneratedBranch, type BranchManifest,
 } from '@/lib/engine/branchPreGenerator';
 
@@ -26,6 +24,14 @@ interface Entity {
   type: string;
   x: number;
   y: number;
+}
+
+// One pre-gen unit of work — a specific (entity, action) pair.
+// Splitting this out lets us cache and parallelize at the verb level
+// so a "Talk Rama" warm hit never blocks a "Move Rama" miss.
+interface PregenJob {
+  entity: Entity;
+  action: string;
 }
 
 interface PregenerateRequest {
@@ -55,45 +61,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: 'cached', manifest: existing });
     }
 
-    // Cap total entities at 8 and process in concurrency-limited batches
-    // (default 2 parallel) so we never fan out 8 OpenAI calls at once.
+    // Cap total entities at 8 and expand each into (entity × top-2
+    // canon-allowed actions). This is the fix for the "Talk vs Fight"
+    // collision: each verb gets its own warmed branch keyed by action,
+    // so the first click of either action hits cache instead of paying
+    // for fresh generation. Cost ceiling: 2× per entity → at most 16
+    // branches per scene, throttled to MAX_PARALLEL_BRANCHES (default 2).
+    const jobs: PregenJob[] = entities.slice(0, 8).flatMap(entity => {
+      const actions = getPregenActions(bookSlug, entity.entityId, entity.type);
+      return actions.map(action => ({ entity, action }));
+    });
+
     const branches = await runInBatches(
-      entities.slice(0, 8),
+      jobs,
       MAX_PARALLEL_BRANCHES,
-      async (entity): Promise<PreGeneratedBranch> => {
-        const cached = await getCachedBranch(sceneId, entity.entityId);
+      async ({ entity, action }: PregenJob): Promise<PreGeneratedBranch> => {
+        const cached = await getCachedBranch(sceneId, entity.entityId, action);
         if (cached) return cached;
 
-        try {
-          const branch = await generateBranchForEntity(
-            bookTitle, sceneId, sceneTitle, sceneNarration, entity,
-          );
+        const branch = await generateBranch({
+          bookTitle, sceneId, sceneTitle, sceneNarration,
+          entityId: entity.entityId,
+          entityLabel: entity.label,
+          entityType: entity.type as PreGeneratedBranch['entityType'],
+          action,
+        });
 
-          const safety = checkContentSafety(branch.narration + ' ' + branch.sceneText);
-          if (!safety.passed) {
-            return { ...branch, status: 'failed' as const, narration: 'This content is not available.', sceneText: '' };
-          }
-
-          await saveCachedBranch(sceneId, entity.entityId, branch);
-          return branch;
-        } catch (err) {
-          console.error(`[PreGen] Failed for ${entity.label}:`, err);
-          return {
-            branchId: `branch-${sceneId}-${entity.entityId}-failed`,
-            parentSceneId: sceneId,
-            entityId: entity.entityId,
-            entityLabel: entity.label,
-            entityType: entity.type as PreGeneratedBranch['entityType'],
-            actionType: 'failed',
-            title: entity.label,
-            narration: '',
-            sceneText: '',
-            imagePrompt: '',
-            imageUrl: null,
-            nextActions: [],
-            status: 'failed' as const,
-          };
+        if (branch.status === 'ready') {
+          await saveCachedBranch(sceneId, entity.entityId, action, branch);
         }
+        return branch;
       },
     );
 
@@ -118,95 +115,6 @@ export async function POST(request: Request) {
   }
 }
 
-// ── Generate a single branch for one entity ──────────────────
-
-async function generateBranchForEntity(
-  bookTitle: string,
-  sceneId: string,
-  sceneTitle: string,
-  sceneNarration: string,
-  entity: Entity,
-): Promise<PreGeneratedBranch> {
-  const actionMap: Record<string, string> = {
-    character: 'character_dialogue',
-    object: 'object_detail',
-    location: 'location_branch',
-    animal: 'animal_interaction',
-    place: 'location_branch',
-    background: 'hidden_discovery',
-  };
-
-  const promptMap: Record<string, string> = {
-    character: `Generate an interactive dialogue moment with "${entity.label}". Show their inner thoughts, a short spoken line, and what they do next. Make it emotional and cinematic.`,
-    object: `Generate a discovery about "${entity.label}". Reveal its history, significance, and a hidden detail. Make it feel like finding a game secret.`,
-    location: `Generate a location exploration for "${entity.label}". Describe what the user sees, hears, and discovers by moving into this area. Create atmosphere.`,
-    animal: `Generate an interaction with "${entity.label}". Show the animal's behavior, its significance in the story, and what happens when the user approaches.`,
-    place: `Generate a location discovery for "${entity.label}". Reveal what is hidden in this place.`,
-    background: `Generate an atmospheric detail about "${entity.label}". What does the user notice, hear, or discover here?`,
-  };
-
-  const systemPrompt = `You are a Living Story Engine for "${bookTitle}". Generate a rich interactive moment for the scene "${sceneTitle}".
-Context: ${sceneNarration.slice(0, 400)}
-
-Respond with valid JSON:
-{
-  "title": "short cinematic title",
-  "narration": "2-3 sentences that TTS will speak aloud (warm, vivid)",
-  "sceneText": "1 paragraph of rich descriptive text",
-  "imagePrompt": "detailed visual description for image generation",
-  "nextActions": ["3 follow-up actions the user could take"]
-}`;
-
-  const userPrompt = promptMap[entity.type] || promptMap.background;
-  let result: { title: string; narration: string; sceneText: string; imagePrompt: string; nextActions: string[] };
-
-  if (isOpenAIConfigured()) {
-    try {
-      const client = getOpenAIClient();
-      const completion = await client.chat.completions.create({
-        model: getOpenAIModel(),
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.8,
-        max_tokens: 600,
-      });
-      result = JSON.parse(completion.choices[0]?.message?.content || '{}');
-    } catch {
-      result = await generateWithGemini(systemPrompt, userPrompt);
-    }
-  } else if (isGeminiConfigured()) {
-    result = await generateWithGemini(systemPrompt, userPrompt);
-  } else {
-    throw new Error('No AI configured');
-  }
-
-  return {
-    branchId: `branch-${sceneId}-${entity.entityId}-${Date.now()}`,
-    parentSceneId: sceneId,
-    entityId: entity.entityId,
-    entityLabel: entity.label,
-    entityType: entity.type as PreGeneratedBranch['entityType'],
-    actionType: actionMap[entity.type] || 'hidden_discovery',
-    title: result.title || entity.label,
-    narration: result.narration || '',
-    sceneText: result.sceneText || '',
-    imagePrompt: result.imagePrompt || '',
-    imageUrl: null, // Images generated on-demand to save cost
-    nextActions: result.nextActions || [],
-    status: 'ready' as const,
-  };
-}
-
-async function generateWithGemini(systemPrompt: string, userPrompt: string) {
-  const ai = getGeminiClient();
-  const model = getTextModel();
-  const res = await ai.models.generateContent({
-    model,
-    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-    config: { systemInstruction: systemPrompt, temperature: 0.8, maxOutputTokens: 800, responseMimeType: 'application/json' },
-  });
-  return JSON.parse(res.text || '{}');
-}
+// Branch generation lives in `lib/agents/branchAgent.ts`. Both this
+// route and LivingBookBrain delegate there so the verb-to-narration
+// contract stays in one place.

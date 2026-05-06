@@ -92,8 +92,11 @@ export async function handleEntityClick(
     return { branch: existing, cached: true, imageGenerating: false };
   }
 
-  // 2. Check pre-generated branch cache (from pregenerate-branches API)
-  const preGenBranch = await getCachedBranch(ctx.sceneId, ctx.entityId);
+  // 2. Check pre-generated branch cache, keyed by (scene, entity, action)
+  // so the right verb hits the right warmed branch. Falls back to the
+  // legacy 'auto' key for branches saved before per-action pre-gen.
+  const preGenBranch = (await getCachedBranch(ctx.sceneId, ctx.entityId, ctx.actionType))
+    ?? (await getCachedBranch(ctx.sceneId, ctx.entityId, 'auto'));
   if (preGenBranch && preGenBranch.status === 'ready' && preGenBranch.narration) {
     const branch: SceneBranch = {
       id: preGenBranch.branchId,

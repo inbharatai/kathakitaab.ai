@@ -162,6 +162,16 @@ export default function SceneViewer({
   const [isMuted, setIsMuted]           = useState(false);
   const [isNarrating, setIsNarrating]   = useState(false);
   const [preloadedHotspots, setPreloadedHotspots] = useState<Set<string>>(new Set());
+  // Manifest-driven action readiness, keyed by `${entityId}:${verb}`.
+  // Populated by /api/livebook/scene-stream/[sceneId] on scene load
+  // and refreshed when pre-gen reports completion. Drives the
+  // green/amber dot in SceneCanvas's hotspot action menu.
+  const [actionStatus, setActionStatus] = useState<Map<string, 'ready' | 'pending' | 'none'>>(new Map());
+  // SSE subscription handle. We keep a ref so loadScene can close the
+  // previous stream before opening a new one — leaving an old EventSource
+  // around would leak connections and apply readiness updates from a
+  // stale scene to the current one.
+  const readinessStreamRef = useRef<EventSource | null>(null);
   const isMutedRef = useRef(false);
   const sceneContainerRef = useRef<HTMLDivElement>(null);
 
@@ -255,6 +265,60 @@ export default function SceneViewer({
     setFlipHistory([]);
   }, []);
 
+  // ── Live readiness stream (SSE) ──
+  // Subscribes to /api/livebook/stream-updates/[sceneId] and applies
+  // each `branch_ready` event to the action-status map so dots flip
+  // green in real time as pre-gen warms branches. Closes any prior
+  // subscription so we don't leak connections across scene changes.
+  const subscribeToReadiness = useCallback((sceneId: string) => {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+    readinessStreamRef.current?.close();
+
+    const url = `/api/livebook/stream-updates/${sceneId}?bookSlug=${bookSlug}`;
+    const es = new EventSource(url);
+    readinessStreamRef.current = es;
+
+    es.addEventListener('branch_ready', (ev: MessageEvent) => {
+      try {
+        const { entityId, verb } = JSON.parse(ev.data) as { entityId: string; verb: string };
+        setActionStatus(prev => {
+          const next = new Map(prev);
+          next.set(`${entityId}:${verb}`, 'ready');
+          return next;
+        });
+      } catch { /* ignore malformed event */ }
+    });
+
+    es.addEventListener('complete', () => { es.close(); });
+    es.onerror = () => { es.close(); };
+  }, [bookSlug]);
+
+  // Tear down the stream on unmount so we never apply events to an
+  // unmounted component.
+  useEffect(() => () => { readinessStreamRef.current?.close(); }, []);
+
+  // ── SceneStream manifest fetch ──
+  // Pulls per-(entity, verb) cache state for the current scene and
+  // hydrates `actionStatus`. Safe to call multiple times — each call
+  // overwrites the map atomically. Failures are non-blocking; the
+  // action menu just renders without dots if the manifest is unreachable.
+  const refreshActionStatus = useCallback(async (sceneId: string) => {
+    try {
+      const res = await fetch(`/api/livebook/scene-stream/${sceneId}?bookSlug=${bookSlug}`);
+      if (!res.ok) return;
+      const manifest = await res.json() as {
+        entities: Array<{ entityId: string; actions: Array<{ verb: string; status: 'ready' | 'pending' | 'none' }> }>;
+      };
+      const map = new Map<string, 'ready' | 'pending' | 'none'>();
+      for (const entity of manifest.entities ?? []) {
+        for (const action of entity.actions ?? []) {
+          map.set(`${entity.entityId}:${action.verb}`, action.status);
+        }
+      }
+      setActionStatus(map);
+    } catch { /* manifest is optional — ignore */ }
+  }, [bookSlug]);
+
   // ── Load scene ──
   const loadScene = useCallback(async (sceneId: string, direction: 1 | -1 = 1) => {
     setTransitionDir(direction);
@@ -342,8 +406,22 @@ export default function SceneViewer({
           }),
         }).then(res => res.json()).then(data => {
           console.log(`[PreGen] ${data.readyCount}/${data.total} branches ready for ${loadedScene.scene_id}`);
+          // Refresh manifest after pre-gen completes so action menu
+          // dots flip from amber → green without waiting for next nav.
+          refreshActionStatus(loadedScene.scene_id);
         }).catch(() => { /* pre-gen failure is non-blocking */ });
       }
+
+      // Fetch initial manifest so the action menu shows readiness dots
+      // immediately (before pregenerate-branches completes). The cache
+      // is empty on first visit — every action shows as 'pending' — but
+      // canon entries are still flagged so users see which verbs are
+      // canon-allowed vs. generic fallback.
+      refreshActionStatus(loadedScene.scene_id);
+
+      // Subscribe to live readiness events — action-menu dots flip
+      // amber → green in real time as branches warm, without a re-poll.
+      subscribeToReadiness(loadedScene.scene_id);
 
       // Narration Manager: scene changed → narrate
       narrationManager.onSceneChanged(loadedScene.scene_id, loadedScene.narration);
@@ -353,7 +431,7 @@ export default function SceneViewer({
     } finally {
       setLoading(false);
     }
-  }, [bookSlug, mutateGame, onSceneChange, resolvedSceneBasePath]);
+  }, [bookSlug, mutateGame, onSceneChange, resolvedSceneBasePath, refreshActionStatus, subscribeToReadiness]);
 
   // ── Generate a brand new scene dynamically ──
   const generateNewScene = useCallback(async (
@@ -813,6 +891,7 @@ export default function SceneViewer({
                 sceneState={sceneState ?? undefined}
                 showHotspotVisuals={showHotspotVisuals}
                 preloadedHotspots={preloadedHotspots}
+                actionStatus={actionStatus}
                 onHotspotAction={handleHotspotAction}
                 onBackgroundClick={handleBackgroundClick}
                 onBackgroundDoubleClick={handleBackgroundDoubleClick}
