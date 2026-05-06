@@ -19,10 +19,10 @@
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
-    "@remotion/bundler": "^4.0.457",
-    "@remotion/cli": "^4.0.456",
-    "@remotion/player": "^4.0.456",
-    "@remotion/renderer": "^4.0.457",
+    "@remotion/bundler": "4.0.457",
+    "@remotion/cli": "4.0.457",
+    "@remotion/player": "4.0.457",
+    "@remotion/renderer": "4.0.457",
     "@supabase/supabase-js": "^2.105.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
@@ -31,7 +31,7 @@
     "openai": "^6.35.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "remotion": "^4.0.456"
+    "remotion": "4.0.457"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

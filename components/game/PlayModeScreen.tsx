@@ -300,7 +300,7 @@ export default function PlayModeScreen({ bookSlug }: Props) {
 
       setPendingAction(null);
       setPendingInput('');
-    } catch (err) {
+    } catch {
       setPendingAction(null);
       setPendingInput('');
     } finally {

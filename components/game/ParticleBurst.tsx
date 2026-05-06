@@ -40,7 +40,7 @@ export default function ParticleBurst({ trigger }: Props) {
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
       });
     }
-  }, [trigger?.id]);
+  }, [trigger]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

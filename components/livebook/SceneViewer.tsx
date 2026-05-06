@@ -23,7 +23,6 @@ import { sceneToStoryScene } from '@/lib/types/sceneAdapter';
 
 import SceneCanvas from './SceneCanvas';
 import SceneGenerating from './SceneGenerating';
-import ActionMenu, { type ActionMenuAction } from './ActionMenu';
 import ModeSwitcher from './ModeSwitcher';
 import NarrationPanel from './NarrationPanel';
 import QuizPanel from './QuizPanel';
@@ -80,12 +79,6 @@ const SCENE_CHOICES: Record<string, StoryChoice[]> = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────
-interface BackgroundMenuState {
-  x: number;
-  y: number;
-  xPct: number;
-  yPct: number;
-}
 
 function makeEntryId() { return `fp-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 
@@ -139,7 +132,6 @@ export default function SceneViewer({
   const [activeBranch, setActiveBranch]   = useState<SceneBranch | null>(null);
   const [branchLoading, setBranchLoading] = useState(false);
   const [transitionDir, setTransitionDir] = useState<1 | -1>(1);
-  const [bgMenu, setBgMenu]              = useState<BackgroundMenuState | null>(null);
   const [textExpanded, setTextExpanded]   = useState(false);
 
   const showHotspotVisuals = useMemo(() => {
@@ -350,7 +342,6 @@ export default function SceneViewer({
     setError('');
     setTextExpanded(false);
     setFlipHistory([]);
-    setBgMenu(null);
     narrationManager.stopNarration();
 
     try {
@@ -466,7 +457,6 @@ export default function SceneViewer({
     setGenerating(true);
     setGeneratingContext(`From: ${storyScene.page_title}`);
     setFlipHistory([]);
-    setBgMenu(null);
     narrationManager.stopNarration();
 
     try {
@@ -561,7 +551,7 @@ export default function SceneViewer({
       setGenerating(false);
       setGeneratingContext('');
     }
-  }, [storyScene, bookSlug, mutateGame]);
+  }, [storyScene, bookSlug, mutateGame, sceneState]);
 
   useEffect(() => {
     const initialLoadTimeout = window.setTimeout(() => {
@@ -636,7 +626,6 @@ export default function SceneViewer({
     // Click anything → generate a branch with text + image + narration
     setBranchLoading(true);
     setActiveBranch(null);
-    setBgMenu(null);
 
     try {
       const entityCtx: EntityClickContext = {
@@ -703,7 +692,6 @@ export default function SceneViewer({
     if (flipOpen || !storyScene) return;
     if (!isMutedRef.current) soundEngine?.playClickSound();
 
-    setBgMenu(null);
     setBranchLoading(true);
     setActiveBranch(null);
 

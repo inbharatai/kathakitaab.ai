@@ -26,7 +26,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 async function snap(page: Page, name: string) {
   const path = join(OUT_DIR, `${name}.png`);
   await page.screenshot({ path, fullPage: false });
-  // eslint-disable-next-line no-console
+   
   console.log(`[snap] ${name} → ${path}`);
 }
 

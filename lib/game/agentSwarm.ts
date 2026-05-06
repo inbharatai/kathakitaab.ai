@@ -11,7 +11,7 @@
 //   NarratorAgent → queues TTS narration
 // ============================================================
 
-import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
+import { buildCacheKey, getCachedResponse } from '@/lib/cache/responseCache';
 
 export type AgentEvent =
   | { type: 'PRELOAD_COMPLETE'; sceneId: string; hotspotId: string }

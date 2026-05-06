@@ -47,7 +47,6 @@ export function evaluateConsequence(
   choice: string,
   choiceType: 'honest' | 'deceptive' | 'brave' | 'cowardly' | 'kind' | 'selfish' | 'creative' | 'violent' | 'neutral',
   targetNpcSlug?: string,
-  ageBand: 'child' | 'youth' | 'adult' = 'youth'
 ): ChoiceConsequence {
   const base = CHOICE_TYPE_BASES[choiceType] ?? CHOICE_TYPE_BASES.neutral;
 
@@ -161,7 +160,6 @@ export function applyChoiceConsequence(
   worldState: WorldState,
   choiceMade: string,
   consequence: ChoiceConsequence,
-  questStateRef?: { failedQuestIds: string[] }
 ): { updatedWorldState: WorldState; entry: ConsequenceEntry } {
   const entry: ConsequenceEntry = {
     id: `consequence-${Date.now()}`,

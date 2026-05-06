@@ -34,7 +34,7 @@ const LOCATION_THEMES = [
 ];
 
 export default function WorldMap({
-  bookSlug, scenes, worldState, questState, gameState,
+  scenes, questState, gameState,
   selectedCharacter, currentSceneId, onSceneSelect,
 }: Props) {
   const completedSceneIds = new Set(gameState.scenesVisited);

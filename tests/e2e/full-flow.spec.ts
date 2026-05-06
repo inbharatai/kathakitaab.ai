@@ -234,7 +234,6 @@ test.describe('API Routes', () => {
 test.describe('Error States', () => {
   test('invalid book slug returns error', async ({ request }) => {
     const res = await request.get('/api/books/nonexistent-book-xyz');
-    const data = await res.json();
     // Should either return empty or error, not crash
     expect(res.status()).toBeLessThan(500);
   });

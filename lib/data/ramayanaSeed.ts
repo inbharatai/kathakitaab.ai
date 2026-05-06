@@ -1,7 +1,7 @@
 import { Book, QuizQuestion, SourceReference, SceneWithHotspots } from '@/lib/types/livebook';
-import { ramayanaScenes, getSceneById, getScenesByBookId } from './scenes';
-import { ramayanaCharacters, getCharacterBySlug, getCharactersByBookId } from './characters';
-import { ramayanaHotspots, getHotspotsBySceneId } from './hotspots';
+import { getSceneById } from './scenes';
+import { getCharacterBySlug } from './characters';
+import { getHotspotsBySceneId } from './hotspots';
 
 // ---- Book ----
 export const ramayanaBook: Book = {

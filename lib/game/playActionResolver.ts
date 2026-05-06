@@ -131,7 +131,6 @@ function buildConsequence(
     request.action.userInput?.trim() || request.action.label,
     choiceType,
     targetNpcSlug,
-    request.ageBand
   );
 
   const progressMultiplier = completedObjectiveIds.length > 0 ? 1 : 0.3;

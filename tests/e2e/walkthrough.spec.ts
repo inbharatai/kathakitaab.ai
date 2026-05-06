@@ -14,7 +14,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 async function snap(page: Page, name: string) {
   const path = join(OUT_DIR, `${name}.png`);
   await page.screenshot({ path, fullPage: false });
-  // eslint-disable-next-line no-console
+   
   console.log(`[snap] ${name} → ${path}`);
 }
 
@@ -96,7 +96,7 @@ test.describe.serial('KathaKitaab a-to-z walkthrough', () => {
     await page.waitForTimeout(2_000); // give SceneCanvas time to paint
     const hotspots = page.locator('main button[aria-label], [class*="book-page"] button[aria-label]');
     const hotspotCount = await hotspots.count();
-    // eslint-disable-next-line no-console
+     
     console.log(`[walkthrough] found ${hotspotCount} hotspot candidates`);
 
     await snap(page, '05a-before-hotspot-click');
@@ -139,7 +139,7 @@ test.describe.serial('KathaKitaab a-to-z walkthrough', () => {
 
     // Surface any browser-side errors so the test report is honest.
     if (consoleErrors.length > 0) {
-      // eslint-disable-next-line no-console
+       
       console.log('[walkthrough] browser issues:\n' + consoleErrors.slice(0, 10).join('\n'));
     }
   });

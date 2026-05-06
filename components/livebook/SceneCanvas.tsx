@@ -215,7 +215,6 @@ interface SceneCanvasProps {
 
 export default function SceneCanvas({
   scene,
-  sceneState,
   showHotspotVisuals = false,
   preloadedHotspots,
   actionStatus,

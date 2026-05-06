@@ -1,4 +1,4 @@
-import { Scene, Hotspot, QuizQuestion } from '@/lib/types/livebook';
+import { Scene } from '@/lib/types/livebook';
 
 const BOOK_ID = 'ramayana-livebook';
 

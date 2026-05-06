@@ -1,6 +1,18 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Kathakitab.ai MVP - Ramayana LiveBook', () => {
+// These specs were written against the v1 MVP surface (drawer-panel
+// character drawer, .hotspot-marker class, #start-ramayana-btn,
+// "Books that come alive" hero copy, in-page Quiz tab). v2 and v3
+// redesigned all four around FlipbookPage + button[aria-label]
+// hotspots + new landing copy + a separate quiz API. Equivalent
+// coverage now lives in:
+//   - landing-truth.spec.ts        (hero + CTA + comparison rows)
+//   - hotspot-branch.spec.ts       (hotspot click + branch panel)
+//   - canon-consistency.spec.ts    (character ask flow + canon)
+//   - full-flow.spec.ts            (scene navigation)
+// Skipping rather than deleting so the original MVP intent stays
+// visible to anyone reading the test history.
+test.describe.skip('Kathakitab.ai MVP - Ramayana LiveBook (v1, superseded)', () => {
   
   test('Home page loads and CTA works', async ({ page }) => {
     // 1. Open home page
