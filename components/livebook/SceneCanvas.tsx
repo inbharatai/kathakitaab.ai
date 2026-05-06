@@ -278,6 +278,13 @@ export default function SceneCanvas({
   }
   const [burst, setBurst] = useState<ActiveBurst | null>(null);
   const burstTimer = useRef<number | null>(null);
+  // Hotspot the user interacted with *before* the current one — used
+  // as the implicit gaze target. When the current speaker fires their
+  // lip-pulse, they lean toward whoever was on stage just before them,
+  // which reads as a conversation: tap A then tap B and B "looks at"
+  // A. Pure geometry, no language parsing.
+  const lastInteractedRef = useRef<string | null>(null);
+  const [gazeTargetId, setGazeTargetId] = useState<string | null>(null);
   // Pixel-snapshot of the canvas at burst-trigger time, so aim biasing
   // resolves to real coordinates. Read from the container ref's bbox.
   const triggerBurst = useCallback((verb: HotspotClickAction, hotspot: SceneHotspot) => {
@@ -290,6 +297,12 @@ export default function SceneCanvas({
     const targetYPct = hotspot.y + hotspot.height / 2;
     const aimed = aimBurstAtTarget(cameraForVerb(verb), targetXPct, targetYPct, w, h);
     setBurst({ burst: aimed, verb, hotspot, startedAt: performance.now(), tickKey: 0 });
+    // Promote the prior interaction to the gaze target — but only if
+    // it's a *different* hotspot. Tapping the same hotspot twice
+    // shouldn't make them stare at themselves.
+    const prior = lastInteractedRef.current;
+    setGazeTargetId(prior && prior !== hotspot.target_id ? prior : null);
+    lastInteractedRef.current = hotspot.target_id;
     if (burstTimer.current) window.clearTimeout(burstTimer.current);
     burstTimer.current = window.setTimeout(() => setBurst(null), aimed.durationMs + 100);
   }, [prefersReducedMotion]);
@@ -312,6 +325,33 @@ export default function SceneCanvas({
   const pulsingHotspot = speaker.entityId
     ? scene.hotspots.find(h => h.target_id === speaker.entityId) ?? null
     : null;
+
+  // ── Gaze bias ──
+  // When a different hotspot was the most recent interaction (the
+  // implicit "addressee"), compute a small directional offset for the
+  // speaker's lip-pulse layer pointing toward them. The offset is
+  // capped so the pulse never drifts off the figure's face.
+  const gazeTargetHotspot = gazeTargetId && pulsingHotspot && gazeTargetId !== pulsingHotspot.target_id
+    ? scene.hotspots.find(h => h.target_id === gazeTargetId) ?? null
+    : null;
+  let gazeOffsetX = 0;
+  let gazeOffsetY = 0;
+  if (pulsingHotspot && gazeTargetHotspot) {
+    const speakerCx = pulsingHotspot.x + pulsingHotspot.width / 2;
+    const speakerCy = pulsingHotspot.y + pulsingHotspot.height / 2;
+    const targetCx  = gazeTargetHotspot.x + gazeTargetHotspot.width / 2;
+    const targetCy  = gazeTargetHotspot.y + gazeTargetHotspot.height / 2;
+    const dx = targetCx - speakerCx;
+    const dy = targetCy - speakerCy;
+    const mag = Math.max(1, Math.hypot(dx, dy));
+    // Normalize then scale to a small fraction of the speaker's bbox
+    // so the pulse always stays on their face. Dividing by mag here
+    // prevents distant targets from pulling harder than near ones —
+    // the gaze direction matters, the distance doesn't.
+    const intensity = pulsingHotspot.width * 0.18; // up to 18% of their own width
+    gazeOffsetX = (dx / mag) * intensity;
+    gazeOffsetY = (dy / mag) * (pulsingHotspot.height * 0.12);
+  }
 
   // ── 2.5D parallax tilt ──
   // Tracks normalized pointer position [-1, 1]. Bound to a perspective
@@ -637,8 +677,12 @@ export default function SceneCanvas({
             zIndex: 4,
             // Position the pulse on the upper face region (mouth area
             // is roughly 12-30% from the top of a portrait bbox).
-            transform: `translateY(${Math.round(pulsingHotspot.height * 0.22 * 100) / 100}%) scale(${1 + amplitude * 0.08})`,
-            transition: 'transform 80ms linear',
+            // Add gaze bias toward the implicit addressee so the
+            // speaker's "voice" leans in the right direction. The
+            // bias is in % of canvas; the pulse layer is sized to
+            // the speaker's bbox so we apply it as a translate.
+            transform: `translate(${gazeOffsetX.toFixed(2)}%, ${(Math.round(pulsingHotspot.height * 0.22 * 100) / 100) + gazeOffsetY}%) scale(${1 + amplitude * 0.08})`,
+            transition: 'transform 240ms cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         >
           <div

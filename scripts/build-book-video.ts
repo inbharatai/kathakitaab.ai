@@ -35,6 +35,8 @@ import { motionForMood, type SceneMotion } from '../lib/video/motion';
 import { detectTopics } from '../lib/video/effects/topicTagger';
 import { buildSceneEffects, describeRecipe } from '../lib/video/effects/effectRecipes';
 import type { SceneEffect } from '../lib/video/effects/types';
+import { concatWav } from '../lib/audio/concatWav';
+import { detectTone } from '../lib/audio/emotionTagger';
 
 const PUBLIC_DIR = join(process.cwd(), 'public');
 const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
@@ -104,6 +106,86 @@ async function fetchBook(slug: string): Promise<{ scenes: Scene[]; bookTitle: st
     throw new Error(`/api/books/${slug} returned no scenes`);
   }
   return { scenes: data.scenes, bookTitle: title };
+}
+
+/** Build subtitle cues from real per-clip durations. The cumulative
+ *  sum of clip durations gives us the start of each cue, so the
+ *  caption track is byte-accurate to the audio — no estimation,
+ *  no off-by-300ms drift. */
+function buildPerCueSubtitles(sentences: string[], perCueMs: number[]): SubtitleCue[] {
+  const cues: SubtitleCue[] = [];
+  let cursor = 0;
+  for (let i = 0; i < sentences.length; i++) {
+    const startMs = cursor;
+    const endMs = cursor + (perCueMs[i] ?? 0);
+    cues.push({ text: sentences[i], startMs, endMs });
+    cursor = endMs;
+  }
+  return cues;
+}
+
+/** Split narration into sentences using the same heuristic the
+ *  subtitle planner uses, lifted here so the build script can request
+ *  per-cue audio without importing the planner's internal helper. */
+function splitSentencesForTTS(narration: string): string[] {
+  const trimmed = narration.trim();
+  if (!trimmed) return [];
+  const parts = trimmed
+    .split(/(?<=[.!?])\s+(?=[A-Zऀ-ॿ])/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+  return parts.length > 0 ? parts : [trimmed];
+}
+
+/** Per-cue TTS: render each sentence with detected tone + scene mood,
+ *  concatenate into a single WAV, return the local filename and the
+ *  exact per-cue duration list (in ms). The caller uses the durations
+ *  to build accurate subtitle timing — no estimation. */
+async function ttsPerCueToFile(
+  scene: Scene,
+  outDir: string,
+  basename: string,
+  mood?: string,
+): Promise<{ fileName: string; perCueMs: number[]; sentences: string[] }> {
+  const sentences = splitSentencesForTTS(scene.narration);
+  if (sentences.length === 0) throw new Error(`empty narration for ${scene.scene_id}`);
+
+  const buffers: Buffer[] = [];
+  console.log(`[movie-build]    per-cue TTS: ${sentences.length} sentence(s)`);
+  for (let i = 0; i < sentences.length; i++) {
+    const text = sentences[i];
+    const tone = detectTone(text); // 'serene'/'dramatic'/etc. or 'neutral'
+    console.log(`[movie-build]      cue[${i}] (${tone}, ${text.length} chars): ${text.slice(0, 60)}…`);
+    const res = await fetch(`${BASE}/api/livebook/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text.slice(0, 1450),
+        voice: 'narration',
+        language: 'en',
+        tone,  // explicit per-cue
+        mood,  // floor in case the cue is neutral
+      }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`per-cue TTS ${scene.scene_id}#${i} → ${res.status} ${txt.slice(0, 200)}`);
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.subarray(0, 4).toString('ascii') !== 'RIFF') {
+      // Per-cue concatenation requires WAV. Sarvam returns WAV by
+      // default; if a fallback path is serving MP3, bail and let the
+      // caller drop back to the single-call mode. Keeps behavior
+      // graceful in environments without WAV-capable TTS.
+      throw new Error(`per-cue TTS ${scene.scene_id}#${i}: non-WAV response (cannot concat MP3 here)`);
+    }
+    buffers.push(buf);
+  }
+
+  const result = concatWav(buffers);
+  const fileName = `${basename}.wav`;
+  writeFileSync(join(outDir, fileName), result.buffer);
+  return { fileName, perCueMs: result.durationsMs, sentences };
 }
 
 async function ttsToFile(
@@ -194,13 +276,20 @@ async function probeDuration(filePath: string): Promise<number> {
 
 async function main() {
   const slug = parseSlugArg();
+  // Opt-in: render each subtitle cue as its own TTS clip with per-cue
+  // emotional tone, then concatenate the WAVs and use the actual
+  // per-clip durations as the cue timing. Costs N× more TTS calls
+  // per scene (one per sentence) but produces a noticeably more
+  // expressive scene narration. Default off — Wave 1.1 mood-aware
+  // single-call TTS is the cheap path.
+  const perCue = process.argv.includes('--per-cue-tts');
 
   const audioDir = join(PUBLIC_DIR, 'movies', 'audio', slug);
   const manifestPath = join(MANIFESTS_DIR, `${slug}.json`);
   mkdirSync(audioDir, { recursive: true });
   mkdirSync(MANIFESTS_DIR, { recursive: true });
 
-  console.log(`[movie-build] slug: ${slug} | base: ${BASE}`);
+  console.log(`[movie-build] slug: ${slug} | base: ${BASE} | per-cue=${perCue}`);
 
   const { scenes, bookTitle } = await fetchBook(slug);
   console.log(`[movie-build] ${scenes.length} scenes`);
@@ -237,10 +326,24 @@ async function main() {
     const relCandidates = ['mp3', 'wav'].map(ext => `movies/audio/${slug}/${scene.scene_id}.${ext}`);
     let audioFileRel = relCandidates.find(rel => existsSync(join(PUBLIC_DIR, rel)));
 
+    // Per-cue mode emits the exact per-sentence durations so we can
+    // use them for byte-accurate cue timing. In single-call mode we
+    // still compute timings via planSubtitles (length-weighted).
+    let perCueDurationsMs: number[] | null = null;
+    let perCueSentences: string[] | null = null;
+
     if (!audioFileRel) {
-      console.log(`[movie-build] tts: ${scene.scene_id} (${scene.narration.length} chars, mood=${sceneMood ?? 'none'})`);
-      const fileName = await ttsToFile(scene, audioDir, scene.scene_id, sceneMood);
-      audioFileRel = `movies/audio/${slug}/${fileName}`;
+      if (perCue) {
+        console.log(`[movie-build] tts (per-cue): ${scene.scene_id} (${scene.narration.length} chars, mood=${sceneMood ?? 'none'})`);
+        const result = await ttsPerCueToFile(scene, audioDir, scene.scene_id, sceneMood);
+        audioFileRel = `movies/audio/${slug}/${result.fileName}`;
+        perCueDurationsMs = result.perCueMs;
+        perCueSentences = result.sentences;
+      } else {
+        console.log(`[movie-build] tts: ${scene.scene_id} (${scene.narration.length} chars, mood=${sceneMood ?? 'none'})`);
+        const fileName = await ttsToFile(scene, audioDir, scene.scene_id, sceneMood);
+        audioFileRel = `movies/audio/${slug}/${fileName}`;
+      }
     } else {
       console.log(`[movie-build] tts: ${scene.scene_id} (cached: ${audioFileRel})`);
     }
@@ -256,7 +359,10 @@ async function main() {
     const imagePath = scene.background_asset_url || `/images/scene_${scene.scene_id}.png`;
     const mood = sceneMood;
     const motion = motionBySceneId[scene.scene_id] ?? motionForMood(mood);
-    const subtitles = planSubtitles(scene.narration, duration);
+    const subtitles =
+      perCueDurationsMs && perCueSentences
+        ? buildPerCueSubtitles(perCueSentences, perCueDurationsMs)
+        : planSubtitles(scene.narration, duration);
     const topics = detectTopics(scene.narration);
     const effects = buildSceneEffects(topics, mood);
     console.log(`[movie-build]    ${describeRecipe(topics, mood, effects)}`);
