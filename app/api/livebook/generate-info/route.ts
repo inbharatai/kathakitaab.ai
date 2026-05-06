@@ -49,10 +49,11 @@ export async function POST(request: Request) {
     await setCachedResponse(cacheKey, aiResponse);
     return NextResponse.json({ response: aiResponse, cached: false });
 
-  } catch (error: any) {
-    console.error('Error generating info:', error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error generating info:', message);
     return NextResponse.json(
-      { error: 'Failed to generate info', details: error.message },
+      { error: 'Failed to generate info', details: message },
       { status: 500 }
     );
   }

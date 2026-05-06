@@ -24,12 +24,14 @@ const SCENE_PREVIEWS = [
 ];
 
 const COMPARISON = [
-  { old: 'Static pages you flip through', new: 'Living scenes that breathe and move' },
+  { old: 'Static pages you flip through', new: 'Living scenes — figures breathe, sway, and blink in idle' },
   { old: 'Read-only text and images', new: 'Highlighted characters and objects respond on click' },
+  { old: 'Same response no matter which action', new: 'Verb-aware AI — Talk, Fight, Honor, Comfort each feel different' },
   { old: 'Same experience every time', new: 'AI generates a fresh branch the first time, caches it after' },
   { old: 'Silent pages', new: 'Every scene narrated with Sarvam Indian-tuned voice' },
   { old: 'One linear path', new: 'Story graph with hidden discoveries via tap-anywhere' },
   { old: 'Books vs. movies — pick one', new: 'Every book also plays as a cinematic movie' },
+  { old: 'Flat illustrations', new: 'Universal effects DSL — particles, dust shafts, divine glow per scene' },
 ];
 
 const STEPS = [
@@ -105,7 +107,7 @@ export default function HomePage() {
 
             <p className="lp-hero-sub font-serif">
               Click highlighted characters and objects. Tap the background to discover hidden details.<br />
-              Or watch the whole book play as a cinematic movie.<br />
+              Figures breathe, sway, and glow as the scene comes alive. Or watch the whole book play as a cinematic movie.<br />
               AI generates new scenes, narration, and images — in real time.
             </p>
 
@@ -225,7 +227,7 @@ export default function HomePage() {
         >
           <span className="lp-hero-badge" style={{ marginBottom: 14 }}>
             <span className="lp-hero-badge-dot" />
-            New · Movie Mode v2
+            New · Movie Mode v3 · Living Effects
           </span>
           <motion.h2 className="lp-section-title" style={{ marginTop: 8 }}>
             Every book also plays as a film
@@ -233,8 +235,9 @@ export default function HomePage() {
           <p className="lp-section-sub" style={{ maxWidth: 760, margin: '10px auto 0' }}>
             One manifest, two cuts. The engine renders a {Math.round(LANDING_TRAILER_FRAMES / TRAILER_FPS)}-second
             cinematic trailer or the full {Math.round(LANDING_MOVIE_FRAMES / BOOK_MOVIE_FPS / 60)}-minute movie
-            from the same scenes — per-scene camera motion, sentence-by-sentence captions, and a procedural
-            mood bed that ducks under Sarvam&apos;s narration. No licensed soundtrack, no third-party export.
+            from the same scenes — per-scene motion, sentence cues, and a procedural mood bed ducked under
+            Sarvam&apos;s narration. v3 layers a universal effects DSL — particles, dust shafts, divine glow,
+            shake — on top, so every scene plays the same way in the live reader and the exported MP4.
           </p>
           <ul style={{
             display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
@@ -242,10 +245,12 @@ export default function HomePage() {
           }}>
             {[
               ['🎥', 'Per-scene motion — battle push, divine glow, slow pan'],
+              ['🌬️', 'Ambient idle — figures breathe, sway, and blink in every scene'],
               ['🗣️', 'Sarvam Bulbul narration with role-aware voices'],
               ['💬', 'Sentence cues with explicit ms timing in the manifest'],
               ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
-              ['✨', 'Particles & rim light on sacred + dramatic scenes'],
+              ['✨', 'Universal effects DSL — particles, dust shafts, rim light'],
+              ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
               ['📥', 'Full-quality MP4 export from the movie page'],
             ].map(([icon, text]) => (
               <li key={text} style={{

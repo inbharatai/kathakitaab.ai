@@ -14,6 +14,7 @@
     "movie:build:ramayana": "npx tsx scripts/build-book-video.ts --slug=ramayana",
     "movie:verify": "npx tsx scripts/verify-manifest.ts --all",
     "movie:music": "npx tsx scripts/build-mood-music.ts",
+    "movie:render": "npx tsx scripts/render-movie.ts",
     "derive:hotspots": "npx tsx scripts/derive-hotspots.ts"
   },
   "dependencies": {

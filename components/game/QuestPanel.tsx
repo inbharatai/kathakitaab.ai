@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { QuestState, QUEST_TYPE_LABELS } from '@/lib/game/questAgent';
+import { QuestState, QUEST_TYPE_LABELS, Quest, QuestObjective } from '@/lib/game/questAgent';
 
 interface Props {
   questState: QuestState;
@@ -61,10 +61,10 @@ export default function QuestPanel({ questState, currentSceneId }: Props) {
   );
 }
 
-function QuestCard({ quest, isCurrentScene, index }: { quest: any, isCurrentScene: boolean, index: number }) {
+function QuestCard({ quest, isCurrentScene, index }: { quest: Quest, isCurrentScene: boolean, index: number }) {
   const typeLabel = QUEST_TYPE_LABELS[quest.type as keyof typeof QUEST_TYPE_LABELS] || QUEST_TYPE_LABELS.SIDE;
-  
-  const completedCount = quest.objectives.filter((o: any) => o.completed).length;
+
+  const completedCount = quest.objectives.filter((o: QuestObjective) => o.completed).length;
   const totalCount = quest.objectives.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
@@ -106,7 +106,7 @@ function QuestCard({ quest, isCurrentScene, index }: { quest: any, isCurrentScen
 
       {/* Objectives */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-        {quest.objectives.map((obj: any) => (
+        {quest.objectives.map((obj: QuestObjective) => (
           <div key={obj.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
             <div style={{ 
               width: 12, height: 12, borderRadius: 3, flexShrink: 0, marginTop: 2,

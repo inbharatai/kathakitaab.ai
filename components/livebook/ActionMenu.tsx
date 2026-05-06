@@ -17,13 +17,17 @@ interface Props {
 export default function ActionMenu({ isOpen, x, y, onSelect, onChangeSubmit, onClose }: Props) {
   const [isChangeMode, setIsChangeMode] = useState(false);
   const [changeText, setChangeText] = useState('');
-
-  useEffect(() => {
+  // React's "adjusting state on prop change" pattern: when the menu
+  // closes, reset the form state during render rather than from
+  // useEffect, which avoids the cascading-render lint warning.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
     if (!isOpen) {
       setIsChangeMode(false);
       setChangeText('');
     }
-  }, [isOpen]);
+  }
 
   useEffect(() => {
     if (!isOpen) return;

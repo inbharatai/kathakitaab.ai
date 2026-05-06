@@ -16,6 +16,28 @@ import { NextResponse } from 'next/server';
 import { runAgent, AgentContext } from '@/lib/openai/orchestratorAgent';
 import { getCharacterBySlug, getSceneById } from '@/lib/data/ramayanaSeed';
 import { getScene, getCharacter } from '@/lib/data/bookRegistry';
+
+// The agent route accepts both the seed (Ramayana) and the registry
+// (AI-generated) shapes. They share the fields the route actually
+// reads, so we describe the intersection here rather than forcing a
+// brittle cast between the two unrelated types. character_bible is
+// optional because only the seed Character carries it.
+interface SceneLike {
+  scene_id: string;
+  title: string;
+  narration: string;
+  source_notes: string;
+}
+interface CharacterLike {
+  name: string;
+  role: string;
+  traits: string[];
+  short_summary: string;
+  speech_tone?: string;
+  source_notes: string;
+  image_url?: string;
+  character_bible?: { speech_tone?: string };
+}
 import { buildCacheKey, getCachedResponse, setCachedResponse, getCacheStats } from '@/lib/cache/responseCache';
 import { isGeminiConfigured, getTextModel } from '@/lib/openai/client';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
@@ -37,8 +59,8 @@ export async function POST(request: Request) {
     }
 
     // Support both seed (Ramayana) and AI-generated books
-    let scene: any = getSceneById(sceneId);
-    if (!scene && bookSlug) scene = getScene(bookSlug, sceneId);
+    let scene: SceneLike | undefined = getSceneById(sceneId);
+    if (!scene && bookSlug) scene = getScene(bookSlug, sceneId) ?? undefined;
     if (!scene) {
       return NextResponse.json({ error: `Scene not found: ${sceneId}` }, { status: 404 });
     }
@@ -70,8 +92,8 @@ export async function POST(request: Request) {
     // Enrich context based on type
     if (type === 'character' && targetId) {
       // Try Ramayana seed first, then generated book registry
-      let character: any = getCharacterBySlug(targetId);
-      if (!character && bookSlug) character = getCharacter(bookSlug, targetId);
+      let character: CharacterLike | undefined = getCharacterBySlug(targetId);
+      if (!character && bookSlug) character = getCharacter(bookSlug, targetId) ?? undefined;
       if (!character) {
         return NextResponse.json({ error: `Character not found: ${targetId}` }, { status: 404 });
       }
@@ -105,7 +127,9 @@ export async function POST(request: Request) {
     // Include portrait URL for character interactions
     let portrait_url: string | undefined;
     if (type === 'character' && targetId) {
-      const char: any = getCharacterBySlug(targetId) || (bookSlug ? getCharacter(bookSlug, targetId) : null);
+      const char: CharacterLike | undefined =
+        getCharacterBySlug(targetId)
+        || (bookSlug ? (getCharacter(bookSlug, targetId) ?? undefined) : undefined);
       portrait_url = char?.image_url;
     }
 

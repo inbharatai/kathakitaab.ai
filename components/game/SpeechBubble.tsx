@@ -19,11 +19,19 @@ interface Props {
 export default function SpeechBubble({ bubble, onDismiss }: Props) {
   const [displayedText, setDisplayedText] = useState('');
   const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (!bubble) { setDisplayedText(''); setDone(false); return; }
+  // React's documented "adjusting state when a prop changes" pattern.
+  // Resetting via setState during render (guarded by a no-op compare)
+  // avoids the cascading-render warning that fires when the same
+  // resets are done from inside useEffect.
+  const [prevHotspotId, setPrevHotspotId] = useState<string | undefined>(undefined);
+  if (bubble?.hotspotId !== prevHotspotId) {
+    setPrevHotspotId(bubble?.hotspotId);
     setDisplayedText('');
     setDone(false);
+  }
+
+  useEffect(() => {
+    if (!bubble) return;
     let i = 0;
     const interval = setInterval(() => {
       if (i <= bubble.text.length) {
@@ -35,7 +43,7 @@ export default function SpeechBubble({ bubble, onDismiss }: Props) {
       }
     }, 22);
     return () => clearInterval(interval);
-  }, [bubble?.hotspotId]);
+  }, [bubble?.hotspotId, bubble]);
 
   // Auto-dismiss after 6s
   useEffect(() => {
