@@ -24,6 +24,11 @@ import {
   SceneEffect,
   HotspotClickAction,
 } from '@/lib/types/storyScene';
+import type { SceneEffect as ManifestEffect } from '@/lib/video/effects/types';
+import { EffectStack } from '@/lib/video/effects/layers';
+import { useFrameTicker } from '@/lib/video/effects/useFrameTicker';
+import { AmbientFigure } from './AmbientFigure';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 
 // ── Glow filter for glow animations ──────────────────────────
 
@@ -190,6 +195,12 @@ interface SceneCanvasProps {
    * dot in the action menu so users can see which verbs are warmed
    * for instant tap and which will trigger a fresh generation. */
   actionStatus?: ActionStatusMap;
+  /** Universal effects DSL — same vocabulary as the Remotion compositions.
+   * When provided, layered on top of the scene image (particles, glow,
+   * dust shafts, vignette, etc.) by the shared EffectStack component.
+   * The reader and the movie share these so what you see in-app is what
+   * you see on export. */
+  manifestEffects?: ManifestEffect[];
   /** Called when user selects an action on a hotspot */
   onHotspotAction?: (hotspot: SceneHotspot, action: HotspotClickAction) => void;
   /** Called when user clicks the background (no hotspot) */
@@ -208,11 +219,18 @@ export default function SceneCanvas({
   showHotspotVisuals = false,
   preloadedHotspots,
   actionStatus,
+  manifestEffects,
   onHotspotAction,
   onBackgroundClick,
   onBackgroundDoubleClick,
   disabled = false,
 }: SceneCanvasProps) {
+  // Reduce-motion preference disables effect animation but keeps
+  // first-frame visuals (vignettes/tints still render statically).
+  // useSyncExternalStore-based hook keeps the value live without
+  // setState-in-effect cascades.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const { frame: effectFrame, fps: effectFps } = useFrameTicker({ reducedMotion: prefersReducedMotion });
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredHotspot, setHoveredHotspot] = useState<string | null>(null);
   const [actionPopup, setActionPopup] = useState<ActionMenuPopup | null>(null);
@@ -416,9 +434,39 @@ export default function SceneCanvas({
         </div>
       )}
 
-      {/* ── Layer 4: Effects ── */}
+      {/* ── Layer 4a: Universal manifest effects (DSL) ──
+          Same vocabulary the Remotion movie uses — particles, glow,
+          dust shafts, vignette, etc. Driven by per-scene effects[]
+          baked into the manifest at build time from topic + mood
+          recipes. Stays inside the parallax wrapper so effects tilt
+          with the scene. */}
+      {manifestEffects && manifestEffects.length > 0 && (
+        <EffectStack
+          effects={manifestEffects}
+          frame={effectFrame}
+          fps={effectFps}
+          seedPrefix={scene.scene_id}
+        />
+      )}
+
+      {/* ── Layer 4b: Legacy scene-effect array (StoryScene contract) ── */}
       {scene.effects.map(effect => (
         <EffectLayer key={effect.id} effect={effect} />
+      ))}
+
+      {/* ── Layer 4c: Ambient idle animation ──
+          Subtle breath/sway/blink halos at every character (and softer
+          on object) hotspot, so the static illustration feels alive
+          even when no one is interacting. Universal — driven entirely
+          by hotspot bbox + a deterministic per-figure phase, no book
+          knowledge required. Sits inside the parallax wrapper so the
+          ambient layer tilts with the scene. */}
+      {scene.hotspots.map((hotspot, i) => (
+        <AmbientFigure
+          key={`ambient-${hotspot.id}`}
+          hotspot={hotspot}
+          index={i}
+        />
       ))}
 
       {/* ── Layer 5: Hotspot overlay (invisible touch targets) ── */}

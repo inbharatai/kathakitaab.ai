@@ -24,6 +24,9 @@ import { getScene } from '@/lib/data/bookRegistry';
 import { getCanonEntry } from '@/lib/data/canonLookup';
 import { getCachedBranch, getPregenActions, type PreGeneratedBranch } from '@/lib/engine/branchPreGenerator';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { detectTopics } from '@/lib/video/effects/topicTagger';
+import { buildSceneEffects } from '@/lib/video/effects/effectRecipes';
+import type { SceneEffect } from '@/lib/video/effects/types';
 
 // ── Manifest shape ───────────────────────────────────────────
 
@@ -69,6 +72,11 @@ export interface SceneStreamManifest {
    *  the same theme yields a coherent multi-modal experience. */
   theme: string;
   entities: ManifestEntity[];
+  /** Universal effects DSL — particles, glow, dust shafts, etc.
+   *  Derived from narration topics + mood. Same vocabulary the
+   *  Remotion movie uses, so the live reader and the export look
+   *  coherent without duplicate code. */
+  effects: SceneEffect[];
   prevSceneId: string | null;
   nextSceneId: string | null;
   /** 'static' = pulled from a curated seed (e.g. ramayana), 'brain'
@@ -114,6 +122,14 @@ export async function GET(
     scene.hotspots.map(h => buildManifestEntity(bookSlug, sceneId, h)),
   );
 
+  // Derive universal effects from narration topics + mood. Same
+  // recipe the build-book-video script uses to bake effects into the
+  // committed manifest, so the reader and the movie always agree on
+  // which scene gets which look.
+  const mood = deriveMood(scene.shortSummary, scene.title);
+  const topics = detectTopics(scene.narration);
+  const effects = buildSceneEffects(topics, mood);
+
   const manifest: SceneStreamManifest = {
     sceneId,
     bookSlug,
@@ -121,9 +137,10 @@ export async function GET(
     narration: scene.narration,
     visualDescription: scene.visualDescription,
     imageUrl: scene.backgroundAssetUrl,
-    mood: deriveMood(scene.shortSummary, scene.title),
+    mood,
     theme: deriveTheme(sceneId, scene.title),
     entities,
+    effects,
     prevSceneId: scene.previousSceneId,
     nextSceneId: scene.nextSceneId,
     source: 'static',

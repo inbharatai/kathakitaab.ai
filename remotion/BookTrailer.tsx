@@ -23,6 +23,7 @@ import {
 } from 'remotion';
 
 import { motionForMood, motionParams } from '../lib/video/motion';
+import { EffectStack, shakeOffset } from '../lib/video/effects/layers';
 import type { BookMovieManifest, BookMovieScene } from './BookMovie';
 
 export const TRAILER_FPS = 30;
@@ -93,9 +94,10 @@ const TitleFlash: React.FC<{ bookTitle: string }> = ({ bookTitle }) => {
 
 const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene, index }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, fps } = useVideoConfig();
   const motion = scene.motion ?? motionForMood(scene.mood);
   const params = motionParams(motion);
+  const effects = scene.effects ?? [];
 
   // Faster, punchier camera than BookMovie — bigger scale change
   // over the shorter window so the motion reads.
@@ -103,8 +105,12 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
   const scale = interpolate(t, [0, 1], [params.startScale + 0.04, params.endScale + 0.06]);
   const tx = interpolate(t, [0, 1], [0, params.panX * 1.2]);
   const ty = interpolate(t, [0, 1], [0, params.panY * 1.2]);
-  const shakeX = params.shake ? Math.sin(frame * 0.41) * params.shake * 1.4 : 0;
-  const shakeY = params.shake ? Math.cos(frame * 0.37) * params.shake : 0;
+  // Trailer shake is amplified ~1.4× from the DSL value for a punchier feel.
+  const dslShake = shakeOffset(effects, frame);
+  const motionShakeX = params.shake ? Math.sin(frame * 0.41) * params.shake * 1.4 : 0;
+  const motionShakeY = params.shake ? Math.cos(frame * 0.37) * params.shake : 0;
+  const shakeX = effects.some(e => e.type === 'shake') ? dslShake.x * 1.4 : motionShakeX;
+  const shakeY = effects.some(e => e.type === 'shake') ? dslShake.y * 1.4 : motionShakeY;
 
   const fadeIn = interpolate(frame, [0, TRAILER_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const fadeOut = interpolate(frame, [durationInFrames - TRAILER_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
@@ -136,10 +142,16 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
           filter: 'brightness(0.82) saturate(1.18)',
         }}
       />
-      {params.tint && (
-        <div style={{ position: 'absolute', inset: 0, background: params.tint, mixBlendMode: 'multiply' }} />
-      )}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(12,8,6,0.5) 0%, transparent 22%, transparent 50%, rgba(12,8,6,0.96) 100%)' }} />
+
+      {/* Universal effects stack with legacy tint fallback. */}
+      {effects.length > 0 ? (
+        <EffectStack effects={effects} frame={frame} fps={fps} seedPrefix={`trailer-${scene.sceneId}`} />
+      ) : (
+        params.tint && (
+          <div style={{ position: 'absolute', inset: 0, background: params.tint, mixBlendMode: 'multiply' }} />
+        )
+      )}
 
       {/* Caption — shorter, larger, no progress dots in trailer mode */}
       <div data-testid="trailer-caption" data-scene-index={index} style={{

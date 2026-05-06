@@ -38,7 +38,44 @@
         }
       ],
       "motion": "divine_glow",
-      "mood": "sacred"
+      "mood": "sacred",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "vignette",
+          "intensity": 0.45,
+          "color": "rgba(2,4,16,0.7)"
+        },
+        {
+          "type": "dust_shaft",
+          "angle": 35,
+          "color": "rgba(255,225,140,0.18)",
+          "density": 0.5
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "dust",
+          "density": 0.25
+        },
+        {
+          "type": "glow",
+          "color": "rgba(255,215,0,0.6)",
+          "radius": 0.6,
+          "breathHz": 0.04
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ]
     },
     {
       "sceneId": "mithila_bow",
@@ -81,7 +118,32 @@
         }
       ],
       "motion": "slow_zoom_in",
-      "mood": "joyful"
+      "mood": "joyful",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.25
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        },
+        {
+          "type": "bloom",
+          "threshold": 0.7,
+          "intensity": 1.5
+        }
+      ]
     },
     {
       "sceneId": "exile",
@@ -119,7 +181,30 @@
         }
       ],
       "motion": "pan_left",
-      "mood": "somber"
+      "mood": "somber",
+      "effects": [
+        {
+          "type": "desaturation",
+          "level": 0.4
+        },
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "vignette",
+          "intensity": 0.3
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ]
     },
     {
       "sceneId": "forest_life",
@@ -162,7 +247,28 @@
         }
       ],
       "motion": "pan_right",
-      "mood": "mysterious"
+      "mood": "mysterious",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(60,120,40,0.06)"
+        },
+        {
+          "type": "vignette",
+          "intensity": 0.35
+        },
+        {
+          "type": "dust_shaft",
+          "angle": 55,
+          "color": "rgba(180,210,140,0.14)",
+          "density": 0.45
+        },
+        {
+          "type": "particles",
+          "kind": "leaf",
+          "density": 0.4
+        }
+      ]
     },
     {
       "sceneId": "ravana_jatayu",
@@ -200,7 +306,32 @@
         }
       ],
       "motion": "battle_push",
-      "mood": "dramatic"
+      "mood": "dramatic",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ]
     },
     {
       "sceneId": "hanuman_meets_rama",
@@ -238,7 +369,39 @@
         }
       ],
       "motion": "divine_glow",
-      "mood": "sacred"
+      "mood": "sacred",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "dust_shaft",
+          "angle": 35,
+          "color": "rgba(255,225,140,0.18)",
+          "density": 0.5
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "gold_dust",
+          "density": 0.55
+        },
+        {
+          "type": "glow",
+          "color": "rgba(255,215,0,0.6)",
+          "radius": 0.6,
+          "breathHz": 0.04
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ]
     },
     {
       "sceneId": "hanuman_lanka",
@@ -281,7 +444,45 @@
         }
       ],
       "motion": "battle_push",
-      "mood": "dramatic"
+      "mood": "dramatic",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(70,130,180,0.06)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.5,
+          "color": "#C8A0FF"
+        },
+        {
+          "type": "glow",
+          "color": "rgba(180,140,255,0.4)",
+          "radius": 0.5
+        },
+        {
+          "type": "flash",
+          "rateHz": 0.5,
+          "color": "rgba(180,140,255,0.4)"
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "ripple",
+          "freq": 0.06,
+          "amplitude": 1.4,
+          "originX": 0.5,
+          "originY": 0.7
+        },
+        {
+          "type": "parallax",
+          "factor": 0.2
+        }
+      ]
     },
     {
       "sceneId": "bridge_to_lanka",
@@ -314,7 +515,46 @@
         }
       ],
       "motion": "divine_glow",
-      "mood": "sacred"
+      "mood": "sacred",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(70,130,180,0.06)"
+        },
+        {
+          "type": "dust_shaft",
+          "angle": 35,
+          "color": "rgba(255,225,140,0.18)",
+          "density": 0.5
+        },
+        {
+          "type": "rim_light",
+          "angle": 65,
+          "color": "rgba(255,225,140,0.28)"
+        },
+        {
+          "type": "particles",
+          "kind": "gold_dust",
+          "density": 0.55
+        },
+        {
+          "type": "glow",
+          "color": "rgba(255,215,0,0.6)",
+          "radius": 0.6,
+          "breathHz": 0.04
+        },
+        {
+          "type": "ripple",
+          "freq": 0.06,
+          "amplitude": 1.4,
+          "originX": 0.5,
+          "originY": 0.7
+        },
+        {
+          "type": "parallax",
+          "factor": 0.2
+        }
+      ]
     },
     {
       "sceneId": "battle_lanka",
@@ -357,7 +597,32 @@
         }
       ],
       "motion": "battle_push",
-      "mood": "dramatic"
+      "mood": "dramatic",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,20,10,0.10)"
+        },
+        {
+          "type": "vignette",
+          "intensity": 0.35
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "flash",
+          "rateHz": 0.3,
+          "color": "rgba(255,240,210,0.45)"
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        }
+      ]
     },
     {
       "sceneId": "return_ayodhya",
@@ -395,7 +660,43 @@
         }
       ],
       "motion": "slow_zoom_in",
-      "mood": "joyful"
+      "mood": "joyful",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(255,200,120,0.05)",
+          "blendMode": "screen"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.25
+        },
+        {
+          "type": "glow",
+          "color": "rgba(180,140,255,0.4)",
+          "radius": 0.5
+        },
+        {
+          "type": "flash",
+          "rateHz": 0.5,
+          "color": "rgba(180,140,255,0.4)"
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        },
+        {
+          "type": "bloom",
+          "threshold": 0.7,
+          "intensity": 1.5
+        }
+      ]
     },
     {
       "sceneId": "lessons",
@@ -453,7 +754,24 @@
         }
       ],
       "motion": "fade_only",
-      "mood": "serene"
+      "mood": "serene",
+      "effects": [
+        {
+          "type": "rim_light",
+          "angle": 50,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "gold_dust",
+          "density": 0.18
+        },
+        {
+          "type": "glow",
+          "color": "rgba(255,215,0,0.32)",
+          "radius": 0.4
+        }
+      ]
     },
     {
       "sceneId": "closing",
@@ -496,8 +814,37 @@
         }
       ],
       "motion": "divine_glow",
-      "mood": "sacred"
+      "mood": "sacred",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(255,200,90,0.06)",
+          "blendMode": "screen"
+        },
+        {
+          "type": "dust_shaft",
+          "angle": 35,
+          "color": "rgba(255,225,140,0.18)",
+          "density": 0.5
+        },
+        {
+          "type": "rim_light",
+          "angle": 65,
+          "color": "rgba(255,225,140,0.28)"
+        },
+        {
+          "type": "particles",
+          "kind": "gold_dust",
+          "density": 0.55
+        },
+        {
+          "type": "glow",
+          "color": "rgba(255,215,0,0.6)",
+          "radius": 0.6,
+          "breathHz": 0.04
+        }
+      ]
     }
   ],
-  "generatedAt": "2026-05-06T04:59:25.794Z"
+  "generatedAt": "2026-05-06T07:14:21.620Z"
 }

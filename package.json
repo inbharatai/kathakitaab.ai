@@ -13,7 +13,8 @@
     "movie:build": "npx tsx scripts/build-book-video.ts",
     "movie:build:ramayana": "npx tsx scripts/build-book-video.ts --slug=ramayana",
     "movie:verify": "npx tsx scripts/verify-manifest.ts --all",
-    "movie:music": "npx tsx scripts/build-mood-music.ts"
+    "movie:music": "npx tsx scripts/build-mood-music.ts",
+    "derive:hotspots": "npx tsx scripts/derive-hotspots.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

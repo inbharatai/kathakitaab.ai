@@ -97,6 +97,13 @@ export async function GET(
       const deadline = Date.now() + DEADLINE_MS;
       let closed = false;
 
+      // Detect client disconnect via the request's AbortSignal — if the
+      // EventSource on the browser closes, the polling loop should bail
+      // immediately instead of running for the full 60s deadline. Saves
+      // ~40 cache reads on every closed tab.
+      const abortHandler = () => { closed = true; };
+      request.signal.addEventListener('abort', abortHandler);
+
       const emit = (event: string, data: Record<string, unknown>) => {
         if (closed) return;
         try {
@@ -142,7 +149,8 @@ export async function GET(
       }
 
       emit('complete', { ready: seen.size, total: totalExpected });
-      controller.close();
+      request.signal.removeEventListener('abort', abortHandler);
+      try { controller.close(); } catch { /* already closed by abort */ }
     },
   });
 

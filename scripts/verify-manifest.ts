@@ -15,6 +15,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 interface ManifestSubtitleCue { text: string; startMs: number; endMs: number }
+interface ManifestEffect { type: string; [k: string]: unknown }
 interface ManifestScene {
   sceneId?: string;
   title?: string;
@@ -27,6 +28,7 @@ interface ManifestScene {
   motion?: string;
   mood?: string;
   backgroundMusicUrl?: string;
+  effects?: ManifestEffect[];
 }
 interface BookManifest {
   bookSlug?: string;
@@ -40,6 +42,11 @@ const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
 const VALID_MOTIONS = new Set([
   'slow_zoom_in', 'slow_zoom_out', 'pan_left', 'pan_right',
   'divine_glow', 'battle_push', 'fade_only',
+]);
+
+const VALID_EFFECTS = new Set([
+  'particles', 'glow', 'flash', 'tint', 'vignette', 'rim_light',
+  'dust_shaft', 'shake', 'ripple', 'parallax', 'desaturation', 'bloom',
 ]);
 
 interface Issue { scene: string; field: string; problem: string }
@@ -106,6 +113,22 @@ function verify(slug: string): Issue[] {
     // resolves to a procedural WAV). Fail only when neither is present.
     if (!scene.backgroundMusicUrl && !scene.mood) {
       issues.push({ scene: id, field: 'backgroundMusicUrl|mood', problem: 'set one — without it the scene plays silent under narration' });
+    }
+
+    // Effects DSL — universal layer vocabulary. The build script bakes
+    // these from topic + mood; missing means the scene renders as a
+    // flat image with no atmospheric layer.
+    if (!Array.isArray(scene.effects) || scene.effects.length === 0) {
+      issues.push({ scene: id, field: 'effects', problem: 'missing — scene will render flat with no particles/glow/atmospheric layer' });
+    } else {
+      for (const [j, eff] of scene.effects.entries()) {
+        const tag = `effects[${j}]`;
+        if (!eff.type) {
+          issues.push({ scene: id, field: `${tag}.type`, problem: 'missing' });
+        } else if (!VALID_EFFECTS.has(eff.type)) {
+          issues.push({ scene: id, field: tag, problem: `unknown effect type '${eff.type}', expected one of: ${[...VALID_EFFECTS].join(', ')}` });
+        }
+      }
     }
   }
 

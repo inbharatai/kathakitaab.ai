@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     if (supabase) {
       const cached = await getPublicUrlIfExists(supabase, BUCKET, objectPath);
       if (cached) {
-        return NextResponse.json({ url: cached, cached: true, manifestHash, storageMode: 'supabase' });
+        return NextResponse.json({ url: cached, cached: true, manifestHash, mode, storageMode: 'supabase' });
       }
     }
     // Local fallback dedup — if a previous run wrote a matching MP4
@@ -132,13 +132,18 @@ export async function POST(request: Request) {
   }
 
   let outFile: string | null = null;
+  let tmpDir: string | null = null;
   try {
     const entry = path.join(process.cwd(), 'remotion', 'index.ts');
-    const bundled = await bundle({
-      entryPoint: entry,
-      // The default webpack config is fine for our composition; no
-      // overrides needed. Remotion handles SWC + TS resolution.
-    });
+    // 9-minute soft cap on the bundle+render — gives us a margin under
+    // the 10-minute Vercel function ceiling so a hung render returns
+    // a clean error instead of a forced kill.
+    const RENDER_BUDGET_MS = 9 * 60 * 1000;
+    const bundled = await withTimeout(
+      bundle({ entryPoint: entry }),
+      RENDER_BUDGET_MS,
+      'Remotion bundle timed out',
+    );
 
     const composition = await selectComposition({
       serveUrl: bundled,
@@ -146,28 +151,32 @@ export async function POST(request: Request) {
       inputProps: { manifest },
     });
 
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), `kk-${filenameStem}-`));
-    outFile = path.join(tmp, `${bookSlug}.${filenameStem}.mp4`);
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), `kk-${filenameStem}-`));
+    outFile = path.join(tmpDir, `${bookSlug}.${filenameStem}.mp4`);
 
-    await renderMedia({
-      composition,
-      serveUrl: bundled,
-      codec: 'h264',
-      outputLocation: outFile,
-      inputProps: { manifest },
-      // 540p (scale 0.5) keeps render time manageable for share embeds.
-      // The composition's native size is 1920×1080, so 0.5 gives integer
-      // dimensions (960×540) — fractional scales like 0.667 break the
-      // FFmpeg stitch step. Bump to 1.0 for archival quality at 1080p.
-      scale: 0.5,
-      // Constant Rate Factor for H.264. Default 18 produces archival
-      // quality at large file sizes (~250MB for a 7-min 1080p movie);
-      // 28 cuts that to <50MB which fits Supabase free-tier object
-      // limits while staying perceptually close to the original. This
-      // is a share preview — visual fidelity > file precision.
-      crf: 28,
-      audioBitrate: '96k',
-    });
+    await withTimeout(
+      renderMedia({
+        composition,
+        serveUrl: bundled,
+        codec: 'h264',
+        outputLocation: outFile,
+        inputProps: { manifest },
+        // 540p (scale 0.5) keeps render time manageable for share embeds.
+        // The composition's native size is 1920×1080, so 0.5 gives integer
+        // dimensions (960×540) — fractional scales like 0.667 break the
+        // FFmpeg stitch step. Bump to 1.0 for archival quality at 1080p.
+        scale: 0.5,
+        // Constant Rate Factor for H.264. Default 18 produces archival
+        // quality at large file sizes (~250MB for a 7-min 1080p movie);
+        // 28 cuts that to <50MB which fits Supabase free-tier object
+        // limits while staying perceptually close to the original. This
+        // is a share preview — visual fidelity > file precision.
+        crf: 28,
+        audioBitrate: '96k',
+      }),
+      RENDER_BUDGET_MS,
+      'Remotion render timed out',
+    );
 
     const bytes = await fs.readFile(outFile);
 
@@ -220,10 +229,11 @@ export async function POST(request: Request) {
       detail: err instanceof Error ? err.message : String(err),
     }, { status: 500 });
   } finally {
-    // Best-effort cleanup of the tmp file. We deliberately don't
-    // await this in a way that blocks the response — failures here
-    // are silent and the OS will eventually reap /tmp.
-    if (outFile) fs.unlink(outFile).catch(() => {});
+    // Best-effort cleanup of the tmp DIRECTORY (not just the file).
+    // Earlier versions only unlinked outFile, leaving an empty
+    // kk-{stem}-XXXX/ behind on every render — guaranteed leak on a
+    // long-running dev server.
+    if (tmpDir) fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -231,6 +241,15 @@ export async function POST(request: Request) {
 
 function hashManifest(manifest: unknown): string {
   return createHash('sha1').update(JSON.stringify(manifest)).digest('hex').slice(0, 12);
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} (${Math.round(ms / 1000)}s)`)), ms),
+    ),
+  ]);
 }
 
 async function getPublicUrlIfExists(

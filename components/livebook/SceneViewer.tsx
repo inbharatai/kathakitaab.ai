@@ -167,11 +167,21 @@ export default function SceneViewer({
   // and refreshed when pre-gen reports completion. Drives the
   // green/amber dot in SceneCanvas's hotspot action menu.
   const [actionStatus, setActionStatus] = useState<Map<string, 'ready' | 'pending' | 'none'>>(new Map());
+  // Universal effects[] from the SceneStream manifest. Drives the
+  // particles / glow / vignette overlay in SceneCanvas — same vocabulary
+  // the Remotion movie uses, so reader + export look coherent. Empty
+  // array on cold load until the manifest fetch resolves.
+  const [manifestEffects, setManifestEffects] = useState<import('@/lib/video/effects/types').SceneEffect[]>([]);
   // SSE subscription handle. We keep a ref so loadScene can close the
   // previous stream before opening a new one — leaving an old EventSource
   // around would leak connections and apply readiness updates from a
   // stale scene to the current one.
   const readinessStreamRef = useRef<EventSource | null>(null);
+  // Manifest fetch abort controller. Quick scene navigation could have
+  // multiple in-flight requests; whichever resolved last would clobber
+  // the current scene's status with the previous scene's. Aborting the
+  // older request before each new fetch fixes the race.
+  const manifestFetchRef = useRef<AbortController | null>(null);
   const isMutedRef = useRef(false);
   const sceneContainerRef = useRef<HTMLDivElement>(null);
 
@@ -294,8 +304,11 @@ export default function SceneViewer({
   }, [bookSlug]);
 
   // Tear down the stream on unmount so we never apply events to an
-  // unmounted component.
-  useEffect(() => () => { readinessStreamRef.current?.close(); }, []);
+  // unmounted component, and abort any in-flight manifest fetches.
+  useEffect(() => () => {
+    readinessStreamRef.current?.close();
+    manifestFetchRef.current?.abort();
+  }, []);
 
   // ── SceneStream manifest fetch ──
   // Pulls per-(entity, verb) cache state for the current scene and
@@ -303,12 +316,22 @@ export default function SceneViewer({
   // overwrites the map atomically. Failures are non-blocking; the
   // action menu just renders without dots if the manifest is unreachable.
   const refreshActionStatus = useCallback(async (sceneId: string) => {
+    // Cancel any in-flight previous fetch so a slow response from a
+    // previous scene can't overwrite the new scene's freshly-loaded state.
+    manifestFetchRef.current?.abort();
+    const ac = new AbortController();
+    manifestFetchRef.current = ac;
     try {
-      const res = await fetch(`/api/livebook/scene-stream/${sceneId}?bookSlug=${bookSlug}`);
+      const res = await fetch(`/api/livebook/scene-stream/${sceneId}?bookSlug=${bookSlug}`, {
+        signal: ac.signal,
+      });
       if (!res.ok) return;
       const manifest = await res.json() as {
         entities: Array<{ entityId: string; actions: Array<{ verb: string; status: 'ready' | 'pending' | 'none' }> }>;
+        effects?: import('@/lib/video/effects/types').SceneEffect[];
       };
+      // Bail if a newer fetch superseded us mid-flight.
+      if (ac.signal.aborted) return;
       const map = new Map<string, 'ready' | 'pending' | 'none'>();
       for (const entity of manifest.entities ?? []) {
         for (const action of entity.actions ?? []) {
@@ -316,6 +339,7 @@ export default function SceneViewer({
         }
       }
       setActionStatus(map);
+      setManifestEffects(manifest.effects ?? []);
     } catch { /* manifest is optional — ignore */ }
   }, [bookSlug]);
 
@@ -892,6 +916,7 @@ export default function SceneViewer({
                 showHotspotVisuals={showHotspotVisuals}
                 preloadedHotspots={preloadedHotspots}
                 actionStatus={actionStatus}
+                manifestEffects={manifestEffects}
                 onHotspotAction={handleHotspotAction}
                 onBackgroundClick={handleBackgroundClick}
                 onBackgroundDoubleClick={handleBackgroundDoubleClick}

@@ -32,6 +32,9 @@ import { join } from 'node:path';
 import { getSupabaseService } from '../lib/supabase';
 import { planSubtitles, type SubtitleCue } from '../lib/video/subtitlePlanner';
 import { motionForMood, type SceneMotion } from '../lib/video/motion';
+import { detectTopics } from '../lib/video/effects/topicTagger';
+import { buildSceneEffects, describeRecipe } from '../lib/video/effects/effectRecipes';
+import type { SceneEffect } from '../lib/video/effects/types';
 
 const PUBLIC_DIR = join(process.cwd(), 'public');
 const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
@@ -70,6 +73,10 @@ interface ManifestScene {
    *  falls back to the procedural mood WAV at /audio/mood/{mood}.wav.
    *  Setting this to a real CDN URL lets each book ship its own bed. */
   backgroundMusicUrl?: string;
+  /** Universal effects DSL — particles, glow, vignette, etc. Same
+   *  vocabulary the live reader and the Remotion compositions read.
+   *  Derived from narration topics + mood at build time. */
+  effects: SceneEffect[];
 }
 
 interface Manifest {
@@ -233,6 +240,9 @@ async function main() {
     const mood = moodBySceneId[scene.scene_id];
     const motion = motionBySceneId[scene.scene_id] ?? motionForMood(mood);
     const subtitles = planSubtitles(scene.narration, duration);
+    const topics = detectTopics(scene.narration);
+    const effects = buildSceneEffects(topics, mood);
+    console.log(`[movie-build]    ${describeRecipe(topics, mood, effects)}`);
     out.push({
       sceneId: scene.scene_id,
       title: scene.title,
@@ -245,6 +255,7 @@ async function main() {
       motion,
       mood,
       backgroundMusicUrl: musicUrlBySceneId[scene.scene_id],
+      effects,
     });
   }
 

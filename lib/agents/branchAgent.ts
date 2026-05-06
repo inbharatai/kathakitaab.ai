@@ -15,7 +15,10 @@
 import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { getGeminiClient, getTextModel, isGeminiConfigured } from '@/lib/openai/client';
 import { checkContentSafety } from '@/lib/agents/safetyAgent';
+import { validateBranch } from '@/lib/agents/branchQAAgent';
 import type { PreGeneratedBranch } from '@/lib/engine/branchPreGenerator';
+
+const QA_THRESHOLD = 70;
 
 // ── Verb guidance ────────────────────────────────────────────
 // Universal verb table. Same map the API route uses, lifted here
@@ -73,9 +76,27 @@ export async function generateBranch(input: BranchAgentInput): Promise<PreGenera
   const userPrompt = buildUserPrompt(entityType, entityLabel, action);
   const systemPrompt = buildSystemPrompt(bookTitle, sceneTitle, sceneNarration, action);
 
+  // Generate the branch, validate it, retry once if it fails QA.
+  // The retry uses a tightened prompt that explicitly tells the model
+  // its previous output ignored the verb — fixes the most common
+  // failure mode (LLM produces generic introspective narration for
+  // every verb).
   let raw: RawBranch;
+  let qaScore = 100;
+  let qaNote: string | undefined;
   try {
     raw = await callAI(systemPrompt, userPrompt);
+    const qa = await validateBranch({ bookTitle, entityLabel, entityType, action, narration: raw.narration ?? '', sceneText: raw.sceneText });
+    qaScore = qa.score;
+    qaNote = qa.note;
+    if (qa.score < QA_THRESHOLD) {
+      console.warn(`[BranchAgent] QA score ${qa.score} for ${entityLabel}×${action}: ${qa.note ?? 'verb=' + qa.verb + ' entity=' + qa.entity + ' canon=' + qa.canon}. Retrying once.`);
+      const retryUser = `Previous attempt scored ${qa.score}/100 (verb=${qa.verb}, entity=${qa.entity}, canon=${qa.canon}). The narration must MORE STRONGLY reflect the verb "${action}" applied to "${entityLabel}". ${qa.note ? `Reviewer noted: "${qa.note}".` : ''} ${userPrompt}`;
+      raw = await callAI(systemPrompt, retryUser);
+      const qa2 = await validateBranch({ bookTitle, entityLabel, entityType, action, narration: raw.narration ?? '', sceneText: raw.sceneText });
+      qaScore = qa2.score;
+      qaNote = qa2.note;
+    }
   } catch (err) {
     return failedBranch(sceneId, entityId, entityLabel, entityType, action, err);
   }
@@ -86,6 +107,10 @@ export async function generateBranch(input: BranchAgentInput): Promise<PreGenera
       ...failedBranch(sceneId, entityId, entityLabel, entityType, action, 'safety blocked'),
       narration: 'This content is not available.',
     };
+  }
+
+  if (qaScore < QA_THRESHOLD) {
+    console.warn(`[BranchAgent] Final QA score still ${qaScore} for ${entityLabel}×${action}; shipping anyway with degraded confidence. ${qaNote ?? ''}`);
   }
 
   return {

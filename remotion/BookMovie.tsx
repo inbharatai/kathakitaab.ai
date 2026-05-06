@@ -23,6 +23,8 @@ import {
 import type { SceneMotion } from '../lib/video/motion';
 import { motionForMood, motionParams } from '../lib/video/motion';
 import type { SubtitleCue } from '../lib/video/subtitlePlanner';
+import type { SceneEffect } from '../lib/video/effects/types';
+import { EffectStack, shakeOffset } from '../lib/video/effects/layers';
 
 export interface BookMovieScene {
   sceneId: string;
@@ -53,6 +55,12 @@ export interface BookMovieScene {
    *  default. Either http(s) or `/`-prefixed local path — same
    *  resolveAsset rules as imagePath. */
   backgroundMusicUrl?: string;
+  /** Universal effects DSL — particles, glow, flash, tint, vignette,
+   *  rim_light, dust_shaft, shake, ripple, parallax, desaturation,
+   *  bloom. Same vocabulary the live reader uses. Derived from the
+   *  scene's narration topics + mood at build time, baked here so
+   *  the renderer is purely manifest-driven. */
+  effects?: SceneEffect[];
 }
 
 export interface BookMovieManifest {
@@ -232,6 +240,7 @@ const SceneShot: React.FC<{
 
   const motion = scene.motion ?? motionForMood(scene.mood);
   const params = motionParams(motion);
+  const effects = scene.effects ?? [];
 
   // Camera math driven by the motion table — same composition for
   // every scene, but each scene has its own camera personality.
@@ -240,14 +249,16 @@ const SceneShot: React.FC<{
   const tx = interpolate(t, [0, 1], [0, params.panX]);
   const ty = interpolate(t, [0, 1], [0, params.panY]);
 
-  // Battle scenes get a tasteful low-amplitude shake — three
-  // out-of-phase sinusoids so the motion never repeats visibly.
-  const shakeX = params.shake
+  // Shake comes from the effects DSL when an effect of type 'shake'
+  // is present; otherwise fall back to the motion table's shake. The
+  // DSL wins so a hand-authored manifest can override.
+  const dslShake = shakeOffset(effects, frame);
+  const motionShakeX = params.shake
     ? Math.sin(frame * 0.41) * params.shake + Math.sin(frame * 0.13) * params.shake * 0.6
     : 0;
-  const shakeY = params.shake
-    ? Math.cos(frame * 0.37) * params.shake * 0.7
-    : 0;
+  const motionShakeY = params.shake ? Math.cos(frame * 0.37) * params.shake * 0.7 : 0;
+  const shakeX = effects.some(e => e.type === 'shake') ? dslShake.x : motionShakeX;
+  const shakeY = effects.some(e => e.type === 'shake') ? dslShake.y : motionShakeY;
 
   const fadeIn = interpolate(frame, [0, SCENE_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const fadeOut = interpolate(frame, [durationInFrames - SCENE_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
@@ -295,16 +306,25 @@ const SceneShot: React.FC<{
             filter: 'brightness(0.86) saturate(1.15)',
           }}
         />
-        {/* Mood tint overlay — varies the look per motion without
-            touching the underlying image. */}
-        {params.tint && (
-          <div style={{ position: 'absolute', inset: 0, background: params.tint, mixBlendMode: 'multiply' }} />
-        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(12,8,6,0.55) 0%, transparent 22%, transparent 50%, rgba(12,8,6,0.96) 100%)' }} />
       </div>
 
-      {/* ── Divine glow + golden particles for sacred scenes ── */}
-      {params.glow && <DivineGlowOverlay frame={frame} />}
+      {/* ── Universal effects stack ── particles, glow, flash, tint,
+          vignette, rim_light, dust_shaft, bloom, desaturation. Order
+          is determined by the recipe layer; render order in EffectStack
+          matches the manifest array. */}
+      {effects.length > 0 ? (
+        <EffectStack effects={effects} frame={frame} fps={fps} seedPrefix={scene.sceneId} />
+      ) : (
+        // Legacy fallback: motion table's own tint + divine glow
+        // overlay for older manifests without effects[].
+        <>
+          {params.tint && (
+            <div style={{ position: 'absolute', inset: 0, background: params.tint, mixBlendMode: 'multiply' }} />
+          )}
+          {params.glow && <DivineGlowOverlay frame={frame} />}
+        </>
+      )}
 
       {/* ── Top header chip + scene title ── */}
       <div style={{
