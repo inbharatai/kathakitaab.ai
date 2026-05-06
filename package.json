@@ -15,7 +15,8 @@
     "movie:verify": "npx tsx scripts/verify-manifest.ts --all",
     "movie:music": "npx tsx scripts/build-mood-music.ts",
     "movie:render": "npx tsx scripts/render-movie.ts",
-    "derive:hotspots": "npx tsx scripts/derive-hotspots.ts"
+    "derive:hotspots": "npx tsx scripts/derive-hotspots.ts",
+    "slice:layers": "npx tsx scripts/slice-scene-layers.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

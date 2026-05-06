@@ -909,6 +909,7 @@ export default function SceneViewer({
                 preloadedHotspots={preloadedHotspots}
                 actionStatus={actionStatus}
                 manifestEffects={manifestEffects}
+                bookSlug={bookSlug}
                 onHotspotAction={handleHotspotAction}
                 onBackgroundClick={handleBackgroundClick}
                 onBackgroundDoubleClick={handleBackgroundDoubleClick}

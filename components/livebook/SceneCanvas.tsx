@@ -33,6 +33,9 @@ import { cameraForVerb, aimBurstAtTarget, type CameraBurst } from '@/lib/video/v
 import { subscribeActiveSpeaker, type ActiveSpeaker } from '@/lib/engine/narrationManager';
 import { useAudioAmplitude } from '@/lib/hooks/useAudioAmplitude';
 import { VerbSprite } from '@/lib/video/verbSprites';
+import { SceneLayers, type CharacterMotion } from './SceneLayers';
+import { motionForVerb } from '@/lib/video/verbCharacterMotion';
+import { useSceneCutouts } from '@/lib/hooks/useSceneCutouts';
 
 // ── Glow filter for glow animations ──────────────────────────
 
@@ -205,6 +208,11 @@ interface SceneCanvasProps {
    * The reader and the movie share these so what you see in-app is what
    * you see on export. */
   manifestEffects?: ManifestEffect[];
+  /** Book slug for sliced-cutout discovery. When the slicer has run
+   *  for this book + scene, character cutouts are loaded from
+   *  /images/layers/{slug}/{sceneId}/. Falls back to virtual ellipse-
+   *  clip mode when missing. Optional — falls back to scene.story_id. */
+  bookSlug?: string;
   /** Called when user selects an action on a hotspot */
   onHotspotAction?: (hotspot: SceneHotspot, action: HotspotClickAction) => void;
   /** Called when user clicks the background (no hotspot) */
@@ -223,11 +231,25 @@ export default function SceneCanvas({
   preloadedHotspots,
   actionStatus,
   manifestEffects,
+  bookSlug,
   onHotspotAction,
   onBackgroundClick,
   onBackgroundDoubleClick,
   disabled = false,
 }: SceneCanvasProps) {
+  // Resolve bookSlug for cutout discovery: explicit prop wins; fall
+  // back to scene.story_id which is the slug for AI-generated books.
+  const cutoutBookSlug = bookSlug ?? scene.story_id ?? '';
+  // Stable list of character target_ids — passing it to useSceneCutouts
+  // controls how many HEAD checks we kick off.
+  const characterTargetIds = scene.hotspots
+    .filter(h => h.type === 'character')
+    .map(h => h.target_id);
+  const sceneCutouts = useSceneCutouts({
+    bookSlug: cutoutBookSlug,
+    sceneId: scene.scene_id,
+    targetIds: characterTargetIds,
+  });
   // Reduce-motion preference disables effect animation but keeps
   // first-frame visuals (vignettes/tints still render statically).
   // useSyncExternalStore-based hook keeps the value live without
@@ -481,7 +503,11 @@ export default function SceneCanvas({
         />
       ) : null}
 
-      {/* ── Layer 1: Background with Ken Burns cinematic pan ── */}
+      {/* ── Layer 1: Background with Ken Burns cinematic pan ──
+          When the scene has an image, we mount the layered renderer
+          (bg plate + character cutouts) inside the Ken Burns wrapper
+          so the whole scene drifts together but characters can have
+          their own per-verb motion overlays on top. */}
       <div style={{ position: 'absolute', inset: 0 }}>
         {scene.background.image_url ? (
           <motion.div
@@ -500,12 +526,22 @@ export default function SceneCanvas({
             }}
             style={{
               position: 'absolute', inset: -20,
-              backgroundImage: `url(${scene.background.image_url})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
               filter: 'brightness(0.82) saturate(1.15)',
             }}
-          />
+          >
+            <SceneLayers
+              bgImageUrl={scene.background.image_url}
+              bgPlateUrl={sceneCutouts.bgPlateUrl}
+              cutouts={sceneCutouts.cutouts}
+              hotspots={scene.hotspots}
+              motions={
+                burst
+                  ? { [burst.hotspot.target_id]: motionForVerb(burst.verb) } as Record<string, CharacterMotion>
+                  : undefined
+              }
+              reducedMotion={prefersReducedMotion}
+            />
+          </motion.div>
         ) : (
           <div style={{ position: 'absolute', inset: 0, background: scene.background.fallback_gradient }}>
             {/* Atmospheric bokeh overlays */}
