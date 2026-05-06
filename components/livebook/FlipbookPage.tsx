@@ -89,6 +89,12 @@ const CHARACTER_EMBLEMS: Record<string, string> = {
 export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned, historyDepth, onBack }: Props) {
   const [customQ, setCustomQ] = useState('');
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  // Explicit image-fetch state so the user actually sees "generating",
+  // and so a silent backend failure (rate limit, missing API key,
+  // safety reject) shows up as a recognizable note rather than just
+  // a static gradient that looks like nothing happened.
+  const [imageState, setImageState] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
+  const [imageErrorNote, setImageErrorNote] = useState<string | null>(null);
   const [isResponseCollapsed, setIsResponseCollapsed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const theme = entry.data ? LABEL_THEME[entry.data.label] : LABEL_THEME.EXPLANATION;
@@ -96,15 +102,27 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
   const emblem = entry.targetId ? (CHARACTER_EMBLEMS[entry.targetId] || '✦') : '🔍';
   const visualHeight = isResponseCollapsed ? '100%' : '36%';
 
-  // Fetch a generated visual when the content loads
+  // Fetch a generated visual once per entry. fetchedFor tracks which
+  // entry.id we already kicked off, so the effect re-fires when the
+  // user navigates to a new entry but skips if it's the same entry
+  // re-rendering. Dedupe key is the entry id alone — each new dive
+  // creates a fresh entry id, so two consecutive questions about the
+  // same character will refresh the illustration with the new prompt.
+  const fetchedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!entry.data || entry.loading) return;
-    if (generatedImageUrl) return; // already have one
+    if (fetchedFor.current === entry.id) return;
+    fetchedFor.current = entry.id;
+
+    setGeneratedImageUrl(null);
+    setImageState('loading');
+    setImageErrorNote(null);
 
     const agentType = entry.agentType === 'character' ? 'character' : 'info';
     const imageTargetId = entry.targetId || `${entry.sceneId}-${entry.targetLabel || 'scene'}`;
     const sceneTitle = entry.sceneTitle || entry.sceneId;
 
+    let cancelled = false;
     fetch('/api/livebook/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,12 +135,35 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
         promptHint: entry.question,
       }),
     })
-      .then(r => r.json())
-      .then(json => {
-        if (json.imageUrl && !json.error) setGeneratedImageUrl(json.imageUrl);
+      .then(async r => ({ ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) }))
+      .then(({ ok, status, body }) => {
+        if (cancelled) return;
+        if (ok && body.imageUrl && !body.error) {
+          setGeneratedImageUrl(body.imageUrl);
+          setImageState('ready');
+        } else {
+          // Backend reached but no image — most often missing API key,
+          // safety block, or rate limit. Still render the gradient +
+          // emblem so the page is not blank, and surface a one-line
+          // hint so the user knows the cause.
+          setImageState('failed');
+          setImageErrorNote(
+            body.error
+              ? String(body.error).slice(0, 140)
+              : status === 429
+                ? 'Rate-limited — try again in a moment.'
+                : 'Illustration could not be generated for this view.',
+          );
+        }
       })
-      .catch(() => {});
-  }, [entry.data, entry.loading, entry.targetId]); // eslint-disable-line
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setImageState('failed');
+        setImageErrorNote(err instanceof Error ? err.message : 'Network error');
+      });
+
+    return () => { cancelled = true; };
+  }, [entry.id, entry.data, entry.loading, entry.agentType, entry.targetId, entry.sceneId, entry.sceneTitle, entry.targetLabel, entry.question]);
 
   // Auto-focus the input when loaded
   useEffect(() => {
@@ -221,25 +262,73 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
             />
           )}
 
+          {/* Image generation status overlay — only visible while
+              fetching or when generation failed, so the user always
+              knows whether the illustration is on its way, missing,
+              or rate-limited. Sits below controls so the back button
+              stays tappable. */}
+          {imageState === 'loading' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              style={{
+                position: 'absolute', bottom: 12, right: 12,
+                padding: '6px 12px',
+                background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255,215,0,0.25)', borderRadius: 999,
+                fontSize: '0.7rem', color: 'rgba(255,235,170,0.9)',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                zIndex: 5,
+              }}
+            >
+              <motion.span
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+                style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', border: '2px solid rgba(255,215,0,0.4)', borderTopColor: 'rgba(255,215,0,0.95)' }}
+              />
+              Generating illustration…
+            </motion.div>
+          )}
+          {imageState === 'failed' && imageErrorNote && (
+            <div
+              role="status"
+              style={{
+                position: 'absolute', bottom: 12, right: 12,
+                padding: '6px 12px',
+                background: 'rgba(60,30,20,0.65)', backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255,153,51,0.35)', borderRadius: 999,
+                fontSize: '0.68rem', color: 'rgba(255,193,128,0.95)',
+                maxWidth: '70%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                zIndex: 5,
+              }}
+              title={imageErrorNote}
+            >
+              ⚠ {imageErrorNote}
+            </div>
+          )}
+
           {/* ← Back / close controls */}
           <div style={{
             position: 'absolute', top: 12, left: 12, right: 12,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            zIndex: 5,
+            gap: 8, zIndex: 5,
           }}>
             <motion.button
               whileHover={{ scale: 1.06, x: -2 }}
               whileTap={{ scale: 0.94 }}
               onClick={historyDepth > 0 ? onBack : onClose}
+              aria-label={historyDepth > 0 ? 'Back to previous page' : 'Back to scene'}
               style={{
-                background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
-                color: 'rgba(255,255,255,0.8)', cursor: 'pointer',
-                padding: '5px 12px', fontSize: '0.8rem', fontWeight: 600,
+                background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255,255,255,0.18)', borderRadius: 8,
+                color: 'rgba(255,255,255,0.92)', cursor: 'pointer',
+                padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 6,
+                whiteSpace: 'nowrap', maxWidth: '50%', overflow: 'hidden', textOverflow: 'ellipsis',
               }}
             >
-              {historyDepth > 0 ? '← Back' : '✕ Close'}
+              {historyDepth > 0 ? '← Back' : '← Back to scene'}
             </motion.button>
 
             {historyDepth > 0 && (
@@ -253,28 +342,36 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
               </div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {/* Show/hide collapses to icon on phones to keep the
+                  control row from overflowing the visual header. */}
               <motion.button
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.94 }}
                 onClick={() => setIsResponseCollapsed(collapsed => !collapsed)}
+                aria-label={isResponseCollapsed ? 'Show text' : 'Hide text'}
+                title={isResponseCollapsed ? 'Show text' : 'Hide text'}
                 style={{
-                  background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255,255,255,0.15)', borderRadius: 999,
-                  color: 'rgba(255,255,255,0.8)', cursor: 'pointer',
-                  padding: '6px 12px', fontSize: '0.72rem', fontWeight: 600,
+                  background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.18)', borderRadius: 999,
+                  color: 'rgba(255,255,255,0.92)', cursor: 'pointer',
+                  padding: '6px 10px', fontSize: '0.72rem', fontWeight: 600,
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {isResponseCollapsed ? 'Show text' : 'Hide text'}
+                <span aria-hidden style={{ fontSize: '0.85rem' }}>{isResponseCollapsed ? '👁' : '🙈'}</span>
+                <span className="flipbook-ctrl-label">{isResponseCollapsed ? 'Show text' : 'Hide text'}</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.94 }}
                 onClick={onClose}
+                aria-label="Close"
                 style={{
-                  background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%',
-                  color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
+                  background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.12)', borderRadius: '50%',
+                  color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
                   width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '1rem',
                 }}

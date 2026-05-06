@@ -413,7 +413,16 @@ body {
    ============================================================ */
 @media (max-width: 768px) {
   .drawer-panel { width: 100vw; border-left: none; }
-  .scene-container { aspect-ratio: 4 / 3; border-radius: 8px; }
+  /* On tablet-ish viewports keep the cinematic feel but ensure the
+     scene-container has enough vertical space for FlipbookPage to
+     render its visual header + content + ask bar without crushing
+     the action input. min-height also covers the case where the
+     parent flexbox would otherwise collapse the scene. */
+  .scene-container {
+    aspect-ratio: 4 / 3;
+    border-radius: 8px;
+    min-height: 56vh;
+  }
   .hotspot-marker { min-width: 44px; min-height: 44px; }
 
   .lp-nav-links { gap: 12px; }
@@ -437,6 +446,11 @@ body {
   .lp-nav-name { font-size: 0.95rem; }
   .lp-btn-glow { padding: 6px 14px; font-size: 0.75rem; }
 
+  /* Phone: collapse the FlipbookPage Show/Hide-text label so the
+     control row fits with Back + Depth + ✕ without horizontal
+     overflow on a 360px-wide viewport. The icon stays visible. */
+  .flipbook-ctrl-label { display: none; }
+
   .lp-hero { padding: 70px 14px 32px; min-height: auto; }
   .lp-hero-badge { font-size: 0.62rem; padding: 5px 12px; }
   .lp-hero-ctas { flex-direction: column; align-items: stretch; }
@@ -448,7 +462,16 @@ body {
   .lp-compare-old-h { display: none; }
   .lp-compare-old { display: none; }
 
-  .scene-container { aspect-ratio: 3 / 2; border-radius: 6px; }
+  /* Phone: 3:2 keeps a cinematic shape but enforce a generous
+     min-height so the FlipbookPage's visual header (~36% of
+     container) plus content + sticky input bar all stay readable.
+     Without this, on 360x640 the inner flipbook compresses to a
+     point where the answer text overflows behind the input. */
+  .scene-container {
+    aspect-ratio: 3 / 2;
+    border-radius: 6px;
+    min-height: 64vh;
+  }
   .glass-card { border-radius: 14px; }
   .btn-primary { padding: 10px 20px; font-size: 0.9rem; }
   .btn-secondary { padding: 8px 16px; font-size: 0.82rem; }
