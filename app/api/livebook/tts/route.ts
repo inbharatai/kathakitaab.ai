@@ -27,6 +27,12 @@ interface TTSRequest {
   language?: 'hi' | 'en' | 'auto';
   /** Reserved for future streaming support. Currently ignored. */
   speed?: number;
+  /** Optional explicit emotional tone. When omitted, the router
+   *  classifies the text and falls back to scene mood. */
+  tone?: 'neutral' | 'serene' | 'joyful' | 'dramatic' | 'sorrowful' | 'sacred' | 'tense';
+  /** Scene mood from the manifest — used when tone isn't given and
+   *  text classification returns neutral. */
+  mood?: string;
 }
 
 // Map legacy voice tags from the old route to the new archetype system.
@@ -45,7 +51,7 @@ const LEGACY_VOICE_MAP: Record<string, string> = {
 export async function POST(request: Request) {
   try {
     const body: TTSRequest = await request.json();
-    const { text, characterSlug, voice, language = 'auto' } = body;
+    const { text, characterSlug, voice, language = 'auto', tone, mood } = body;
 
     if (!text || text.trim().length < 5) {
       return NextResponse.json({ error: 'Text too short' }, { status: 400 });
@@ -54,13 +60,18 @@ export async function POST(request: Request) {
     // Resolve archetype: prefer characterSlug; fall back to legacy voice tag.
     const archetypeFromLegacy = voice ? LEGACY_VOICE_MAP[voice] : undefined;
 
-    // Cache key includes language + voice to prevent cross-contamination.
+    // Cache key includes tone + mood so emotional re-renders don't
+    // collide with neutral cached audio. Without this, the first
+    // request seeds the cache with a flat delivery and every
+    // subsequent emotional request gets the wrong audio back.
     const cacheKey = buildCacheKey({
       type: 'tts',
       text: text.slice(0, 100),
       hash: simpleHash(text),
       character: characterSlug ?? archetypeFromLegacy ?? 'narrator',
       lang: language,
+      tone: tone ?? 'auto',
+      mood: mood ?? 'none',
     });
 
     // Cache hits are free — serve before counting against the rate limit.
@@ -82,13 +93,17 @@ export async function POST(request: Request) {
     const limited = await checkRateLimit(request, { scope: 'tts' });
     if (limited) return limited;
 
-    // Route through Sarvam → Gemini chain
+    // Route through Sarvam → Gemini chain. tone + mood propagate so
+    // the router can pick a per-tone delivery (Sarvam: pace/pitch/
+    // loudness; Gemini: prosody-direction prefix).
     const result = await speakTTS({
       text: text.slice(0, 1500),
       characterSlug,
       // Cast: archetype shape matches CharacterArchetype enum strings
       archetype: archetypeFromLegacy as never,
       language,
+      tone,
+      mood,
     });
 
     // Cache for 7 days — narration text is stable, repeats are free

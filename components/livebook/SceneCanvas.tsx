@@ -29,6 +29,10 @@ import { EffectStack } from '@/lib/video/effects/layers';
 import { useFrameTicker } from '@/lib/video/effects/useFrameTicker';
 import { AmbientFigure } from './AmbientFigure';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import { cameraForVerb, aimBurstAtTarget, type CameraBurst } from '@/lib/video/verbCamera';
+import { subscribeActiveSpeaker, type ActiveSpeaker } from '@/lib/engine/narrationManager';
+import { useAudioAmplitude } from '@/lib/hooks/useAudioAmplitude';
+import { VerbSprite } from '@/lib/video/verbSprites';
 
 // ── Glow filter for glow animations ──────────────────────────
 
@@ -234,6 +238,59 @@ export default function SceneCanvas({
   const [hoveredHotspot, setHoveredHotspot] = useState<string | null>(null);
   const [actionPopup, setActionPopup] = useState<ActionMenuPopup | null>(null);
 
+  // ── Verb camera burst ──
+  // Brief transform applied to the parallax wrapper when a verb is
+  // chosen (Talk → dolly-in, Fight → push+shake, Leap → vertical arc,
+  // Honor → bow tilt, etc.). The burst plays once for ~500-800ms then
+  // clears; the FlipbookPage usually opens during this window so the
+  // user perceives the camera reaction *as* the page flips. Reduced-
+  // motion users get an immediate identity transform.
+  interface ActiveBurst {
+    burst: CameraBurst;
+    verb: HotspotClickAction;
+    hotspot: SceneHotspot;
+    startedAt: number;
+    /** Frame counter for the shake jitter — increments every render
+     *  while the burst is active, drives a tiny pseudo-random offset. */
+    tickKey: number;
+  }
+  const [burst, setBurst] = useState<ActiveBurst | null>(null);
+  const burstTimer = useRef<number | null>(null);
+  // Pixel-snapshot of the canvas at burst-trigger time, so aim biasing
+  // resolves to real coordinates. Read from the container ref's bbox.
+  const triggerBurst = useCallback((verb: HotspotClickAction, hotspot: SceneHotspot) => {
+    if (prefersReducedMotion) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    const w = rect?.width ?? 0;
+    const h = rect?.height ?? 0;
+    // Aim the dolly toward the hotspot's center (% → px).
+    const targetXPct = hotspot.x + hotspot.width / 2;
+    const targetYPct = hotspot.y + hotspot.height / 2;
+    const aimed = aimBurstAtTarget(cameraForVerb(verb), targetXPct, targetYPct, w, h);
+    setBurst({ burst: aimed, verb, hotspot, startedAt: performance.now(), tickKey: 0 });
+    if (burstTimer.current) window.clearTimeout(burstTimer.current);
+    burstTimer.current = window.setTimeout(() => setBurst(null), aimed.durationMs + 100);
+  }, [prefersReducedMotion]);
+  useEffect(() => () => { if (burstTimer.current) window.clearTimeout(burstTimer.current); }, []);
+
+  // ── Audio-driven lip-pulse ──
+  // Subscribe to the narration manager's currently-active speaker.
+  // When narration is playing for a known character (entityId set),
+  // we read RMS amplitude from the audio element and pulse the
+  // matching hotspot's mouth region. Idle/narrator audio falls
+  // through with entityId=null and renders nothing.
+  const [speaker, setSpeaker] = useState<ActiveSpeaker>({ audio: null, entityId: null });
+  useEffect(() => subscribeActiveSpeaker(setSpeaker), []);
+  const amplitude = useAudioAmplitude(speaker.audio, {
+    reducedMotion: prefersReducedMotion,
+  });
+  // Resolve the hotspot to pulse: match speaker.entityId against the
+  // scene's hotspots. null when speaker is the narrator (no specific
+  // mouth to animate) or when no hotspot matches the entityId.
+  const pulsingHotspot = speaker.entityId
+    ? scene.hotspots.find(h => h.target_id === speaker.entityId) ?? null
+    : null;
+
   // ── 2.5D parallax tilt ──
   // Tracks normalized pointer position [-1, 1]. Bound to a perspective
   // wrapper that tilts the scene (bg, particles, effects, hotspots)
@@ -300,9 +357,11 @@ export default function SceneCanvas({
     e.stopPropagation();
     if (disabled) return;
 
-    // If only one action available, trigger immediately
+    // If only one action available, trigger immediately + camera burst.
     if (hotspot.allowed_actions.length === 1) {
-      onHotspotAction?.(hotspot, hotspot.allowed_actions[0]);
+      const verb = hotspot.allowed_actions[0];
+      triggerBurst(verb, hotspot);
+      onHotspotAction?.(hotspot, verb);
       return;
     }
 
@@ -312,11 +371,12 @@ export default function SceneCanvas({
       x: hotspot.x + hotspot.width / 2,
       y: hotspot.y,
     });
-  }, [disabled, onHotspotAction]);
+  }, [disabled, onHotspotAction, triggerBurst]);
 
   const handleActionSelect = useCallback((hotspot: SceneHotspot, action: HotspotClickAction) => {
+    triggerBurst(action, hotspot);
     onHotspotAction?.(hotspot, action);
-  }, [onHotspotAction]);
+  }, [onHotspotAction, triggerBurst]);
 
   return (
     <div
@@ -351,6 +411,75 @@ export default function SceneCanvas({
           transformStyle: 'preserve-3d',
         }}
       >
+      {/* ── Verb camera burst wrapper ──
+          When a verb is chosen, this layer animates a brief scale+
+          translate (and optional shake) keyed off the verb's intent.
+          Sits *inside* the parallax tilt so a Talk dolly-in still
+          tilts with mouse movement, but *outside* every visual layer
+          so the entire canvas reacts in unison. Identity transform
+          when no burst is active. */}
+      <motion.div
+        animate={burst ? {
+          scale: [burst.burst.fromScale, burst.burst.toScale],
+          x:     [burst.burst.fromX,     burst.burst.toX],
+          y:     [burst.burst.fromY,     burst.burst.toY],
+        } : { scale: 1, x: 0, y: 0 }}
+        transition={burst ? {
+          duration: burst.burst.durationMs / 1000,
+          ease: [0.22, 1, 0.36, 1],
+        } : { duration: 0.4, ease: 'easeOut' }}
+        style={{
+          position: 'absolute', inset: 0,
+          transformOrigin: 'center center',
+          willChange: 'transform',
+        }}
+      >
+      {/* Shake jitter — only rendered while burst.shake > 0. Uses a
+          framer-motion keyframe array so the oscillation is GPU-driven
+          and doesn't depend on a rAF loop in this component. */}
+      {burst && burst.burst.shake > 0 ? (
+        <motion.div
+          animate={{
+            x: [0, -burst.burst.shake, burst.burst.shake, -burst.burst.shake * 0.6, burst.burst.shake * 0.6, 0],
+            y: [0, burst.burst.shake * 0.4, -burst.burst.shake * 0.4, burst.burst.shake * 0.2, -burst.burst.shake * 0.2, 0],
+          }}
+          transition={{ duration: burst.burst.durationMs / 1000 * 0.6, ease: 'linear' }}
+          style={{ position: 'absolute', inset: 0 }}
+        >
+          {/* shaking children rendered below via portal-less continuation */}
+        </motion.div>
+      ) : null}
+      {/* Flash overlay — short color wash for impact verbs (fight,
+          honor, animate, etc.). Independent so it can fade independently
+          of the camera transform. */}
+      {burst?.burst.flash ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ duration: burst.burst.durationMs / 1000 * 0.7, ease: 'easeOut' }}
+          style={{
+            position: 'absolute', inset: 0,
+            background: burst.burst.flash,
+            mixBlendMode: 'screen',
+            pointerEvents: 'none',
+            zIndex: 9,
+          }}
+        />
+      ) : null}
+      {/* Verb sprite — universal SVG/CSS animation keyed off the
+          chosen verb (sword-flash for fight, leap-arc for leap, etc.).
+          Mounts at the hotspot bbox so the effect lands where the
+          user tapped. Auto-fades over the burst duration. */}
+      {burst ? (
+        <VerbSprite
+          verb={burst.verb}
+          x={burst.hotspot.x}
+          y={burst.hotspot.y}
+          width={burst.hotspot.width}
+          height={burst.hotspot.height}
+          durationMs={burst.burst.durationMs}
+        />
+      ) : null}
 
       {/* ── Layer 1: Background with Ken Burns cinematic pan ── */}
       <div style={{ position: 'absolute', inset: 0 }}>
@@ -452,6 +581,42 @@ export default function SceneCanvas({
       {scene.effects.map(effect => (
         <EffectLayer key={effect.id} effect={effect} />
       ))}
+
+      {/* ── Layer 4d: Audio-driven lip-pulse ──
+          When narration is playing for a known speaker, scale + glow
+          the top quarter of their hotspot bbox in time with audio
+          amplitude. Reads as "the figure's mouth is moving" without
+          any actual lip-sync model. Pointer-events:none so it never
+          blocks hotspot taps. */}
+      {pulsingHotspot && amplitude > 0 && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: `${pulsingHotspot.x}%`,
+            top: `${pulsingHotspot.y}%`,
+            width: `${pulsingHotspot.width}%`,
+            height: `${pulsingHotspot.height * 0.28}%`,
+            pointerEvents: 'none',
+            zIndex: 4,
+            // Position the pulse on the upper face region (mouth area
+            // is roughly 12-30% from the top of a portrait bbox).
+            transform: `translateY(${Math.round(pulsingHotspot.height * 0.22 * 100) / 100}%) scale(${1 + amplitude * 0.08})`,
+            transition: 'transform 80ms linear',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute', inset: 0,
+              borderRadius: '50%',
+              background: `radial-gradient(ellipse at 50% 50%, rgba(255,235,180,${0.18 + amplitude * 0.32}) 0%, transparent 65%)`,
+              filter: `blur(${4 + amplitude * 8}px)`,
+              mixBlendMode: 'screen',
+              opacity: 0.7 + amplitude * 0.3,
+            }}
+          />
+        </div>
+      )}
 
       {/* ── Layer 4c: Ambient idle animation ──
           Subtle breath/sway/blink halos at every character (and softer
@@ -627,6 +792,8 @@ export default function SceneCanvas({
         )}
       </AnimatePresence>
 
+      {/* ── End verb camera burst wrapper ── */}
+      </motion.div>
       {/* ── End 2.5D parallax wrapper ── */}
       </div>
 

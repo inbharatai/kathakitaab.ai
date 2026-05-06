@@ -654,7 +654,9 @@ export default function SceneViewer({
       // that was the "TTS irrelevant to image" complaint. branch.id as
       // the dedup key lets the same branch survive re-renders without
       // restarting playback.
-      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id);
+      // Pass the entity id as the speaker so SceneCanvas can render
+      // the lip-pulse on the matching hotspot during playback.
+      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id, entityCtx.entityId);
 
       // Save scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);
@@ -759,7 +761,9 @@ export default function SceneViewer({
 
       // Speak the BRANCH narration so audio matches the branch image
       // (see handleHotspotAction for the same fix).
-      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id);
+      // Pass the entity id as the speaker so SceneCanvas can render
+      // the lip-pulse on the matching hotspot during playback.
+      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id, entityCtx.entityId);
 
       // Save to scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);

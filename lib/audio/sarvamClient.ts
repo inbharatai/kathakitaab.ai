@@ -50,6 +50,12 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
   const timeout = setTimeout(() => controller.abort(), SARVAM_TIMEOUT_MS);
 
   try {
+    // v2 accepts pace + pitch + loudness; v3 only accepts pace. Detect
+    // the model and gate the prosody fields. Default model is v2 so
+    // emotional delivery is on by default.
+    const isV3 = /v3/i.test(getSarvamModel());
+    const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+
     const res = await fetch(SARVAM_TTS_URL, {
       method: 'POST',
       headers: {
@@ -63,9 +69,9 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
         model: getSarvamModel(),
         speech_sample_rate: 22050,
         enable_preprocessing: true,
-        // Bulbul v3 rejects pitch/loudness; v2 accepts them. Pace is
-        // accepted by both. Keep this minimal so v3 calls pass.
-        ...(req.pace !== undefined ? { pace: req.pace } : {}),
+        ...(req.pace !== undefined ? { pace: clamp(req.pace, 0.5, 2.0) } : {}),
+        ...(!isV3 && req.pitch !== undefined ? { pitch: clamp(req.pitch, -100, 100) } : {}),
+        ...(!isV3 && req.loudness !== undefined ? { loudness: clamp(req.loudness, -3, 3) } : {}),
       }),
       signal: controller.signal,
     });

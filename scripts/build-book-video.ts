@@ -106,7 +106,16 @@ async function fetchBook(slug: string): Promise<{ scenes: Scene[]; bookTitle: st
   return { scenes: data.scenes, bookTitle: title };
 }
 
-async function ttsToFile(scene: Scene, outDir: string, basename: string): Promise<string> {
+async function ttsToFile(
+  scene: Scene,
+  outDir: string,
+  basename: string,
+  mood?: string,
+): Promise<string> {
+  // Pass mood so the TTS router shapes pace/pitch/loudness for the
+  // whole-scene narration. The router still does per-text tone
+  // detection on top, so an explicitly-set mood is the floor — text
+  // that screams "battle!" can override a "serene" scene mood.
   const res = await fetch(`${BASE}/api/livebook/tts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -114,6 +123,7 @@ async function ttsToFile(scene: Scene, outDir: string, basename: string): Promis
       text: scene.narration.slice(0, 1450),
       voice: 'narration',
       language: 'en',
+      mood,
     }),
   });
   if (!res.ok) {
@@ -216,13 +226,20 @@ async function main() {
 
   const out: ManifestScene[] = [];
   for (const scene of scenes) {
+    // Resolve the mood up front so it can shape TTS delivery on a
+    // fresh render. Cached audio (audioFileRel exists) keeps whatever
+    // tone shaped its first build — there's no way to know which mood
+    // was used previously, so re-running with `--force-tts` would be
+    // the right path if the mood changes for a previously-rendered scene.
+    const sceneMood = moodBySceneId[scene.scene_id];
+
     // Discover whichever extension is already on disk; rebuild if neither.
     const relCandidates = ['mp3', 'wav'].map(ext => `movies/audio/${slug}/${scene.scene_id}.${ext}`);
     let audioFileRel = relCandidates.find(rel => existsSync(join(PUBLIC_DIR, rel)));
 
     if (!audioFileRel) {
-      console.log(`[movie-build] tts: ${scene.scene_id} (${scene.narration.length} chars)`);
-      const fileName = await ttsToFile(scene, audioDir, scene.scene_id);
+      console.log(`[movie-build] tts: ${scene.scene_id} (${scene.narration.length} chars, mood=${sceneMood ?? 'none'})`);
+      const fileName = await ttsToFile(scene, audioDir, scene.scene_id, sceneMood);
       audioFileRel = `movies/audio/${slug}/${fileName}`;
     } else {
       console.log(`[movie-build] tts: ${scene.scene_id} (cached: ${audioFileRel})`);
@@ -237,7 +254,7 @@ async function main() {
     console.log(`[movie-build]    uploaded: ${audioUrl}`);
 
     const imagePath = scene.background_asset_url || `/images/scene_${scene.scene_id}.png`;
-    const mood = moodBySceneId[scene.scene_id];
+    const mood = sceneMood;
     const motion = motionBySceneId[scene.scene_id] ?? motionForMood(mood);
     const subtitles = planSubtitles(scene.narration, duration);
     const topics = detectTopics(scene.narration);

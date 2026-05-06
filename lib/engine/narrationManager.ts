@@ -9,6 +9,32 @@
 type NarrationState = 'idle' | 'speaking' | 'loading';
 type Listener = (state: NarrationState, text?: string) => void;
 
+// ── Active-speaker subscription ──
+// Lets the live reader render an audio-driven lip-pulse on whichever
+// hotspot is currently speaking. The `entityId` aligns with hotspot
+// target_id so SceneCanvas can match without a fuzzy lookup. The
+// HTMLAudioElement itself is exposed too — consumers wrap it in a
+// Web Audio AnalyserNode for amplitude readout.
+export interface ActiveSpeaker {
+  audio: HTMLAudioElement | null;
+  entityId: string | null;
+}
+type SpeakerListener = (s: ActiveSpeaker) => void;
+const speakerListeners: Set<SpeakerListener> = new Set();
+let currentSpeaker: ActiveSpeaker = { audio: null, entityId: null };
+
+function setActiveSpeaker(next: ActiveSpeaker) {
+  currentSpeaker = next;
+  speakerListeners.forEach(l => { try { l(next); } catch { /* */ } });
+}
+
+export function subscribeActiveSpeaker(l: SpeakerListener): () => void {
+  speakerListeners.add(l);
+  // Fire once with the current value so subscribers get state immediately.
+  try { l(currentSpeaker); } catch { /* */ }
+  return () => speakerListeners.delete(l);
+}
+
 let currentAudio: HTMLAudioElement | null = null;
 let abortController: AbortController | null = null;
 let currentSceneId: string | null = null;
@@ -156,6 +182,7 @@ export function stopNarration() {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
+  setActiveSpeaker({ audio: null, entityId: null });
   restoreMusic();
   setState('idle');
 }
@@ -166,6 +193,10 @@ export async function speak(
   text: string,
   voice: string = 'narration',
   sceneId?: string,
+  /** Hotspot target_id of the speaker, when known. Drives the
+   *  audio-amplitude lip-pulse in the live reader. Omitted for
+   *  scene-narrator audio (no specific character speaking). */
+  speakerEntityId?: string,
 ): Promise<void> {
   // If the same id is already speaking, skip — prevents re-renders
   // from restarting playback mid-sentence.
@@ -197,18 +228,26 @@ export async function speak(
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       currentAudio = new Audio(url);
+      // crossOrigin lets the Web Audio AnalyserNode tap the audio
+      // stream for amplitude. Blob: URLs are same-origin so this is
+      // a no-op on the wire, but the AudioContext source-node
+      // creation requires the flag to be set before play().
+      currentAudio.crossOrigin = 'anonymous';
       currentAudio.volume = 0.9;
       currentAudio.onended = () => {
         URL.revokeObjectURL(url);
         currentAudio = null;
+        setActiveSpeaker({ audio: null, entityId: null });
         restoreMusic();
         setState('idle');
       };
       currentAudio.onerror = () => {
+        setActiveSpeaker({ audio: null, entityId: null });
         restoreMusic();
         setState('idle');
       };
       setState('speaking', text);
+      setActiveSpeaker({ audio: currentAudio, entityId: speakerEntityId ?? null });
       try {
         await currentAudio.play();
         return;
