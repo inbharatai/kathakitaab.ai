@@ -37,7 +37,7 @@ The first book in the engine is **Ramayana**. The engine is universal — adding
 
 ### Movie Mode v3
 - **Full Movie** (~6:46 for Ramayana): all scenes, sentence-by-sentence captions, per-scene camera motion, mood music ducked to 0.10 under narration, full effects DSL baked in.
-- **Cinematic Trailer** (~45s): top-6 dramatic scenes scored by mood + motion, punchier mix, end CTA.
+- **Cinematic Trailer** (43s, fixed): title (3s) + top-6 dramatic scenes (6s each) + end card (4s) = 1290 frames at 30fps. Scenes are scored by mood + motion, then chronologically ordered.
 - **Per-scene motion** drawn from the manifest: `slow_zoom_in`, `slow_zoom_out`, `pan_left`, `pan_right`, `divine_glow`, `battle_push`, `fade_only`.
 - **Effects parity** — same `EffectStack` component runs in `BookMovie`, `BookTrailer`, and the live reader. What you see in the player is what bakes into the MP4.
 - **Cinematic captions** — blur-backdrop panel, segmented progress strip with active-cue glow.
@@ -274,7 +274,7 @@ remotion/
   index.ts                                Remotion entry
   Root.tsx                                Registers BookMovie + BookTrailer + KathaTrailer
   BookMovie.tsx                           Full-book composition, manifest-driven, EffectStack-aware
-  BookTrailer.tsx                         45s cinematic teaser
+  BookTrailer.tsx                         43s cinematic teaser (top-6 dramatic scenes)
   KathaTrailer.tsx                        Marketing trailer (separate)
   manifests/{slug}.json                   Compiled book manifests (regenerable)
 
