@@ -48,12 +48,18 @@ function topicEffects(topic: string): SceneEffect[] {
         { type: 'particles', kind: 'leaf', density: 0.4 },
         { type: 'dust_shaft', angle: 55, color: 'rgba(180,210,140,0.14)', density: 0.45 },
         { type: 'tint', color: 'rgba(60,120,40,0.06)' },
+        // Low ground mist threading between trees adds the "alive
+        // forest" feel without any extra asset cost.
+        { type: 'fog', intensity: 0.18, color: 'rgba(220,230,210,1)', speed: 0.7 },
       ];
     case 'water':
       return [
         { type: 'ripple', freq: 0.06, amplitude: 1.4, originX: 0.5, originY: 0.7 },
         { type: 'tint', color: 'rgba(70,130,180,0.06)' },
         { type: 'parallax', factor: 0.2 },
+        // Wide, low-lying river mist over the surface — distinct from
+        // the leaf-particle motes used in forest.
+        { type: 'fog', intensity: 0.22, color: 'rgba(200,220,235,1)', speed: 1.1 },
       ];
     case 'fire':
       return [
@@ -84,6 +90,10 @@ function topicEffects(topic: string): SceneEffect[] {
         { type: 'particles', kind: 'mist', density: 0.6 },
         { type: 'vignette', intensity: 0.35 },
         { type: 'tint', color: 'rgba(80,60,120,0.06)' },
+        // Heavy, slow fog turns "mystery" from "particles + vignette"
+        // into a real cinematic atmosphere.
+        { type: 'fog', intensity: 0.30, color: 'rgba(190,180,210,1)', speed: 0.5 },
+        { type: 'parallax', factor: 0.18 },
       ];
     case 'magic':
       return [
@@ -140,10 +150,11 @@ function moodFloor(mood: string | undefined): SceneEffect[] {
 const TYPE_PRIORITY: Record<SceneEffect['type'], number> = {
   // Visual base layers go first (depth/tint).
   desaturation: 1, tint: 2, vignette: 3,
-  // Atmospheric particles + dust shaft + rim_light.
-  dust_shaft: 4, rim_light: 5, particles: 6,
+  // Atmospheric particles + dust shaft + rim_light + fog.
+  // Fog renders BEFORE particles so motes appear in front of the mist.
+  dust_shaft: 4, rim_light: 5, fog: 6, particles: 7,
   // Punctuation: glow / flash / shake / ripple / parallax / bloom.
-  glow: 7, flash: 8, shake: 9, ripple: 10, parallax: 11, bloom: 12,
+  glow: 8, flash: 9, shake: 10, ripple: 11, parallax: 12, bloom: 13,
 };
 
 /**

@@ -36,6 +36,7 @@ import { VerbSprite } from '@/lib/video/verbSprites';
 import { SceneLayers, type CharacterMotion } from './SceneLayers';
 import { motionForVerb } from '@/lib/video/verbCharacterMotion';
 import { useSceneCutouts } from '@/lib/hooks/useSceneCutouts';
+import { useCharacterStates } from '@/lib/hooks/useCharacterStates';
 
 // ── Glow filter for glow animations ──────────────────────────
 
@@ -250,6 +251,10 @@ export default function SceneCanvas({
     sceneId: scene.scene_id,
     targetIds: characterTargetIds,
   });
+  // Per-character state machine (idle / talk / fight / leap / etc.)
+  // — driven by the active TTS speaker (auto 'talk' for the speaking
+  // character) and by the verb-burst trigger below.
+  const characterStates = useCharacterStates();
   // Reduce-motion preference disables effect animation but keeps
   // first-frame visuals (vignettes/tints still render statically).
   // useSyncExternalStore-based hook keeps the value live without
@@ -297,6 +302,10 @@ export default function SceneCanvas({
     const targetYPct = hotspot.y + hotspot.height / 2;
     const aimed = aimBurstAtTarget(cameraForVerb(verb), targetXPct, targetYPct, w, h);
     setBurst({ burst: aimed, verb, hotspot, startedAt: performance.now(), tickKey: 0 });
+    // Flip the character state machine for this hotspot for the
+    // duration of the burst so AmbientFigure visibly stirs in time
+    // with the verb (fight quickens breath, leap doubles sway, etc.).
+    characterStates.applyVerbBurst(hotspot.target_id, verb, aimed.durationMs);
     // Promote the prior interaction to the gaze target — but only if
     // it's a *different* hotspot. Tapping the same hotspot twice
     // shouldn't make them stare at themselves.
@@ -305,7 +314,7 @@ export default function SceneCanvas({
     lastInteractedRef.current = hotspot.target_id;
     if (burstTimer.current) window.clearTimeout(burstTimer.current);
     burstTimer.current = window.setTimeout(() => setBurst(null), aimed.durationMs + 100);
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, characterStates]);
   useEffect(() => () => { if (burstTimer.current) window.clearTimeout(burstTimer.current); }, []);
 
   // ── Audio-driven lip-pulse ──
@@ -710,6 +719,7 @@ export default function SceneCanvas({
           key={`ambient-${hotspot.id}`}
           hotspot={hotspot}
           index={i}
+          state={characterStates.stateFor(hotspot.target_id)}
         />
       ))}
 

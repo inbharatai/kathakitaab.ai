@@ -2,7 +2,7 @@
 
 **Not a flipbook. A Living AI Story Engine.**
 
-KathaKitaab turns canon books into living scenes you read, click, and watch. Highlighted characters and objects respond on click; the background reacts to taps; every book also plays as a cinematic film, full or trailer, rendered from the same manifest the interactive reader uses.
+KathaKitaab turns canon books into living scenes you read, click, and watch. Highlighted characters and objects respond on click; figures breathe, sway, blink, and lean toward each other when they speak; the camera dollies, pushes, and shakes in time with whichever verb you choose; every book also plays as a cinematic film, full or trailer, rendered from the same manifest the interactive reader uses.
 
 The first book in the engine is **Ramayana**. The engine is universal — adding Mahabharata, Panchatantra, or any other title is a canon JSON + a build-script call, not new code.
 
@@ -10,34 +10,51 @@ The first book in the engine is **Ramayana**. The engine is universal — adding
 
 ## What's actually here
 
-### Interactive reader
-- **Living 2.5D scenes**: Ken-Burns + parallax + golden-dust particles + glow rings on hotspots, in plain CSS + Framer Motion.
-- **Highlighted hotspots**: characters and objects respond on click. The action menu shows a green dot for warmed branches and amber for ones that will generate on tap.
-- **Per-action branches**: cache key is `(scene, entity, verb)`. "Talk to Rama" and "Fight Rama" are distinct cache buckets — neither shadows the other.
-- **Live readiness**: an SSE stream (`/api/livebook/stream-updates/[sceneId]`) flips action-menu dots from amber → green in real time as pre-gen warms branches.
-- **Sarvam Bulbul narration**: every scene narrated end-to-end. Music ducks under speech automatically.
+### Living scene runtime
+- **Background atmosphere** — Ken Burns drift, 2.5D parallax tilt, ambient fireflies/dust motes, plus a universal **Effects DSL** (particles / glow / dust shaft / vignette / rim-light / shake / ripple / parallax / desaturation / bloom / **fog**) baked per-scene from topic + mood at manifest-build time.
+- **Ambient figure life** — every character hotspot is wrapped in an **AmbientFigure** layer that breathes, sways, blinks, and does a soft idle "look-around" every 8–14 seconds. Reduced-motion users get a still frame.
+- **Layered scenes** — `SceneLayers` renders the bg plate plus per-character cutouts as separate motion layers. Two modes share one component: virtual ellipse-clip (no asset cost, runs immediately) and sliced PNG cutouts (opt-in, pulled from `public/images/layers/{slug}/{sceneId}/` when `npm run slice:layers` has been run).
+- **Verb-keyed camera** — picking *Talk*, *Fight*, *Leap*, *Honor*, *Comfort* etc. fires a short scaled+translated camera burst aimed at the chosen hotspot, with optional shake and a color-flash for impact verbs.
+- **Verb-keyed character motion** — the same verb also flips the chosen figure's per-character motion (Leap arcs upward, Honor bows, Fight lunges forward, Comfort softens). Driven by a small per-character state machine (`useCharacterStates`) — exposed as `data-character-state` on each `AmbientFigure` for tests and downstream renderers.
+- **Verb sprite overlays** — inline-SVG flash effects: sword-flash for Fight, leap-chevrons for Leap, speech-ripples for Talk/Ask, divine-rays for Honor, warmth-pulse for Comfort, footprint-trail for Move, insight-pulse for Learn/Observe. Universal vocabulary, zero asset weight.
+- **Audio-driven lip-pulse** — Web Audio AnalyserNode reads RMS amplitude from the active TTS audio and pulses the speaker's mouth-region overlay; gaze geometry leans the pulse toward whichever hotspot was on stage just before. Reads as "they're looking at each other" in tap-tap conversational sequences.
+
+### Emotional narration
+- **Universal emotion tagger** — classifies any narration into 7 tones (`neutral / serene / joyful / dramatic / sorrowful / sacred / tense`) by word-boundary triggers. Pure function, no API call.
+- **Sarvam Bulbul v2** — primary path. Per-tone (pace, pitch, loudness) triple sent on every call. Cache key includes tone + mood so emotional re-renders don't collide with neutral cached audio.
+- **Gemini 2.5 Native Audio fallback** — same tone signal becomes a one-line natural-language prosody direction prepended to the text.
+- **Per-cue rendering (opt-in)** — `--per-cue-tts` flag on the build script splits narration into sentences, runs detect-tone per sentence, calls TTS once per cue, splices the WAVs via the new `lib/audio/concatWav.ts` PCM splicer, and writes byte-accurate cue timing into the manifest. Off by default (5× more TTS calls per scene).
+
+### Per-action branches & live readiness
+- **Cache key is `(scene, entity, verb)`** — *Talk to Rama* and *Fight Rama* are distinct cache buckets; neither shadows the other.
+- **Branch QA loop** — `lib/agents/branchQAAgent.ts` scores every generated branch on verb / entity / canon axes via gpt-4o-mini. Branches scoring < 70 retry once with a tightened prompt that explicitly tells the model its previous attempt ignored the verb.
+- **Live readiness stream** — SSE at `/api/livebook/stream-updates/[sceneId]` flips action-menu dots from amber → green in real time as pre-gen warms branches.
 
 ### Living Book Brain
-- **Multi-stage pipeline**: research → safety → story director → visual → vision → branch agent → narration → QA → cache. Each stage is a real module under `lib/agents/` and `lib/brain/`.
-- **Action-aware branch generation**: `lib/agents/branchAgent.ts` is the single owner of (verb → narration). Both the brain pipeline and the on-demand `/api/livebook/pregenerate-branches` route delegate to it.
-- **Canon-grounded**: each book has a JSON canon at `lib/data/canon/{slug}.json` that lists allowed verbs, character bibles, and forbidden changes. Used by every agent prompt.
+- **Multi-stage pipeline** — research → safety → story director → visual → vision → branch agent → narration → QA → cache. Each stage is a real module under `lib/agents/` and `lib/brain/`.
+- **Action-aware branch generation** — `lib/agents/branchAgent.ts` is the single owner of (verb → narration). Both the brain pipeline and `/api/livebook/pregenerate-branches` delegate to it.
+- **Canon-grounded** — each book has a JSON canon at `lib/data/canon/{slug}.json` listing allowed verbs, character bibles, and forbidden changes. Used by every agent prompt.
 
-### Movie Mode v2
-Same engine that runs the reader builds the movie. Two cuts:
-- **Full Movie** (~6:46 for Ramayana): all scenes, sentence-by-sentence captions, per-scene camera motion, mood music ducked to 0.10 under narration.
+### Movie Mode v3
+- **Full Movie** (~6:46 for Ramayana): all scenes, sentence-by-sentence captions, per-scene camera motion, mood music ducked to 0.10 under narration, full effects DSL baked in.
 - **Cinematic Trailer** (~45s): top-6 dramatic scenes scored by mood + motion, punchier mix, end CTA.
-- **Per-scene motion** drawn from the manifest: `slow_zoom_in`, `slow_zoom_out`, `pan_left`, `pan_right`, `divine_glow` (radial gold + particles), `battle_push` (zoom + tasteful shake + crimson tint), `fade_only`.
-- **Cinematic captions**: blur-backdrop panel, segmented progress strip with active-cue glow.
-- **Procedural mood beds**: 6 ambient WAVs synthesized in-house (`lib/audio/proceduralWav.ts`). No licensed soundtrack.
-- **MP4 export**: `POST /api/livebook/render-movie` bundles Remotion, renders, uploads to Supabase, falls back to `public/movies/` if the file is too large for the bucket. Cached by manifest hash so unchanged inputs return the existing file in milliseconds.
+- **Per-scene motion** drawn from the manifest: `slow_zoom_in`, `slow_zoom_out`, `pan_left`, `pan_right`, `divine_glow`, `battle_push`, `fade_only`.
+- **Effects parity** — same `EffectStack` component runs in `BookMovie`, `BookTrailer`, and the live reader. What you see in the player is what bakes into the MP4.
+- **Cinematic captions** — blur-backdrop panel, segmented progress strip with active-cue glow.
+- **Procedural mood beds** — 6 ambient WAVs synthesized in-house (`lib/audio/proceduralWav.ts`). No licensed soundtrack.
+- **MP4 export** — two paths to the same render:
+  - `POST /api/livebook/render-movie` from the dev server (uploads to Supabase if available, falls back to `public/movies/`)
+  - `npm run movie:render` CLI for offline / CI / no-server renders. Same hash + filename strategy as the route, so the route's local-cache check finds these and skips re-rendering.
+- **Manifest hash dedupe** — unchanged inputs return the existing file in milliseconds.
 
-### Manifest contract (Phase 10 spec)
+### Manifest contract
 Each scene in `remotion/manifests/{slug}.json` carries:
 - `subtitles[]` with explicit `startMs`/`endMs` per sentence
 - `motion`: one of the seven motion tokens
 - `narrationAudioUrl` and `audioPath`
 - `mood`: serene / dramatic / somber / joyful / sacred / mysterious
 - `backgroundMusicUrl?`: explicit ambient bed URL, or fall back to the procedural WAV for the mood
+- `effects[]`: discriminated-union DSL entries (particles / glow / dust_shaft / vignette / rim_light / shake / ripple / parallax / fog / etc.)
 - `durationSeconds`, `imagePath`, `narration`, `title`, `sceneId`
 
 `npm run movie:verify` walks every manifest and exits non-zero on the first missing field.
@@ -47,12 +64,15 @@ Each scene in `remotion/manifests/{slug}.json` carries:
 ## Tech
 
 - **Next.js 16** (App Router, React 19, TypeScript strict)
-- **Remotion 4.0** (`@remotion/player`, `@remotion/bundler`, `@remotion/renderer`) for live playback + server-rendered MP4 export
-- **OpenAI** (gpt-4o-mini for branch generation, gpt-image-1 for scene art, Sarvam for TTS)
+- **Remotion 4.0.457** (`@remotion/player`, `@remotion/bundler`, `@remotion/renderer`) for live playback + server-rendered MP4 export. All five Remotion packages pinned to the same exact version (mismatch causes the bundler to refuse to load).
+- **Sarvam Bulbul v2** for primary TTS with pace/pitch/loudness shaping
+- **Gemini 2.5 Flash + Native Audio** for fallback text & TTS
+- **OpenAI** (gpt-4o-mini for branch generation + QA, gpt-image-1 for scene art and the optional layer-slicer)
 - **Supabase Storage** for narration audio and MP4 cache (with local-fs fallback)
-- **Upstash Redis** for cross-instance branch + manifest cache
-- **Playwright** for end-to-end testing
+- **Upstash Redis** for cross-instance branch + manifest cache (with in-process LRU fallback)
 - **Framer Motion** for the reader's living-scene effects
+- **Web Audio API** (AnalyserNode) for the lip-pulse amplitude track
+- **Playwright** for end-to-end testing
 
 ---
 
@@ -66,14 +86,22 @@ npm install
 ### 2. Environment
 Create `.env.local` with at minimum:
 ```env
+SARVAM_API_KEY=...
+SARVAM_TTS_MODEL=bulbul:v2
+
+GEMINI_API_KEY=...
+GEMINI_TEXT_MODEL=gemini-2.5-flash
+GEMINI_AUDIO_MODEL=gemini-2.5-flash-preview-tts
+
 OPENAI_API_KEY=...
 OPENAI_TEXT_MODEL=gpt-4o-mini
-SARVAM_API_KEY=...
 
 # Optional but recommended for production:
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_DB_URL=...
+
 UPSTASH_REDIS_REST_URL=...
 UPSTASH_REDIS_REST_TOKEN=...
 ```
@@ -86,44 +114,89 @@ npm run dev
 ```
 Open [http://localhost:5009](http://localhost:5009).
 
+The reader is at `/books/ramayana`. Click any highlighted hotspot to open the action menu; pick a verb to see the camera burst, character motion, sprite overlay, and emotional narration land together.
+
 ### 4. Tests
 ```bash
-npx playwright test                       # Full E2E suite
-npx playwright test tests/e2e/landing-truth.spec.ts  # Truth-first copy guards
-npx playwright test tests/e2e/cache-hit.spec.ts      # Per-action cache contract
-npx playwright test tests/e2e/movie-cues.spec.ts     # Subtitle cue advancement
-npx playwright test tests/e2e/mp4-exists.spec.ts     # MP4 export end-to-end
+# Priority sweep — runs serially, no flakes. ~45s warm.
+npx playwright test --project=chromium --workers=1 \
+  character-state.spec.ts hotspot-branch.spec.ts \
+  cache-hit.spec.ts landing-truth.spec.ts movie-cues.spec.ts
+
+# Specific specs
+npx playwright test tests/e2e/character-state.spec.ts   # data-character-state flips on verb burst
+npx playwright test tests/e2e/landing-truth.spec.ts     # truth-first copy guards
+npx playwright test tests/e2e/cache-hit.spec.ts         # per-action cache contract
+npx playwright test tests/e2e/movie-cues.spec.ts        # subtitle cue advancement
+npx playwright test tests/e2e/mp4-exists.spec.ts        # MP4 export end-to-end (~6 min)
 ```
 
-### 5. Build a book's movie manifest
+### 5. Build a book's manifest
 ```bash
-# Re-TTS narration → upload to Supabase → write subtitles[] + motion + mood
+# Standard build: per-scene mood-shaped TTS + topic-derived effects[]
 npm run movie:build:ramayana
 
-# Verify the manifest matches the Phase 10 contract
+# Per-cue emotional TTS — splits narration into sentences,
+# runs detect-tone per sentence, splices WAVs together,
+# writes byte-accurate subtitle timing. ~5× TTS calls per scene.
+npm run movie:build -- --slug=ramayana --per-cue-tts
+
+# Verify the manifest matches the contract (effects[] included)
 npm run movie:verify
+
+# Synthesize procedural mood beds (deterministic, ~5s)
+npm run movie:music
 ```
 
 ### 6. Render the MP4 / trailer
+
+**CLI path (no server needed):**
 ```bash
-# Full Movie — server-renders Remotion BookMovie composition
+# Both trailer + full movie, ramayana
+npm run movie:render
+
+# Just the trailer (faster, ~3 min)
+npm run movie:render -- --mode=trailer
+
+# Just the full movie (~10 min)
+npm run movie:render -- --mode=movie
+
+# Force re-render even if hashed cache exists
+npm run movie:render -- --mode=movie --force
+```
+
+**HTTP path (when dev server is up):**
+```bash
 curl -X POST http://localhost:5009/api/livebook/render-movie \
   -H "Content-Type: application/json" \
   -d '{"bookSlug":"ramayana","force":true,"mode":"movie"}'
-
-# Cinematic Trailer — picks the top-6 dramatic scenes
-curl -X POST http://localhost:5009/api/livebook/render-movie \
-  -H "Content-Type: application/json" \
-  -d '{"bookSlug":"ramayana","force":true,"mode":"trailer"}'
 ```
 
-The same buttons are available on the per-book movie page at `/books/{slug}/movie`.
+Output: `public/movies/{slug}.{stem}.{hash}.mp4`. The route auto-discovers these and serves them directly.
 
-### 7. Generate procedural mood beds
+### 7. Optional upgrades
+
 ```bash
-npm run movie:music
-# Writes 6 deterministic WAVs to public/audio/mood/
+# Vision-derived hotspot tightening — runs gpt-4o over each scene
+# image to refine character bounding boxes. ~$0.30 per book.
+npm run derive:hotspots                            # full run
+npm run derive:hotspots -- --dry-run               # preview, no API calls
+
+# Layer slicing — produces real character cutouts (PNG with alpha)
+# via gpt-image-1 reference editing. SceneLayers auto-detects the
+# outputs and switches that scene from virtual to sliced mode.
+# ~$2 per book one-time. Idempotent.
+npm run slice:layers                               # full ramayana
+npm run slice:layers -- --dry-run                  # preview job list
+npm run slice:layers -- --scene=ayodhya_intro      # one scene only
+npm run slice:layers -- --force                    # rebuild existing
 ```
+
+### 8. Infrastructure health check
+```bash
+npx tsx scripts/check-infra.ts
+```
+Read-only probes: Redis ping/pong + namespace stats, Supabase Storage bucket layout, Postgres table presence.
 
 ---
 
@@ -131,7 +204,7 @@ npm run movie:music
 
 ```
 app/
-  page.tsx                                Landing — truth-first copy + Movie Mode v2 with Trailer/Movie toggle
+  page.tsx                                Landing — truth-first copy + Movie Mode v3 with Trailer/Movie toggle
   books/[slug]/page.tsx                   Interactive reader entry
   books/[slug]/movie/page.tsx             Movie page with live <Player> + dual export buttons
   api/livebook/
@@ -139,46 +212,80 @@ app/
     pregenerate-branches/                 Fire-and-forget warmer; calls branchAgent
     scene-stream/[sceneId]/               Unified scene+entities+action-status manifest
     stream-updates/[sceneId]/             SSE branch_ready stream
-    render-movie/                         Remotion bundle + render + upload
-    tts/                                  Sarvam Bulbul wrapper
+    render-movie/                         Remotion bundle + render + upload (HTTP path)
+    tts/                                  Sarvam → Gemini fallback chain with tone+mood
+
+components/livebook/
+  SceneCanvas.tsx                         Layered scene runtime — bg + cutouts + effects + ambient + lip-pulse
+  SceneLayers.tsx                         Bg plate + character cutouts (virtual or sliced)
+  AmbientFigure.tsx                       Per-hotspot breath / sway / blink / look-around layer
+  FlipbookPage.tsx                        Deep-dive panel with branch narration + image
+  SceneViewer.tsx                         Reader controller — narration, branch state, scene navigation
 
 lib/
   agents/
     branchAgent.ts                        Single owner of (verb → narration)
+    branchQAAgent.ts                      Verb / entity / canon scoring with retry
     safetyAgent.ts                        Content safety filter
     visualAgent.ts                        gpt-image-1 wrapper
     visionAgent.ts                        Entity detection in generated images
     researchAgent.ts                      Web-grounded fact pull
   audio/
+    emotionTagger.ts                      7-tone classifier + (pace, pitch, loudness) map
+    ttsRouter.ts                          Sarvam → Gemini chain with per-tone shaping
+    sarvamClient.ts                       Bulbul v2/v3 TTS wrapper
+    geminiAudioClient.ts                  Gemini 2.5 Native Audio + prosody-direction prefix
+    concatWav.ts                          PCM WAV splicer for per-cue TTS rendering
+    characterVoices.ts                    Universal archetype → voice mapping
     proceduralWav.ts                      In-house PCM synthesizer for mood beds
     musicOrchestrator.ts                  Mood-driven profile picker, ducks under TTS
     soundEngine.ts                        Click/transition SFX, ambient drone
   brain/
     LivingBookBrain.ts                    The orchestrator — research → director → vision → branch agent → QA
   data/
-    canon/{slug}.json                     Per-book canon: characters, allowed_actions, forbidden_changes
+    canon/{slug}.json                     Per-book canon
     canonLookup.ts                        Universal lookup + prompt fragment builder
+    hotspots.ts                           Hand-authored hotspot bboxes (Ramayana)
   engine/
-    branchPreGenerator.ts                 Action-aware cache keys, getPregenActions()
+    branchPreGenerator.ts                 Action-aware cache keys
     entityInteraction.ts                  Client-side click handler with 3-tier cache
     sceneGraph.ts                         In-memory branch graph
+    narrationManager.ts                   Audio playback + active-speaker subscription
+  hooks/
+    useCharacterStates.ts                 Per-character state machine (idle/talk/fight/...)
+    useAudioAmplitude.ts                  Web Audio AnalyserNode → smoothed RMS
+    useSceneCutouts.ts                    HEAD-discovery of public/images/layers/{slug}/...
+    usePrefersReducedMotion.ts            useSyncExternalStore subscription
   video/
     motion.ts                             7-motion vocabulary + mood→motion defaults
+    verbCamera.ts                         17 verbs → camera burst (scale/translate/shake/flash)
+    verbCharacterMotion.ts                17 verbs → character motion (dx/dy/scale/rotate)
+    verbSprites.tsx                       Inline-SVG verb flash effects
     subtitlePlanner.ts                    Sentence cues with explicit ms timing
     manifestRegistry.ts                   Static lookup of compiled book manifests
+    effects/
+      types.ts                            Discriminated-union effect DSL
+      effectRecipes.ts                    Topic + mood → effects[] composer
+      topicTagger.ts                      Universal narration → topic-vector classifier
+      layers.tsx                          Shared React components for every effect type
+      useFrameTicker.ts                   rAF-based frame counter mirroring Remotion's
 
 remotion/
   index.ts                                Remotion entry
   Root.tsx                                Registers BookMovie + BookTrailer + KathaTrailer
-  BookMovie.tsx                           Full-book composition, manifest-driven
+  BookMovie.tsx                           Full-book composition, manifest-driven, EffectStack-aware
   BookTrailer.tsx                         45s cinematic teaser
   KathaTrailer.tsx                        Marketing trailer (separate)
   manifests/{slug}.json                   Compiled book manifests (regenerable)
 
 scripts/
-  build-book-video.ts                     Re-TTS + upload + write manifest
+  build-book-video.ts                     Re-TTS + upload + write manifest. --per-cue-tts opt-in.
   build-mood-music.ts                     Synthesize procedural mood WAVs
-  verify-manifest.ts                      Phase 10 contract checker
+  verify-manifest.ts                      Phase 10 contract checker (effects[] required)
+  render-movie.ts                         CLI MP4 renderer (no dev server needed)
+  derive-hotspots.ts                      Vision-tightened hotspot bbox refinement
+  slice-scene-layers.ts                   gpt-image-1 layer slicer (bg plate + character cutouts)
+  check-infra.ts                          Read-only Redis + Supabase health check
   prebake-anchors.ts                      Pre-generate character portrait anchors
   apply-supabase-migrations.ts            DB schema migration runner
 
@@ -186,13 +293,14 @@ tests/e2e/
   landing-truth.spec.ts                   Pins truth-first hero copy; bans known hyperbole
   hotspot-branch.spec.ts                  Click Rama → action menu → readiness dots → narration
   cache-hit.spec.ts                       Talk and Move warm into separate cache buckets
-  mobile-tap.spec.ts                      Mobile Safari touch event chain
+  character-state.spec.ts                 data-character-state flips on verb burst (Phase 1)
   movie-cues.spec.ts                      data-cue-index advances during playback
   mp4-exists.spec.ts                      End-to-end render → HEAD → cache hit on rerun
+  mobile-tap.spec.ts                      Mobile Safari touch event chain
   human-walkthrough.spec.ts               Full reader → branch → movie → export with screenshots
-  v2-screenshots.spec.ts                  Visual evidence: title-card, caption-scene, battle-scene, divine-scene, movie-page-desktop, movie-page-mobile
+  v2-screenshots.spec.ts                  Visual evidence snapshots
   book-movie.spec.ts                      Live Player playback through scene 1
-  livebook.spec.ts                        Walkthrough A-to-Z baseline
+  livebook.spec.ts                        v1 MVP suite (skipped — superseded by newer specs)
   ...                                     Plus play-mode, full-flow, full-screenshots, canon-consistency, menu-probe
 ```
 
@@ -200,26 +308,30 @@ tests/e2e/
 
 ## What's still honest about its limits
 
-- **Scene art is pre-baked.** The 11 Ramayana PNGs are static; per-scene camera motion + captions + mood beds make them feel different, but the underlying paintings don't change between renders. gpt-image-1 wiring exists in the brain pipeline but `npm run movie:build` doesn't yet use it.
+- **Scene art is pre-baked.** The Ramayana PNGs are static; per-scene camera motion + cue-timed captions + verb-driven figure animation + atmospheric effects make them feel alive, but the underlying paintings don't change between renders. The `slice:layers` pipeline can produce real per-character alpha cutouts on demand, but the default reader uses the virtual ellipse-clip mode (no asset cost).
+- **Character cutouts are virtual by default.** The `SceneLayers` virtual mode soft-masks the bg image to an ellipse around each hotspot — visually convincing for stationary scenes, less so for large character motion deltas. Run `npm run slice:layers` (~$2/book OpenAI cost) to upgrade any book to true alpha cutouts.
+- **Lip-pulse is amplitude-driven, not phoneme-aligned.** The mouth-region pulse follows audio loudness, not actual phonemes. Reads as "they're talking", not as "their lips are forming these words". Real lip-sync would need a Whisper-aligned phoneme track per cue.
 - **The brain isn't the default reader path.** Static scenes still flow through `/api/books/[slug]/scenes/[sceneId]`. The brain only runs when generating fresh scenes.
 - **Click-anywhere is hotspot-only.** Tapping background pixels asks the AI for hidden details, but only a curated set of hotspots renders glow rings. The hero copy reflects this.
 - **No real Agents SDK.** The "agents" are role-flavored functions, not OpenAI Agents SDK with handoffs/guardrails. The architecture matches the spec; the framework doesn't.
-- **Music is procedural, never licensed.** Mood beds are synthesized at build time from `lib/audio/proceduralWav.ts`. Don't expect a film soundtrack.
+- **Music is procedural, never licensed.** Mood beds are synthesized at build time. Don't expect a film soundtrack.
+- **No game-engine / canvas runtime.** The reader is plain DOM + CSS + framer-motion. We deliberately did **not** add PixiJS, Phaser, Rive, or Spine — those would break Playwright a11y selectors, Remotion export parity, and the SSR-friendly mount, with no measurable visual win at our current scale.
 
 ---
 
 ## Roadmap
 
-- **Phase J — Universal effects DSL**: per-scene `effects[]` (particles, flash, glow, shake, parallax) derived from topic detection. Same vocabulary in reader and movie.
-- **Phase K — Brain in the live reader**: route static scene loads through `prepareScene()` so the brain enriches every scene, not only generated ones.
-- **Phase L — Multi-book canon expansion**: ship Mahabharata + Panchatantra manifests; verify the engine renders without scene-id-specific code.
-- **Phase M — Real Agents SDK**: replace the function-call pipeline with OpenAI Agents handoffs + guardrails per the spec.
+- **Phase 2 (next, opt-in)** — Multi-part puppet rigging: extend the slicer to per-body-part PNGs (head / eyes / mouth / torso / arms) and route them through a state-machine renderer for true cartoon-style poses (idle, talk, walk, react). Falls back to single-cutout when part segmentation is uncertain.
+- **Phase 3** — Whisper-aligned phoneme lip-sync replacing the amplitude-driven mouth pulse.
+- **Phase 4** — AI image-to-video (SVD / Runway / Kling) for *hero moments only* — deer running, Hanuman flying, divine darshan reveal. Inserted between scenes, never inside the cue track (their dynamic durations would break subtitle timing).
+- **Phase 5** — Multi-book canon expansion: ship Mahabharata + Panchatantra manifests; verify the engine renders without scene-id-specific code.
+- **Phase 6** — Real Agents SDK: replace the function-call pipeline with OpenAI Agents handoffs + guardrails per the spec.
 
 ---
 
 ## Latest movie bundle
 
-`public/movies/ramayana/` ships with a current build of the Ramayana movie plus the trailer and every source asset. See its README for the per-scene motion table, regen commands, and visual evidence screenshot paths.
+`public/movies/ramayana/` ships with a current build of the Ramayana movie plus the trailer and every source asset (gitignored — regenerable via `npm run movie:render`). See its README for the per-scene motion table, regen commands, and visual evidence screenshot paths.
 
 ---
 

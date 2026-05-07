@@ -287,6 +287,53 @@ const Desaturation: React.FC<{ effect: Extract<SceneEffect, { type: 'desaturatio
   );
 };
 
+// ── Fog ──────────────────────────────────────────────────────
+// Wide, soft horizontal mist that drifts across the lower third of
+// the scene. Renders three soft horizontal gradient bands at slightly
+// different offsets and drift speeds so the mist reads as layered
+// instead of flat. Frame-driven, deterministic — same input gives
+// the same visual in the live reader and the Remotion export.
+const Fog: React.FC<LayerProps & { effect: Extract<SceneEffect, { type: 'fog' }>; seedPrefix: string }> = ({ frame, fps, effect, seedPrefix }) => {
+  const intensity = effect.intensity ?? 0.22;
+  const color = effect.color ?? 'rgba(220, 225, 235, 1)';
+  const speed = effect.speed ?? 1.0;
+  // Three layered bands at increasing depth — each drifts at a slightly
+  // different rate so parallax reads even on a flat background.
+  const bands = [
+    { y: 70, h: 30, alpha: intensity * 0.85, drift: 14 * speed, depth: 1.0, blur: 12 },
+    { y: 60, h: 35, alpha: intensity * 0.55, drift: 9  * speed, depth: 0.7, blur: 18 },
+    { y: 50, h: 42, alpha: intensity * 0.35, drift: 6  * speed, depth: 0.5, blur: 24 },
+  ];
+  const t = frame / fps;
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      {bands.map((b, i) => {
+        // A small per-band phase offset keeps the bands unsynchronized.
+        const phase = seededRandom(`${seedPrefix}-fog-${i}`) * 100;
+        // Translate cycles slowly across ±20% so the band visibly moves
+        // without ever leaving the viewport.
+        const tx = Math.sin((t * b.drift / 60) + phase) * 12;
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: '-15%', right: '-15%',
+              top: `${b.y}%`,
+              height: `${b.h}%`,
+              transform: `translateX(${tx}%)`,
+              background: `linear-gradient(180deg, transparent 0%, ${replaceAlpha(color, b.alpha)} 40%, ${replaceAlpha(color, b.alpha * 0.8)} 60%, transparent 100%)`,
+              filter: `blur(${b.blur}px)`,
+              willChange: 'transform',
+              mixBlendMode: 'screen',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
 // ── Public dispatcher ────────────────────────────────────────
 
 interface RenderEffectProps {
@@ -308,6 +355,7 @@ export const RenderEffect: React.FC<RenderEffectProps> = ({ effect, frame, fps, 
     case 'dust_shaft':   return <DustShaft effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
     case 'bloom':        return <Bloom effect={effect} />;
     case 'desaturation': return <Desaturation effect={effect} />;
+    case 'fog':          return <Fog effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
     // shake / ripple / parallax modify the *underlying image transform*,
     // not an overlay. They're consumed by the host (BookMovie applies
     // shake to its <Img>; SceneCanvas applies parallax to its scene

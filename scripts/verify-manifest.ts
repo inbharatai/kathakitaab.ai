@@ -46,7 +46,7 @@ const VALID_MOTIONS = new Set([
 
 const VALID_EFFECTS = new Set([
   'particles', 'glow', 'flash', 'tint', 'vignette', 'rim_light',
-  'dust_shaft', 'shake', 'ripple', 'parallax', 'desaturation', 'bloom',
+  'dust_shaft', 'shake', 'ripple', 'parallax', 'desaturation', 'bloom', 'fog',
 ]);
 
 interface Issue { scene: string; field: string; problem: string }

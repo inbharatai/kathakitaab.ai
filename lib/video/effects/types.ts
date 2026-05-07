@@ -148,6 +148,23 @@ export interface BloomEffect {
   intensity?: number;
 }
 
+// ── Atmospheric drift ────────────────────────────────────────
+// Slow horizontal mist that drifts across the lower third of the
+// scene. Distinct from `particles[mist]` (which is small motes) —
+// fog is wide, soft, and continuous, so it reads as ambient
+// weather rather than discrete sparkles. Cheap, zero asset cost,
+// works the same way in the live reader and Remotion.
+
+export interface FogEffect {
+  type: 'fog';
+  /** 0..1 opacity ceiling. Default 0.22. */
+  intensity?: number;
+  /** rgba override. Default cool grey-white. */
+  color?: string;
+  /** Drift speed multiplier. 1.0 = neutral, 0.5 = slow, 2.0 = fast. */
+  speed?: number;
+}
+
 // ── Discriminated union ──────────────────────────────────────
 
 export type SceneEffect =
@@ -162,11 +179,12 @@ export type SceneEffect =
   | RippleEffect
   | ParallaxEffect
   | DesaturationEffect
-  | BloomEffect;
+  | BloomEffect
+  | FogEffect;
 
 export const EFFECT_TYPES: SceneEffect['type'][] = [
   'particles', 'glow', 'flash', 'tint', 'vignette', 'rim_light',
-  'dust_shaft', 'shake', 'ripple', 'parallax', 'desaturation', 'bloom',
+  'dust_shaft', 'shake', 'ripple', 'parallax', 'desaturation', 'bloom', 'fog',
 ];
 
 // ── Topic vector ────────────────────────────────────────────

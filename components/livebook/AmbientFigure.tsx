@@ -32,6 +32,7 @@
 import { motion } from 'framer-motion';
 import type { SceneHotspot } from '@/lib/types/storyScene';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import type { CharacterState } from '@/lib/hooks/useCharacterStates';
 
 // Stable hash → 0..1, used to phase-offset each figure so multiple
 // characters don't breathe in lockstep. Tiny FNV-1a — deterministic
@@ -48,9 +49,13 @@ function phaseFor(id: string): number {
 interface AmbientFigureProps {
   hotspot: SceneHotspot;
   index: number;
+  /** Optional puppet state — when set, the breath/sway timing
+   *  intensifies for active states ('talk', 'fight', 'leap', etc.)
+   *  and stays calm for 'idle'. Falls back to 'idle' when omitted. */
+  state?: CharacterState;
 }
 
-export function AmbientFigure({ hotspot, index }: AmbientFigureProps) {
+export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureProps) {
   // Each instance subscribes to prefers-reduced-motion via the shared hook.
   // useSyncExternalStore handles SSR safety and re-renders cleanly when the
   // user toggles their OS setting mid-session.
@@ -64,9 +69,18 @@ export function AmbientFigure({ hotspot, index }: AmbientFigureProps) {
   if (!isCharacter && !isObject) return null;
 
   const phase = phaseFor(hotspot.id || `${hotspot.target_id}-${index}`);
+  // Active states quicken the breath/sway timing so a character in
+  // mid-fight visibly stirs faster than one at rest. The numbers are
+  // small — we don't want to break the "subtle" promise of ambient.
+  const stateMultiplier = state === 'idle' ? 1.0
+    : state === 'talk'   ? 1.25  // chest rises a bit faster while speaking
+    : state === 'fight'  ? 1.7
+    : state === 'leap'   ? 1.6
+    : state === 'animate'? 1.4
+    : 1.15;                       // honor / observe / comfort — slight uplift
   // Stagger durations so adjacent figures feel organically out-of-sync.
-  const breathSec = 3.4 + phase * 1.2;
-  const swaySec   = 5.8 + phase * 1.6;
+  const breathSec = (3.4 + phase * 1.2) / stateMultiplier;
+  const swaySec   = (5.8 + phase * 1.6) / stateMultiplier;
   const breathDelay = phase * breathSec;
   const swayDelay   = phase * swaySec;
 
@@ -88,6 +102,8 @@ export function AmbientFigure({ hotspot, index }: AmbientFigureProps) {
   return (
     <div
       aria-hidden
+      data-character-state={state}
+      data-character-target={hotspot.target_id}
       style={{
         position: 'absolute',
         left: `${hotspot.x}%`,
@@ -98,6 +114,33 @@ export function AmbientFigure({ hotspot, index }: AmbientFigureProps) {
         zIndex: 3,
       }}
     >
+      {/* Idle look-around wrapper — head-pivoted rotation that
+          animates only while state === 'idle'. Every ~8-14s the figure
+          does a small head-tilt that reads as "checking the
+          surroundings", then settles. Active states clamp the rotation
+          back to 0 so the verb burst owns the motion. Anchored at
+          top-center (head pivot) instead of feet so it reads as a
+          head turn rather than a body lean. */}
+      <motion.div
+        animate={state === 'idle'
+          ? { rotate: [0, 1.6, 0, -1.4, 0] }
+          : { rotate: 0 }}
+        transition={state === 'idle'
+          ? {
+              duration: 8 + phase * 6,
+              times: [0, 0.18, 0.42, 0.62, 1],
+              repeat: Infinity,
+              ease: 'easeInOut',
+              delay: 1.5 + phase * 4,
+            }
+          : { duration: 0.4, ease: 'easeOut' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transformOrigin: '50% 22%',
+          pointerEvents: 'none',
+        }}
+      >
       {/* Outer wrapper: sway (slow rotation around feet) */}
       <motion.div
         animate={{ rotate: [-swayDeg, swayDeg, -swayDeg] }}
@@ -178,6 +221,7 @@ export function AmbientFigure({ hotspot, index }: AmbientFigureProps) {
             />
           )}
         </motion.div>
+      </motion.div>
       </motion.div>
     </div>
   );

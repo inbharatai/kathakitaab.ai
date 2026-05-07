@@ -24,21 +24,22 @@ const SCENE_PREVIEWS = [
 ];
 
 const COMPARISON = [
-  { old: 'Static pages you flip through', new: 'Living scenes — figures breathe, sway, and blink in idle' },
+  { old: 'Static pages you flip through', new: 'Living scenes — figures breathe, sway, blink, and look around' },
   { old: 'Read-only text and images', new: 'Highlighted characters and objects respond on click' },
   { old: 'Same response no matter which action', new: 'Verb-aware AI — Talk, Fight, Honor, Comfort each feel different' },
+  { old: 'No reaction when you click', new: 'Camera dollies, characters pose, sprites flash — keyed to the verb' },
   { old: 'Same experience every time', new: 'AI generates a fresh branch the first time, caches it after' },
-  { old: 'Silent pages', new: 'Every scene narrated with Sarvam Indian-tuned voice' },
+  { old: 'Silent or robotic narration', new: 'Sarvam Bulbul shaped per scene mood — sorrow plays slow, battle plays urgent' },
   { old: 'One linear path', new: 'Story graph with hidden discoveries via tap-anywhere' },
   { old: 'Books vs. movies — pick one', new: 'Every book also plays as a cinematic movie' },
-  { old: 'Flat illustrations', new: 'Universal effects DSL — particles, dust shafts, divine glow per scene' },
+  { old: 'Flat illustrations', new: 'Layered scenes with parallax, fog, particles, dust shafts per scene' },
 ];
 
 const STEPS = [
-  { num: '01', title: 'A scene appears', desc: 'Hand-painted illustration with a procedural mood bed underneath and auto-narration in Sarvam’s Indian-tuned voice.' },
+  { num: '01', title: 'A scene appears', desc: 'Hand-painted illustration breathes with parallax + drifting fog, with a procedural mood bed underneath and emotional Sarvam narration shaped to the scene’s mood.' },
   { num: '02', title: 'Click highlighted elements', desc: 'Characters and objects with golden glow rings respond instantly. Tap anywhere else and AI checks if there’s a hidden detail worth surfacing.' },
-  { num: '03', title: 'A branch unfolds', desc: 'New narration, character voice, close-up illustration, follow-up actions — generated once, cached forever, action-keyed so Talk and Fight stay distinct.' },
-  { num: '04', title: 'Or watch it as a movie', desc: 'Same engine renders a cinematic cut: per-scene camera motion, sentence-by-sentence captions, mood music ducked under narration. Plus a 45-second trailer cut on demand.' },
+  { num: '03', title: 'Pick a verb — the world reacts', desc: 'Camera dollies in for Talk, pushes + shakes for Fight, arcs upward for Leap. The figure quickens its breath, leans toward the addressee, and a verb-keyed sprite flashes — then a branch unfolds, action-keyed so Talk and Fight stay distinct.' },
+  { num: '04', title: 'Or watch it as a movie', desc: 'Same engine renders a cinematic cut: per-scene camera motion, sentence cues, mood music ducked under narration, the same effects DSL baked into the file. Plus a 45-second trailer cut on demand.' },
 ];
 
 const SUPPORTED_WORLDS = [
@@ -227,7 +228,7 @@ export default function HomePage() {
         >
           <span className="lp-hero-badge" style={{ marginBottom: 14 }}>
             <span className="lp-hero-badge-dot" />
-            New · Movie Mode v3 · Living Effects
+            New · Cartoon Phase 1 · Puppet states + drifting fog
           </span>
           <motion.h2 className="lp-section-title" style={{ marginTop: 8 }}>
             Every book also plays as a film
@@ -236,8 +237,9 @@ export default function HomePage() {
             One manifest, two cuts. The engine renders a {Math.round(LANDING_TRAILER_FRAMES / TRAILER_FPS)}-second
             cinematic trailer or the full {Math.round(LANDING_MOVIE_FRAMES / BOOK_MOVIE_FPS / 60)}-minute movie
             from the same scenes — per-scene motion, sentence cues, and a procedural mood bed ducked under
-            Sarvam&apos;s narration. v3 layers a universal effects DSL — particles, dust shafts, divine glow,
-            shake — on top, so every scene plays the same way in the live reader and the exported MP4.
+            Sarvam&apos;s emotional narration. The same effects DSL — particles, dust shafts, drifting fog,
+            divine glow — and the same per-character puppet states play in the live reader and the
+            exported MP4.
           </p>
           <ul style={{
             display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
@@ -245,11 +247,13 @@ export default function HomePage() {
           }}>
             {[
               ['🎥', 'Per-scene motion — battle push, divine glow, slow pan'],
-              ['🌬️', 'Ambient idle — figures breathe, sway, and blink in every scene'],
-              ['🗣️', 'Sarvam Bulbul narration with role-aware voices'],
+              ['🌬️', 'Ambient idle — figures breathe, sway, blink, and look around'],
+              ['🎭', 'Puppet states — Talk speeds breath, Fight quickens sway, Leap arcs upward'],
+              ['🗣️', 'Emotional Sarvam narration — pace + pitch shaped per scene mood'],
               ['💬', 'Sentence cues with explicit ms timing in the manifest'],
               ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
-              ['✨', 'Universal effects DSL — particles, dust shafts, rim light'],
+              ['✨', 'Universal effects DSL — particles, dust shafts, fog, rim light'],
+              ['👁', 'Audio-driven mouth pulse + geometric gaze toward the addressee'],
               ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
               ['📥', 'Full-quality MP4 export from the movie page'],
             ].map(([icon, text]) => (
