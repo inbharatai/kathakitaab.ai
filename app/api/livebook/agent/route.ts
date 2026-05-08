@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
     // Support both seed (Ramayana) and AI-generated books
     let scene: SceneLike | undefined = getSceneById(sceneId);
-    if (!scene && bookSlug) scene = getScene(bookSlug, sceneId) ?? undefined;
+    if (!scene && bookSlug) scene = (await getScene(bookSlug, sceneId)) ?? undefined;
     if (!scene) {
       return NextResponse.json({ error: `Scene not found: ${sceneId}` }, { status: 404 });
     }
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     if (type === 'character' && targetId) {
       // Try Ramayana seed first, then generated book registry
       let character: CharacterLike | undefined = getCharacterBySlug(targetId);
-      if (!character && bookSlug) character = getCharacter(bookSlug, targetId) ?? undefined;
+      if (!character && bookSlug) character = (await getCharacter(bookSlug, targetId)) ?? undefined;
       if (!character) {
         return NextResponse.json({ error: `Character not found: ${targetId}` }, { status: 404 });
       }
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     if (type === 'character' && targetId) {
       const char: CharacterLike | undefined =
         getCharacterBySlug(targetId)
-        || (bookSlug ? (getCharacter(bookSlug, targetId) ?? undefined) : undefined);
+        || (bookSlug ? ((await getCharacter(bookSlug, targetId)) ?? undefined) : undefined);
       portrait_url = char?.image_url;
     }
 

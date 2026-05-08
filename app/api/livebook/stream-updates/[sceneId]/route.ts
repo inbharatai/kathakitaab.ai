@@ -42,8 +42,8 @@ interface ActionTuple {
 // Pulls from canon's allowed_actions if available, otherwise from
 // the type defaults. Same logic as scene-stream/[sceneId]/route.ts
 // so the SSE stream and the manifest stay coherent.
-function resolveActionTuples(bookSlug: string, sceneId: string): ActionTuple[] {
-  const hotspots = getHotspotsForScene(bookSlug, sceneId);
+async function resolveActionTuples(bookSlug: string, sceneId: string): Promise<ActionTuple[]> {
+  const hotspots = await getHotspotsForScene(bookSlug, sceneId);
   const out: ActionTuple[] = [];
   for (const h of hotspots) {
     const canon = getCanonEntry(bookSlug, h.targetId);
@@ -59,14 +59,14 @@ function resolveActionTuples(bookSlug: string, sceneId: string): ActionTuple[] {
 
 interface ResolvedHotspot { targetId: string; type: string }
 
-function getHotspotsForScene(bookSlug: string, sceneId: string): ResolvedHotspot[] {
+async function getHotspotsForScene(bookSlug: string, sceneId: string): Promise<ResolvedHotspot[]> {
   if (bookSlug === 'ramayana') {
     const scene = getSceneWithHotspots(sceneId);
     if (scene) {
       return scene.hotspots.map(h => ({ targetId: h.target_id, type: h.hotspot_type }));
     }
   }
-  const generic = getScene(bookSlug, sceneId);
+  const generic = await getScene(bookSlug, sceneId);
   if (!generic) return [];
   return (generic.hotspots ?? []).map(h => ({ targetId: h.target_id, type: h.hotspot_type }));
 }
@@ -87,7 +87,7 @@ export async function GET(
     return new Response('bookSlug query parameter is required', { status: 400 });
   }
 
-  const tuples = resolveActionTuples(bookSlug, sceneId);
+  const tuples = await resolveActionTuples(bookSlug, sceneId);
   const totalExpected = tuples.length;
 
   const stream = new ReadableStream({

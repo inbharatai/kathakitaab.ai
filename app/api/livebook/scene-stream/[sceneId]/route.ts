@@ -110,7 +110,7 @@ export async function GET(
   // path for ramayana, mahabharata, etc. AI-generated books fall through
   // to the per-book registry. Brain-generated scenes are not exposed via
   // this endpoint yet (they don't have a stable sceneId in the seed).
-  const scene = resolveScene(bookSlug, sceneId);
+  const scene = await resolveScene(bookSlug, sceneId);
   if (!scene) {
     return NextResponse.json(
       { error: `Scene not found: ${sceneId} in book ${bookSlug}` },
@@ -178,7 +178,7 @@ interface NormalizedHotspot {
   quickSpeak?: string;
 }
 
-function resolveScene(bookSlug: string, sceneId: string): NormalizedScene | null {
+async function resolveScene(bookSlug: string, sceneId: string): Promise<NormalizedScene | null> {
   if (bookSlug === 'ramayana') {
     const scene = getSceneWithHotspots(sceneId);
     if (scene) {
@@ -200,7 +200,7 @@ function resolveScene(bookSlug: string, sceneId: string): NormalizedScene | null
       };
     }
   }
-  const generic = getScene(bookSlug, sceneId);
+  const generic = await getScene(bookSlug, sceneId);
   if (!generic) return null;
   return {
     title: generic.title,
