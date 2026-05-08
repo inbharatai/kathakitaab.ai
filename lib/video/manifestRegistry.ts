@@ -27,9 +27,9 @@
 
 import type { BookMovieManifest } from '@/remotion/BookMovie';
 import ramayanaManifest from '@/remotion/manifests/ramayana.json';
-import { getBook } from '@/lib/data/bookRegistry';
+import { getBook, saveGeneratedBook } from '@/lib/data/bookRegistry';
 import { ramayanaHotspots } from '@/lib/data/hotspots';
-import { synthesizeBookMovieManifest } from './manifestSynthesizer';
+import { synthesizeBookMovieManifest, hydrateBookAudio } from './manifestSynthesizer';
 
 /**
  * Enrich the static Ramayana manifest with the hand-authored
@@ -79,18 +79,30 @@ export function getManifestForSlug(slug: string): BookMovieManifest | null {
  * synthesises a manifest from the AI-generated book in the registry.
  * Returns null only when the slug is unknown to both sources.
  *
- * The synthesised manifest doesn't include audioPath URLs — the
- * render-movie route is responsible for calling TTS and filling
- * those in before invoking @remotion/renderer.
+ * For AI-generated books, this also hydrates any missing scene
+ * audio (Sarvam TTS → Supabase) on the first call. The hydrated
+ * URLs are written back to the bookRegistry so subsequent calls are
+ * instant. This decouples narration TTS from book generation: the
+ * gen lambda finishes fast and reliably, and the audio cost lands
+ * in the manifest lambda — which has its own 300s budget and only
+ * runs when someone actually wants the movie.
  */
 export async function getManifestForSlugAsync(slug: string): Promise<BookMovieManifest | null> {
   const staticManifest = STATIC_REGISTRY[slug];
   if (staticManifest) return staticManifest;
 
   const generated = await getBook(slug);
-  if (generated) return synthesizeBookMovieManifest(generated);
+  if (!generated) return null;
 
-  return null;
+  const missingAudio = generated.scenes.some(s => !s.narration_audio_url);
+  if (missingAudio) {
+    const hydrated = await hydrateBookAudio(generated);
+    // Persist so future hits skip the expensive TTS/upload pass.
+    await saveGeneratedBook(hydrated);
+    return synthesizeBookMovieManifest(hydrated);
+  }
+
+  return synthesizeBookMovieManifest(generated);
 }
 
 export function getAvailableMovieSlugs(): string[] {

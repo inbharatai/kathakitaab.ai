@@ -14,6 +14,12 @@
 import { NextResponse } from 'next/server';
 import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';
 
+// First call for an AI-generated book hydrates scene narrations via
+// Sarvam → Supabase. ~10 scenes × concurrency 2 = ~5 waves of TTS,
+// which fits in Vercel's 300s budget with headroom. Subsequent calls
+// hit the Redis-cached book and return instantly.
+export const maxDuration = 300;
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get('slug');

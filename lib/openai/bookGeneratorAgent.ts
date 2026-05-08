@@ -359,28 +359,15 @@ motion guide:
     }
   });
 
-  // STEP 4: Narration TTS (parallel, but throttled).
-  // Sarvam Bulbul is ~3-8s/call. We used to fan out 6 in parallel, but
-  // that hit Sarvam's rate limit on production traffic and the whole
-  // book ended up Gemini-narrated despite Sarvam being the primary.
-  // Concurrency 2 keeps the burst under the limit, finishes 11 scenes
-  // in ~30-45s, and keeps the voice the LLM picked.
-  onProgress?.('Narrating scenes...', 82);
-  let completedAudio = 0;
-  const audioUrls = await pMapLimit(sceneOutlines, 2, async (scene, i) => {
-    const narration = (details[i]?.narration ?? scene.short_summary) as string;
-    const url = await renderSceneAudio({
-      text: narration,
-      bookSlug: slug,
-      sceneId: scene.scene_id,
-      mood: scene.mood,
-    });
-    completedAudio++;
-    onProgress?.(`Narrated ${completedAudio}/${sceneOutlines.length} scenes`, 82 + (completedAudio / sceneOutlines.length) * 16);
-    return url;
-  });
-
-  // STEP 5: Stitch everything together.
+  // STEP 4: Stitch the book.
+  // Note: scene narration audio is NOT pre-rendered here. The live
+  // reader resolves it lazily via /api/livebook/tts (Redis-cached).
+  // The movie manifest synthesizer pre-renders any missing audio
+  // at first /api/livebook/manifest fetch — that step has its own
+  // 300s lambda budget separate from the gen budget. Splitting the
+  // work keeps book generation fast and reliable: the user lands on
+  // a fully-readable book in ~2 minutes, and the cinematic cut warms
+  // its audio when they open the movie page.
   const scenesWithDetails: GeneratedScene[] = sceneOutlines.map((scene, i) => {
     const detail = details[i] ?? {};
     const narration = (detail.narration || scene.short_summary) as string;
@@ -411,7 +398,8 @@ motion guide:
       theme: scene.theme,
       motion: detail.motion as SceneMotion | undefined,
       duration_seconds: estimateNarrationSeconds(narration),
-      narration_audio_url: audioUrls[i] || undefined,
+      // narration_audio_url left unset — see comment above. Filled in
+      // by manifestSynthesizer when the movie is requested.
     };
   });
 
@@ -626,14 +614,6 @@ Generate narration, learning_points, source_notes, hotspots, quiz_questions.` }]
 
     const narration = detail.narration as string;
 
-    onProgress?.(`Narrating: ${s.title}...`, 88 + (i / sceneOutlines.length) * 8);
-    const narrationAudioUrl = await renderSceneAudio({
-      text: narration,
-      bookSlug: slug,
-      sceneId: s.scene_id,
-      mood: s.mood,
-    });
-
     scenesWithDetails.push({
       scene_id: s.scene_id, title: s.title, order_index: i + 1,
       short_summary: s.short_summary, visual_description: s.visual_description,
@@ -646,7 +626,8 @@ Generate narration, learning_points, source_notes, hotspots, quiz_questions.` }]
       mood: s.mood, theme: s.theme,
       motion: detail.motion as SceneMotion | undefined,
       duration_seconds: estimateNarrationSeconds(narration),
-      narration_audio_url: narrationAudioUrl || undefined,
+      // narration_audio_url is hydrated by manifestSynthesizer when
+      // the movie is requested — keeps gen-time fast and reliable.
     });
   }
 
