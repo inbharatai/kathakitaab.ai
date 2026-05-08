@@ -22,7 +22,7 @@
 // ============================================================
 
 import type { GeneratedBook } from '@/lib/openai/bookGeneratorAgent';
-import type { BookMovieManifest, BookMovieScene } from '@/remotion/BookMovie';
+import type { BookMovieManifest, BookMovieScene, BookMovieHotspot } from '@/remotion/BookMovie';
 import { motionForMood, type SceneMotion } from './motion';
 import { planSubtitles } from './subtitlePlanner';
 import { detectTopics } from './effects/topicTagger';
@@ -63,6 +63,23 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
       // happy when audio failed to render — the MP4 still plays with
       // mood music and captions.
       const audioPath = s.narration_audio_url ?? '';
+
+      // Hotspot positions feed BookMovie's per-character ambient
+      // layer (breath + sway + glow ring on each character region).
+      // We restrict to the three types the renderer cares about; the
+      // generator emits 'character' / 'object' / 'place' so this is
+      // a straight pass-through with a type narrowing.
+      const hotspots: BookMovieHotspot[] = (s.hotspots ?? [])
+        .filter(h => h.hotspot_type === 'character' || h.hotspot_type === 'object' || h.hotspot_type === 'place')
+        .map(h => ({
+          label: h.label,
+          type: h.hotspot_type as BookMovieHotspot['type'],
+          x: h.x,
+          y: h.y,
+          width: h.width,
+          height: h.height,
+        }));
+
       return {
         sceneId: s.scene_id,
         title: s.title,
@@ -78,6 +95,7 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
         backgroundMusicUrl: undefined,
         effects,
         subtitles: planSubtitles(s.narration, durationSeconds),
+        hotspots,
       };
     });
 

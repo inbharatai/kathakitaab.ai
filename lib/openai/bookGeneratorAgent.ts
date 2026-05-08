@@ -359,13 +359,15 @@ motion guide:
     }
   });
 
-  // STEP 4: Narration TTS (parallel, fast).
-  // Sarvam Bulbul is ~3-8s/call; 11 in parallel finish in ~10s. Pre-
-  // rendering here is the difference between a silent MP4 and a
-  // finished cinematic cut for AI-generated books.
+  // STEP 4: Narration TTS (parallel, but throttled).
+  // Sarvam Bulbul is ~3-8s/call. We used to fan out 6 in parallel, but
+  // that hit Sarvam's rate limit on production traffic and the whole
+  // book ended up Gemini-narrated despite Sarvam being the primary.
+  // Concurrency 2 keeps the burst under the limit, finishes 11 scenes
+  // in ~30-45s, and keeps the voice the LLM picked.
   onProgress?.('Narrating scenes...', 82);
   let completedAudio = 0;
-  const audioUrls = await pMapLimit(sceneOutlines, 6, async (scene, i) => {
+  const audioUrls = await pMapLimit(sceneOutlines, 2, async (scene, i) => {
     const narration = (details[i]?.narration ?? scene.short_summary) as string;
     const url = await renderSceneAudio({
       text: narration,

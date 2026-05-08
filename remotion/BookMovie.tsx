@@ -26,6 +26,24 @@ import type { SubtitleCue } from '../lib/video/subtitlePlanner';
 import type { SceneEffect } from '../lib/video/effects/types';
 import { EffectStack, shakeOffset } from '../lib/video/effects/layers';
 
+/** Position + type for a per-character ambient overlay in the
+ *  movie composition. Mirrors the live reader's hotspot model; only
+ *  the fields the BookMovie render actually needs are included. */
+export interface BookMovieHotspot {
+  /** Display label — used to seed phase offsets so neighbouring
+   *  characters don't all breathe in lockstep. */
+  label: string;
+  /** 'character' hotspots get a breathing glow ring; objects get a
+   *  fainter pulse. Other types render nothing. */
+  type: 'character' | 'object' | 'place';
+  /** Bounding box in scene-relative percent coords, same as the live
+   *  reader's hotspots. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface BookMovieScene {
   sceneId: string;
   title: string;
@@ -61,6 +79,11 @@ export interface BookMovieScene {
    *  scene's narration topics + mood at build time, baked here so
    *  the renderer is purely manifest-driven. */
   effects?: SceneEffect[];
+  /** Hotspot positions used by the ambient-figure layer to draw a
+   *  pulsing glow ring on each character region. The figures are
+   *  baked into the bg image; this layer adds the "alive" signal
+   *  (breath-rate scale + glow pulse) over them. */
+  hotspots?: BookMovieHotspot[];
 }
 
 export interface BookMovieManifest {
@@ -326,6 +349,17 @@ const SceneShot: React.FC<{
         </>
       )}
 
+      {/* ── Per-character ambient layer ── puppet states baked into
+          the movie. Each character hotspot gets a pulsing glow ring
+          that breathes at ~0.4 Hz, with a small scale + translate
+          oscillation phase-offset by the character's label so they
+          don't all breathe in lockstep. The figures themselves are
+          baked into the bg image; this layer is the "alive" signal
+          that the live reader expresses through AmbientFigure. */}
+      {scene.hotspots && scene.hotspots.length > 0 && (
+        <AmbientFiguresLayer hotspots={scene.hotspots} frame={frame} fps={fps} />
+      )}
+
       {/* ── Top header chip + scene title ── */}
       <div style={{
         position: 'absolute', top: 44, left: 60, right: 60,
@@ -370,6 +404,60 @@ const SceneShot: React.FC<{
         />
       )}
     </AbsoluteFill>
+  );
+};
+
+// Per-character ambient layer for the movie composition. Mirrors
+// the live reader's AmbientFigure: each character region breathes,
+// glows, and sways gently. Phase-offset by label so neighbouring
+// figures don't pulse in lockstep — same trick as the reader.
+const AmbientFiguresLayer: React.FC<{
+  hotspots: BookMovieHotspot[];
+  frame: number;
+  fps: number;
+}> = ({ hotspots, frame, fps }) => {
+  const t = frame / fps; // seconds since scene start
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {hotspots.map((h, i) => {
+        if (h.type !== 'character' && h.type !== 'object') return null;
+        // Stable per-figure phase from the label so the same scene
+        // always animates the same way (deterministic for caching).
+        const phase = (i * 1.07 + h.label.length * 0.31) % (2 * Math.PI);
+        const breathHz = 0.42; // ~25 breaths/min — calm range
+        const swayHz = 0.18;
+        const breath = Math.sin(2 * Math.PI * breathHz * t + phase);
+        const sway = Math.sin(2 * Math.PI * swayHz * t + phase * 0.5);
+
+        // Scale 1 ± 0.012 — small enough to feel natural, large enough
+        // to read on a 1920×1080 frame. Translate ±0.3% horizontally.
+        const scale = 1 + breath * 0.012;
+        const tx = sway * 0.3;
+        // Glow ring opacity pulses at the breath rate. Characters get
+        // a stronger ring than objects.
+        const ringAlpha = (h.type === 'character' ? 0.18 : 0.08) + breath * 0.06;
+        const ringColor = h.type === 'character' ? '255,215,140' : '255,200,140';
+
+        return (
+          <div
+            key={`${h.label}-${i}`}
+            style={{
+              position: 'absolute',
+              left: `${h.x}%`,
+              top: `${h.y}%`,
+              width: `${h.width}%`,
+              height: `${h.height}%`,
+              transform: `translate(${tx}%, 0) scale(${scale})`,
+              transformOrigin: 'center bottom',
+              transition: 'none',
+              borderRadius: '50%',
+              boxShadow: `inset 0 0 60px rgba(${ringColor},${ringAlpha.toFixed(3)}), 0 0 80px rgba(${ringColor},${(ringAlpha * 0.5).toFixed(3)})`,
+              mixBlendMode: 'screen',
+            }}
+          />
+        );
+      })}
+    </div>
   );
 };
 
