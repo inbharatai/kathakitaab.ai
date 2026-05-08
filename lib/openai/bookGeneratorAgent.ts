@@ -76,6 +76,27 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+/**
+ * Concurrency-limited Promise.all. We can't fan out 12 gpt-image-1
+ * calls simultaneously — OpenAI tier-1 rate limits cap us around 5
+ * images/minute, and even when the limit is higher, hammering the
+ * API can produce timeouts. Three to four in flight is the sweet
+ * spot: image gen runs ~30-60s each, so 12 scenes complete in
+ * 3-5 waves ≈ 90-180s, well inside Vercel's 300s function budget.
+ */
+async function pMapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const i = cursor++;
+      out[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 // ---- Output types ----
 export interface GeneratedScene {
   scene_id: string;
@@ -266,14 +287,12 @@ voice_archetype guide — pick the closest fit:
 
   if (sceneOutlines.length === 0) throw new Error('Failed to generate scene outline');
 
-  // STEP 2: Generate scene details + images
-  const scenesWithDetails: GeneratedScene[] = [];
-
-  for (let i = 0; i < sceneOutlines.length; i++) {
-    const scene = sceneOutlines[i];
-    onProgress?.(`Writing scene ${i + 1}/${sceneOutlines.length}: ${scene.title}`, 20 + (i / sceneOutlines.length) * 50);
-
-    // Generate scene narrative + hotspots + quiz
+  // STEP 2: Detail LLM calls (parallel, fast).
+  // Each detail call is ~5-10s; with concurrency 4 the 11 calls
+  // complete in ~25-30s instead of 80s+ serial.
+  onProgress?.('Writing all scenes...', 22);
+  let completedDetails = 0;
+  const details = await pMapLimit(sceneOutlines, 4, async (scene, i) => {
     const detailRes = await client.chat.completions.create({
       model,
       messages: [
@@ -310,48 +329,68 @@ motion guide:
       temperature: 0.65,
       max_tokens: 2000,
     });
+    completedDetails++;
+    onProgress?.(`Wrote ${completedDetails}/${sceneOutlines.length} scenes`, 22 + (completedDetails / sceneOutlines.length) * 18);
+    return JSON.parse(detailRes.choices[0]?.message?.content || '{}');
+    void i;
+  });
 
-    const detail = JSON.parse(detailRes.choices[0]?.message?.content || '{}');
-    const prev = i > 0 ? sceneOutlines[i - 1].scene_id : null;
-    const next = i < sceneOutlines.length - 1 ? sceneOutlines[i + 1].scene_id : null;
-
-    // Generate scene background image — pass canon context so character
-    // appearance + book style auto-inject (works for canon books;
-    // gracefully no-ops for new generated books).
-    onProgress?.(`Illustrating: ${scene.title}...`, 70 + (i / sceneOutlines.length) * 25);
-    let backgroundUrl = '';
+  // STEP 3: Image generation (parallel, the slow phase).
+  // gpt-image-1 dominates the time budget — ~45s/call median, with
+  // long tail. Cap at 3 in flight: high enough to fit in Vercel's
+  // 300s budget, low enough that one stuck call doesn't deadlock the
+  // others by holding all the slots.
+  onProgress?.('Illustrating scenes...', 42);
+  let completedImages = 0;
+  const imageUrls = await pMapLimit(sceneOutlines, 3, async (scene) => {
     try {
-      const slug = bookTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       const imageResult = await generateSceneImage(scene.visual_description, {
         bookSlug: slug,
         characters: characters.map(c => c.name),
         mood: scene.mood ?? 'serene',
       });
-      backgroundUrl = imageResult.imageUrl;
+      completedImages++;
+      onProgress?.(`Illustrated ${completedImages}/${sceneOutlines.length} scenes`, 42 + (completedImages / sceneOutlines.length) * 38);
+      return imageResult.imageUrl;
     } catch (err) {
       console.error(`[BookGenerator] Image failed for scene ${scene.scene_id}:`, err);
+      completedImages++;
+      return '';
     }
+  });
 
-    const narration = (detail.narration || scene.short_summary) as string;
-
-    // Pre-render the narration audio so the synthesised manifest the
-    // movie page consumes has a real audioPath. This is the difference
-    // between a silent MP4 and a finished cinematic cut.
-    onProgress?.(`Narrating: ${scene.title}...`, 88 + (i / sceneOutlines.length) * 8);
-    const narrationAudioUrl = await renderSceneAudio({
+  // STEP 4: Narration TTS (parallel, fast).
+  // Sarvam Bulbul is ~3-8s/call; 11 in parallel finish in ~10s. Pre-
+  // rendering here is the difference between a silent MP4 and a
+  // finished cinematic cut for AI-generated books.
+  onProgress?.('Narrating scenes...', 82);
+  let completedAudio = 0;
+  const audioUrls = await pMapLimit(sceneOutlines, 6, async (scene, i) => {
+    const narration = (details[i]?.narration ?? scene.short_summary) as string;
+    const url = await renderSceneAudio({
       text: narration,
       bookSlug: slug,
       sceneId: scene.scene_id,
       mood: scene.mood,
     });
+    completedAudio++;
+    onProgress?.(`Narrated ${completedAudio}/${sceneOutlines.length} scenes`, 82 + (completedAudio / sceneOutlines.length) * 16);
+    return url;
+  });
 
-    scenesWithDetails.push({
+  // STEP 5: Stitch everything together.
+  const scenesWithDetails: GeneratedScene[] = sceneOutlines.map((scene, i) => {
+    const detail = details[i] ?? {};
+    const narration = (detail.narration || scene.short_summary) as string;
+    const prev = i > 0 ? sceneOutlines[i - 1].scene_id : null;
+    const next = i < sceneOutlines.length - 1 ? sceneOutlines[i + 1].scene_id : null;
+    return {
       scene_id: scene.scene_id,
       title: scene.title,
       order_index: i + 1,
       short_summary: scene.short_summary,
       visual_description: scene.visual_description,
-      background_asset_url: backgroundUrl,
+      background_asset_url: imageUrls[i] ?? '',
       narration,
       learning_points: detail.learning_points || [],
       source_notes: detail.source_notes || outline.source_tradition || '',
@@ -369,13 +408,10 @@ motion guide:
       mood: scene.mood,
       theme: scene.theme,
       motion: detail.motion as SceneMotion | undefined,
-      // Estimate movie playback length from word count at ~150 wpm.
-      // Manifest synthesis uses this when generating the trailer/movie
-      // for AI-generated books that don't have a pre-baked manifest.
       duration_seconds: estimateNarrationSeconds(narration),
-      narration_audio_url: narrationAudioUrl || undefined,
-    });
-  }
+      narration_audio_url: audioUrls[i] || undefined,
+    };
+  });
 
   onProgress?.('Book complete!', 100);
 
