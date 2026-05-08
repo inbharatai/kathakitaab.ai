@@ -58,18 +58,18 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
       const topics = detectTopics(s.narration);
       const effects = buildSceneEffects(topics, s.mood ?? 'serene');
 
+      // narration_audio_url is filled in by bookGeneratorAgent at gen
+      // time via Sarvam → Supabase. Empty fallback keeps Remotion
+      // happy when audio failed to render — the MP4 still plays with
+      // mood music and captions.
+      const audioPath = s.narration_audio_url ?? '';
       return {
         sceneId: s.scene_id,
         title: s.title,
         narration: s.narration,
-        // Caller (render-movie route or Player on the movie page)
-        // fills in audioPath at render-time after invoking TTS.
-        // Keeping it empty here keeps synthesis fast and side-effect
-        // free, which is what the BookMovie composition expects from
-        // a manifest object.
         imagePath: s.background_asset_url || '',
-        audioPath: '',
-        narrationAudioUrl: undefined,
+        audioPath,
+        narrationAudioUrl: audioPath || undefined,
         durationSeconds,
         mood: s.mood ?? 'serene',
         motion,
