@@ -656,7 +656,13 @@ export default function SceneViewer({
       // restarting playback.
       // Pass the entity id as the speaker so SceneCanvas can render
       // the lip-pulse on the matching hotspot during playback.
-      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id, entityCtx.entityId);
+      narrationManager.speak(
+        result.branch.narration,
+        getVoiceForEntity(entityCtx),
+        result.branch.id,
+        entityCtx.entityId,
+        { bookSlug, characterSlug: entityCtx.entityType === 'character' ? entityCtx.entityId : undefined },
+      );
 
       // Save scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);
@@ -763,7 +769,13 @@ export default function SceneViewer({
       // (see handleHotspotAction for the same fix).
       // Pass the entity id as the speaker so SceneCanvas can render
       // the lip-pulse on the matching hotspot during playback.
-      narrationManager.speak(result.branch.narration, getVoiceForEntity(entityCtx), result.branch.id, entityCtx.entityId);
+      narrationManager.speak(
+        result.branch.narration,
+        getVoiceForEntity(entityCtx),
+        result.branch.id,
+        entityCtx.entityId,
+        { bookSlug, characterSlug: entityCtx.entityType === 'character' ? entityCtx.entityId : undefined },
+      );
 
       // Save to scene graph
       getOrCreateNode(storyScene.scene_id, storyScene.page_title);
@@ -801,7 +813,18 @@ export default function SceneViewer({
     } else {
       const text = rawScene?.narration ?? storyScene?.story_text;
       if (text) {
-        narrationManager.speak(text, 'narration', storyScene?.scene_id);
+        // The seed Ramayana scene type doesn't carry mood; AI-generated
+        // scenes from the registry do. Read it through a guarded any
+        // so seed reads keep mood undefined and fall back to text-based
+        // tone detection in the TTS router.
+        const sceneMood = (rawScene as { mood?: string } | null | undefined)?.mood;
+        narrationManager.speak(
+          text,
+          'narration',
+          storyScene?.scene_id,
+          undefined,
+          { bookSlug, mood: sceneMood },
+        );
         setIsNarrating(true);
       }
     }

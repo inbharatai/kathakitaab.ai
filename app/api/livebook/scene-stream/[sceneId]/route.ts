@@ -122,11 +122,14 @@ export async function GET(
     scene.hotspots.map(h => buildManifestEntity(bookSlug, sceneId, h)),
   );
 
-  // Derive universal effects from narration topics + mood. Same
-  // recipe the build-book-video script uses to bake effects into the
-  // committed manifest, so the reader and the movie always agree on
-  // which scene gets which look.
-  const mood = deriveMood(scene.shortSummary, scene.title);
+  // Derive universal effects from narration topics + mood. The
+  // generator (when AI-built) ships a mood directly — trust that
+  // first, fall back to keyword inference for static seed books or
+  // legacy manifests without a mood field. Same recipe the
+  // build-book-video script uses, so the reader and the movie
+  // always agree on which scene gets which look.
+  const mood = scene.mood ?? deriveMood(scene.shortSummary, scene.title);
+  const theme = scene.theme ?? deriveTheme(sceneId, scene.title);
   const topics = detectTopics(scene.narration);
   const effects = buildSceneEffects(topics, mood);
 
@@ -138,7 +141,7 @@ export async function GET(
     visualDescription: scene.visualDescription,
     imageUrl: scene.backgroundAssetUrl,
     mood,
-    theme: deriveTheme(sceneId, scene.title),
+    theme,
     entities,
     effects,
     prevSceneId: scene.previousSceneId,
@@ -165,6 +168,11 @@ interface NormalizedScene {
   previousSceneId: string | null;
   nextSceneId: string | null;
   hotspots: NormalizedHotspot[];
+  /** Mood pre-computed by the book generator (AI books) or the seed
+   *  manifest. When present, scene-stream skips keyword inference. */
+  mood?: string;
+  /** Theme noun pre-computed by the book generator. */
+  theme?: string;
 }
 
 interface NormalizedHotspot {
@@ -210,6 +218,8 @@ async function resolveScene(bookSlug: string, sceneId: string): Promise<Normaliz
     shortSummary: generic.short_summary,
     previousSceneId: generic.previous_scene_id,
     nextSceneId: generic.next_scene_id,
+    mood: generic.mood,
+    theme: generic.theme,
     hotspots: (generic.hotspots ?? []).map(h => ({
       label: h.label,
       type: h.hotspot_type,

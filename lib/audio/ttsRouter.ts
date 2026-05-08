@@ -16,7 +16,12 @@
 
 import { sarvamTTS, isSarvamConfigured } from './sarvamClient';
 import { geminiTTS, isGeminiConfigured } from './geminiAudioClient';
-import { getVoiceMapping, type CharacterArchetype } from './characterVoices';
+import {
+  getVoiceMapping,
+  getVoiceMappingByArchetype,
+  resolveArchetypeForBook,
+  type CharacterArchetype,
+} from './characterVoices';
 import { deliveryForTone, toneFromMood, detectTone, type Tone } from './emotionTagger';
 
 export type TTSLanguage = 'hi' | 'en' | 'auto';
@@ -25,6 +30,11 @@ export interface TTSRequest {
   text: string;
   /** Character slug — used to pick a consistent voice across scenes. */
   characterSlug?: string;
+  /** Book slug — when provided alongside characterSlug, the router
+   *  consults the per-book registry first to find the LLM's chosen
+   *  voice_archetype. Critical for AI-generated books whose
+   *  characters aren't in the global archetype table. */
+  bookSlug?: string;
   /** Override the archetype directly (e.g., switch to villain voice). */
   archetype?: CharacterArchetype;
   /** Language hint — 'auto' detects from script. Defaults to 'auto'. */
@@ -56,9 +66,23 @@ export interface TTSResult {
  */
 export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
   const language = resolveLanguage(req.text, req.language);
-  const voiceMap = req.archetype
-    ? (await import('./characterVoices')).getVoiceMappingByArchetype(req.archetype)
-    : getVoiceMapping(req.characterSlug);
+
+  // Voice resolution priority:
+  //   1. Caller passed an explicit archetype  — honour it
+  //   2. bookSlug + characterSlug → registry lookup (covers AI-
+  //      generated characters whose voice_archetype the LLM picked)
+  //   3. characterSlug alone → global archetype map (Ramayana,
+  //      Mahabharata, common role nouns)
+  //   4. Fall through to narrator
+  let voiceMap;
+  if (req.archetype) {
+    voiceMap = getVoiceMappingByArchetype(req.archetype);
+  } else if (req.bookSlug && req.characterSlug) {
+    const archetype = await resolveArchetypeForBook(req.bookSlug, req.characterSlug);
+    voiceMap = getVoiceMappingByArchetype(archetype);
+  } else {
+    voiceMap = getVoiceMapping(req.characterSlug);
+  }
 
   // Resolve emotional tone: caller-given > text-derived > scene-mood > neutral.
   // Each fallback is cheaper than the previous; we only do classification

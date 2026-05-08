@@ -34,7 +34,7 @@ import os from 'node:os';
 import { createHash } from 'node:crypto';
 
 import { getSupabaseService } from '@/lib/supabase';
-import { getManifestForSlug } from '@/lib/video/manifestRegistry';
+import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 
 // 10 minutes — Remotion render of a 7-minute movie typically takes
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `mode must be 'movie' or 'trailer', got '${mode}'` }, { status: 400 });
   }
 
-  const manifest = getManifestForSlug(bookSlug);
+  const manifest = await getManifestForSlugAsync(bookSlug);
   if (!manifest) {
     return NextResponse.json({ error: `No manifest for book "${bookSlug}"` }, { status: 404 });
   }

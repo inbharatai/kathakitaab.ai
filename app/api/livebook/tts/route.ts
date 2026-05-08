@@ -21,6 +21,10 @@ interface TTSRequest {
   text: string;
   /** Character slug — 'rama', 'sita', etc. Used to pick a consistent voice. */
   characterSlug?: string;
+  /** Book slug — propagates to the router so AI-generated characters
+   *  get their LLM-chosen voice_archetype from the registry instead
+   *  of falling through to the global hardcoded map. */
+  bookSlug?: string;
   /** Legacy: voice category from old soundEngine ('narration', 'male_character', etc). */
   voice?: string;
   /** Language hint: 'hi' | 'en' | 'auto'. Defaults to auto-detect. */
@@ -51,7 +55,7 @@ const LEGACY_VOICE_MAP: Record<string, string> = {
 export async function POST(request: Request) {
   try {
     const body: TTSRequest = await request.json();
-    const { text, characterSlug, voice, language = 'auto', tone, mood } = body;
+    const { text, characterSlug, bookSlug, voice, language = 'auto', tone, mood } = body;
 
     if (!text || text.trim().length < 5) {
       return NextResponse.json({ error: 'Text too short' }, { status: 400 });
@@ -68,6 +72,10 @@ export async function POST(request: Request) {
       type: 'tts',
       text: text.slice(0, 100),
       hash: simpleHash(text),
+      // Include the book in the key so AI-generated characters can't
+      // collide with same-slug Ramayana characters in the cache (e.g.
+      // a generated book character coincidentally slugged "rama").
+      book: bookSlug ?? 'none',
       character: characterSlug ?? archetypeFromLegacy ?? 'narrator',
       lang: language,
       tone: tone ?? 'auto',
@@ -99,6 +107,7 @@ export async function POST(request: Request) {
     const result = await speakTTS({
       text: text.slice(0, 1500),
       characterSlug,
+      bookSlug,
       // Cast: archetype shape matches CharacterArchetype enum strings
       archetype: archetypeFromLegacy as never,
       language,

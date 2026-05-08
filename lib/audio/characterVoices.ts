@@ -157,3 +157,64 @@ export function getVoiceMapping(characterSlug?: string | null): VoiceMapping {
 export function getVoiceMappingByArchetype(archetype: CharacterArchetype): VoiceMapping {
   return ARCHETYPE_VOICES[archetype];
 }
+
+/**
+ * Async universal lookup that consults the per-book registry first
+ * (where AI-generated characters store their voice_archetype) then
+ * falls back to the global table. This is the path TTS callers
+ * should use when they have a bookSlug — it lights up the right
+ * voice for any AI-generated character without needing the global
+ * map to know about them.
+ */
+export async function resolveArchetypeForBook(
+  bookSlug: string | undefined | null,
+  characterSlug: string | undefined | null,
+): Promise<CharacterArchetype> {
+  if (!characterSlug) return 'narrator';
+  if (bookSlug) {
+    // Lazy-import to avoid pulling Redis into modules that just want
+    // the synchronous archetype lookup.
+    const { getCharacter } = await import('@/lib/data/bookRegistry');
+    const c = await getCharacter(bookSlug, characterSlug);
+    if (c?.voice_archetype && c.voice_archetype in ARCHETYPE_VOICES) {
+      return c.voice_archetype as CharacterArchetype;
+    }
+    if (c) {
+      // Generated character without a clean archetype — infer from
+      // role + speech_tone instead of falling all the way back to
+      // 'narrator'. Better than silence.
+      return inferArchetypeFromRole(c.role, c.speech_tone);
+    }
+  }
+  return getCharacterArchetype(characterSlug);
+}
+
+/**
+ * Heuristic archetype derivation from free-form role/tone strings.
+ * Used when the LLM omits voice_archetype or returns garbage. The
+ * goal is to never silently fall to 'narrator' for a character the
+ * model bothered to describe — pick the closest archetype based on
+ * the words it used.
+ */
+const ARCHETYPE_KEYWORDS: Array<[RegExp, CharacterArchetype]> = [
+  // Explicit role nouns first — most reliable signal.
+  [/\b(queen|princess|empress|maharani|begum|rani)\b/i, 'noble-female'],
+  [/\b(maid|servant girl|young girl|daughter|child)\b/i, 'young-female'],
+  [/\b(mother|grandmother|aged|elder female)\b/i, 'aged-female'],
+  [/\b(king|emperor|maharaja|raja|prince|sultan|nawab|shah|hero|warrior|protagonist)\b/i, 'noble-male'],
+  [/\b(younger|youngest|adolescent|boy|brother of)\b/i, 'young-male'],
+  [/\b(sage|guru|rishi|saint|monk|scholar|minister|vizier|wazir|advisor|elder|teacher|wise|philosopher)\b/i, 'wise-male'],
+  [/\b(antagonist|villain|demon|asura|rakshasa|tyrant|usurper|oppressor)\b/i, 'commanding-male'],
+  [/\b(witty|jester|trickster|playful|jovial|comic|jolly|mischievous|courtier)\b/i, 'bright-male'],
+  // Tone fallbacks.
+  [/\b(deep|booming|commanding|fearsome|menacing)\b/i, 'commanding-male'],
+  [/\b(gentle|warm|soft|maternal|nurturing)\b/i, 'noble-female'],
+];
+
+export function inferArchetypeFromRole(role?: string | null, speechTone?: string | null): CharacterArchetype {
+  const text = `${role ?? ''} ${speechTone ?? ''}`.toLowerCase();
+  for (const [rx, archetype] of ARCHETYPE_KEYWORDS) {
+    if (rx.test(text)) return archetype;
+  }
+  return 'narrator';
+}

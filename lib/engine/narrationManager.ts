@@ -197,6 +197,11 @@ export async function speak(
    *  audio-amplitude lip-pulse in the live reader. Omitted for
    *  scene-narrator audio (no specific character speaking). */
   speakerEntityId?: string,
+  /** Universality plumbing: when the speaker belongs to a registered
+   *  AI-generated book, pass the book + character slug so the TTS
+   *  router can pick the LLM's chosen voice_archetype rather than
+   *  falling through to the global hardcoded archetype map. */
+  opts?: { bookSlug?: string; characterSlug?: string; mood?: string },
 ): Promise<void> {
   // If the same id is already speaking, skip — prevents re-renders
   // from restarting playback mid-sentence.
@@ -220,7 +225,14 @@ export async function speak(
     const res = await fetch('/api/livebook/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text.slice(0, 1500), voice, speed: 0.95 }),
+      body: JSON.stringify({
+        text: text.slice(0, 1500),
+        voice,
+        speed: 0.95,
+        bookSlug: opts?.bookSlug,
+        characterSlug: opts?.characterSlug,
+        mood: opts?.mood,
+      }),
       signal: abortController.signal,
     });
 

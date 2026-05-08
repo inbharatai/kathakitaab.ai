@@ -9,14 +9,40 @@
 // pointing back to the reader — no half-rendered placeholder.
 
 import Link from 'next/link';
-import { use, useState } from 'react';
+import { use, useState, useEffect } from 'react';
 import { Player } from '@remotion/player';
-import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames } from '@/remotion/BookMovie';
-import { getManifestForSlug } from '@/lib/video/manifestRegistry';
+import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames, type BookMovieManifest } from '@/remotion/BookMovie';
 
 export default function BookMoviePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
-  const manifest = getManifestForSlug(slug);
+
+  // Manifest comes from the universal /api/livebook/manifest endpoint.
+  // Static books resolve instantly (in-memory lookup); AI-generated
+  // books synth on the fly from the bookRegistry. Either way the
+  // Player is the same.
+  const [manifest, setManifest] = useState<BookMovieManifest | null>(null);
+  const [manifestStatus, setManifestStatus] = useState<'loading' | 'ready' | 'missing'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/livebook/manifest?slug=${encodeURIComponent(slug)}`);
+        if (!res.ok) {
+          if (!cancelled) setManifestStatus('missing');
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          setManifest(data.manifest);
+          setManifestStatus('ready');
+        }
+      } catch {
+        if (!cancelled) setManifestStatus('missing');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [slug]);
 
   // ── MP4 export state ──
   // Tracks both export modes independently so the UI can show
@@ -58,7 +84,15 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
           </div>
         </div>
 
-        {manifest ? (
+        {manifestStatus === 'loading' ? (
+          <div style={{
+            padding: '60px 24px', textAlign: 'center',
+            borderRadius: 16, border: '1px solid rgba(255,215,0,0.1)',
+            background: 'rgba(43,27,21,0.4)',
+          }}>
+            <div style={{ color: 'var(--color-gold)' }}>Loading the cinematic cut…</div>
+          </div>
+        ) : manifest ? (
           <>
             <div style={{
               borderRadius: 16, overflow: 'hidden',
@@ -131,14 +165,13 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
             background: 'rgba(43,27,21,0.4)',
           }}>
             <div className="font-serif" style={{ fontSize: '1.6rem', color: 'var(--color-gold)', marginBottom: 12 }}>
-              The movie for this book isn&apos;t ready yet
+              This book hasn&apos;t been generated yet
             </div>
             <p style={{ color: 'var(--color-text-dim)', maxWidth: 540, margin: '0 auto 20px' }}>
-              The interactive book is fully playable — the cinematic narration version is generated separately.
-              Run <code style={{ background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: 6 }}>npm run movie:build -- --slug={slug}</code> to produce the manifest, then refresh.
+              Generate the book first from the library — the engine will synthesise both the interactive reader and the cinematic cut from the same scenes.
             </p>
-            <Link href={`/books/${slug}`} className="btn-primary" style={{ textDecoration: 'none' }}>
-              Read the Book Instead
+            <Link href="/books" className="btn-primary" style={{ textDecoration: 'none' }}>
+              Go to the Library
             </Link>
           </div>
         )}

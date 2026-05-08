@@ -15,7 +15,22 @@
 import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from './openaiClient';
 import { isGeminiConfigured, getGeminiClient, getTextModel } from './client';
 import { generateSceneImage } from '@/lib/agents/visualAgent';
+import { inferArchetypeFromRole, type CharacterArchetype } from '@/lib/audio/characterVoices';
 import { Type, Schema } from '@google/genai';
+
+// Universal moods + themes that downstream modules already consume.
+// Keep these in sync with lib/video/manifestSchema.ts and the
+// scene-stream route's mood/theme expectations.
+export type SceneMood = 'serene' | 'dramatic' | 'somber' | 'joyful' | 'sacred' | 'mysterious' | 'tense';
+export type SceneMotion = 'slow_zoom_in' | 'slow_zoom_out' | 'pan_left' | 'pan_right' | 'divine_glow' | 'battle_push' | 'fade_only';
+
+// 150 wpm is roughly Sarvam Bulbul's neutral pace. ~2.5s tail accounts
+// for the breath the narrator needs at the end of the scene before the
+// movie cuts to the next one.
+function estimateNarrationSeconds(narration: string): number {
+  const words = narration.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(8, Math.round((words / 150) * 60 + 2.5));
+}
 
 // ---- Output types ----
 export interface GeneratedScene {
@@ -32,6 +47,21 @@ export interface GeneratedScene {
   quiz_questions: GeneratedQuiz[];
   previous_scene_id: string | null;
   next_scene_id: string | null;
+  /** Emotional register for this scene. Drives TTS prosody, music
+   *  bed selection, and effect recipes. The LLM picks one of the
+   *  seven universal moods so the downstream router doesn't have to
+   *  reverse-engineer it from text. */
+  mood?: SceneMood;
+  /** One-word noun describing the scene's narrative beat — "duty",
+   *  "wit", "sacrifice", "betrayal", "trick". Used by deriveTheme
+   *  in scene-stream when present, else falls back to keywords. */
+  theme?: string;
+  /** Per-scene camera motion. Optional — manifest synthesis derives
+   *  one from `mood` when this is missing. */
+  motion?: SceneMotion;
+  /** ms estimate the synth pipeline uses for movie playback length.
+   *  When absent, derived from narration word count. */
+  duration_seconds?: number;
 }
 
 export interface GeneratedCharacter {
@@ -43,6 +73,12 @@ export interface GeneratedCharacter {
   speech_tone: string;
   talk_examples: string[];
   source_notes: string;
+  /** Voice archetype for TTS — one of nine universal categories.
+   *  When present, narration for this character uses the matching
+   *  Sarvam/Gemini voice without needing a hardcoded slug→archetype
+   *  table entry. The LLM is asked to pick this; if it returns
+   *  garbage we fall back to inferArchetypeFromRole(). */
+  voice_archetype?: CharacterArchetype;
 }
 
 export interface GeneratedHotspot {
@@ -112,18 +148,48 @@ async function generateBookOpenAI(
       { role: 'system', content: 'You are an expert educational book architect. Create engaging, accurate, age-appropriate interactive books. Respond with valid JSON.' },
       { role: 'user', content: `Create a 10-12 scene outline for an interactive educational LiveBook about: "${bookTitle}".
 
+Walk the story chronologically — establish the world, introduce the main characters, raise the central conflict, follow it through rising action and a clear turn, and close on the resolution. Each scene should advance the timeline; don't repeat beats.
+
 Return JSON with this structure:
 {
   "book_subtitle": "string",
   "book_description": "string",
-  "source_tradition": "string (e.g., Valmiki Ramayana)",
+  "source_tradition": "string (e.g., Valmiki Ramayana, Mughal court chronicles, Aesop's Fables, Indian history textbook)",
   "scenes": [
-    { "scene_id": "snake_case_id", "title": "string", "short_summary": "string", "visual_description": "string (detailed for image generation)" }
+    {
+      "scene_id": "snake_case_id",
+      "title": "string",
+      "short_summary": "string (1-2 sentences, factually grounded)",
+      "visual_description": "string (detailed for image generation)",
+      "mood": "serene|dramatic|somber|joyful|sacred|mysterious|tense",
+      "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection"
+    }
   ],
   "characters": [
-    { "slug": "lowercase-slug", "name": "string", "role": "string", "short_summary": "string", "traits": ["string"], "speech_tone": "string", "talk_examples": ["string"], "source_notes": "string" }
+    {
+      "slug": "lowercase-slug",
+      "name": "string",
+      "role": "string (e.g., emperor, witty courtier, sage, princess, warrior, antagonist)",
+      "short_summary": "string",
+      "traits": ["string"],
+      "speech_tone": "string (e.g., warm and steady, witty and quick, commanding, gentle)",
+      "talk_examples": ["string", "string"],
+      "source_notes": "string",
+      "voice_archetype": "one of: noble-male, young-male, wise-male, commanding-male, bright-male, noble-female, young-female, aged-female, narrator"
+    }
   ]
-}` },
+}
+
+voice_archetype guide — pick the closest fit:
+- noble-male: heroic male leads, warrior princes, dignified protagonists
+- young-male: younger brothers, adolescent heroes, lighter male voices
+- wise-male: sages, ministers, elders, scholarly characters
+- commanding-male: antagonists, kings with authority, deep-voiced villains
+- bright-male: witty/playful male characters, tricksters, energetic
+- noble-female: queens, princesses, dignified female leads
+- young-female: girls, younger female characters
+- aged-female: queen mothers, elder female characters
+- narrator: when no character voice fits` },
     ],
     response_format: { type: 'json_object' },
     temperature: 0.7,
@@ -131,8 +197,22 @@ Return JSON with this structure:
   });
 
   const outline = JSON.parse(outlineRes.choices[0]?.message?.content || '{}');
-  const sceneOutlines: Array<{ scene_id: string; title: string; short_summary: string; visual_description: string }> = outline.scenes || [];
-  const characters: GeneratedCharacter[] = outline.characters || [];
+  const sceneOutlines: Array<{
+    scene_id: string;
+    title: string;
+    short_summary: string;
+    visual_description: string;
+    mood?: SceneMood;
+    theme?: string;
+  }> = outline.scenes || [];
+  const charactersRaw: GeneratedCharacter[] = outline.characters || [];
+  // Backstop the LLM's voice_archetype: if it returned an unknown
+  // value (typo, omitted entry), infer from the role text. The
+  // downstream TTS router will trust whatever ends up here.
+  const characters: GeneratedCharacter[] = charactersRaw.map(c => ({
+    ...c,
+    voice_archetype: c.voice_archetype ?? inferArchetypeFromRole(c.role, c.speech_tone),
+  }));
 
   if (sceneOutlines.length === 0) throw new Error('Failed to generate scene outline');
 
@@ -150,21 +230,31 @@ Return JSON with this structure:
         { role: 'system', content: 'You create detailed scene content for interactive storybooks. Respond with valid JSON.' },
         { role: 'user', content: `Book: "${bookTitle}"
 Scene: "${scene.title}" — ${scene.short_summary}
+Mood: ${scene.mood ?? 'serene'}
 Visual: ${scene.visual_description}
 Characters: ${characters.map(c => c.name).join(', ')}
 
 Generate JSON:
 {
-  "narration": "string (150-200 words, warm storytelling voice)",
+  "narration": "string (150-200 words, warm storytelling voice; match the mood — sorrow plays slow, action plays urgent)",
   "learning_points": ["string", "string", "string"],
   "source_notes": "string",
+  "motion": "slow_zoom_in|slow_zoom_out|pan_left|pan_right|divine_glow|battle_push|fade_only — pick what suits this beat",
   "hotspots": [
     { "label": "string", "hotspot_type": "character|object|place", "target_type": "character|info", "target_id": "slug", "x": number (0-100), "y": number (0-100), "width": number (5-20), "height": number (5-25), "tooltip": "string", "quick_speak": "string (for characters)" }
   ],
   "quiz_questions": [
     { "question": "string", "options": ["string","string","string","string"], "correct_answer": number (0-3), "explanation": "string" }
   ]
-}` },
+}
+
+motion guide:
+- slow_zoom_in: introductions, contemplative beats, sacred moments
+- slow_zoom_out: revelations, scope reveals, kingdom-wide shots
+- battle_push: combat, chase, peak intensity
+- divine_glow: blessings, miracles, transformative moments
+- pan_left / pan_right: travel, journey, reveal-by-sweep
+- fade_only: dialogue scenes where the camera should stay still` },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.65,
@@ -185,13 +275,14 @@ Generate JSON:
       const imageResult = await generateSceneImage(scene.visual_description, {
         bookSlug: slug,
         characters: characters.map(c => c.name),
-        mood: 'serene',
+        mood: scene.mood ?? 'serene',
       });
       backgroundUrl = imageResult.imageUrl;
     } catch (err) {
       console.error(`[BookGenerator] Image failed for scene ${scene.scene_id}:`, err);
     }
 
+    const narration = (detail.narration || scene.short_summary) as string;
     scenesWithDetails.push({
       scene_id: scene.scene_id,
       title: scene.title,
@@ -199,7 +290,7 @@ Generate JSON:
       short_summary: scene.short_summary,
       visual_description: scene.visual_description,
       background_asset_url: backgroundUrl,
-      narration: detail.narration || scene.short_summary,
+      narration,
       learning_points: detail.learning_points || [],
       source_notes: detail.source_notes || outline.source_tradition || '',
       hotspots: (detail.hotspots || []).map((h: GeneratedHotspot, idx: number) => ({
@@ -213,6 +304,13 @@ Generate JSON:
       })),
       previous_scene_id: prev,
       next_scene_id: next,
+      mood: scene.mood,
+      theme: scene.theme,
+      motion: detail.motion as SceneMotion | undefined,
+      // Estimate movie playback length from word count at ~150 wpm.
+      // Manifest synthesis uses this when generating the trailer/movie
+      // for AI-generated books that don't have a pre-baked manifest.
+      duration_seconds: estimateNarrationSeconds(narration),
     });
   }
 
@@ -248,6 +346,8 @@ const SCENE_OUTLINE_SCHEMA: Schema = {
           title: { type: Type.STRING },
           short_summary: { type: Type.STRING },
           visual_description: { type: Type.STRING },
+          mood: { type: Type.STRING },
+          theme: { type: Type.STRING },
         },
         required: ['scene_id', 'title', 'short_summary', 'visual_description'],
       },
@@ -265,6 +365,7 @@ const SCENE_DETAIL_SCHEMA: Schema = {
     narration: { type: Type.STRING },
     learning_points: { type: Type.ARRAY, items: { type: Type.STRING } },
     source_notes: { type: Type.STRING },
+    motion: { type: Type.STRING },
     hotspots: {
       type: Type.ARRAY,
       items: {
@@ -316,6 +417,7 @@ const CHARACTER_BIBLE_SCHEMA: Schema = {
           speech_tone: { type: Type.STRING },
           talk_examples: { type: Type.ARRAY, items: { type: Type.STRING } },
           source_notes: { type: Type.STRING },
+          voice_archetype: { type: Type.STRING },
         },
         required: ['slug', 'name', 'role', 'short_summary', 'traits', 'speech_tone', 'talk_examples', 'source_notes'],
       },
@@ -338,10 +440,13 @@ async function generateBookGemini(
     model,
     contents: [{ role: 'user', parts: [{ text: `You are an expert educational book architect.
 Create a 10-12 scene outline for an interactive educational LiveBook about: "${bookTitle}".
+Walk the story chronologically — establish, raise conflict, follow rising action, turn, resolve. No repeated beats.
 Rules:
 - Base all content on accurate, public-domain source material
 - scene_id: short snake_case identifier
 - visual_description: detailed 2D painting description
+- mood: one of serene, dramatic, somber, joyful, sacred, mysterious, tense (drives TTS prosody + music + effects)
+- theme: one-word noun for the beat (duty, wit, sacrifice, trick, courage, loss, devotion, reflection)
 Generate now for: ${bookTitle}` }] }],
     config: {
       systemInstruction: 'You are an expert educational book architect.',
@@ -350,18 +455,42 @@ Generate now for: ${bookTitle}` }] }],
     },
   });
   const outline = JSON.parse(outlineRes.text!);
-  const sceneOutlines = outline.scenes;
+  const sceneOutlines = outline.scenes as Array<{
+    scene_id: string;
+    title: string;
+    short_summary: string;
+    visual_description: string;
+    mood?: SceneMood;
+    theme?: string;
+  }>;
 
   // STEP 2: Characters
   onProgress?.('Creating character bibles...', 30);
   const charRes = await ai.models.generateContent({
     model,
     contents: [{ role: 'user', parts: [{ text: `Book: "${bookTitle}"
-Scenes: ${sceneOutlines.map((s: { short_summary: string }) => s.short_summary).join(' | ')}
-Generate complete character profiles for all main characters.` }] }],
+Scenes: ${sceneOutlines.map((s) => s.short_summary).join(' | ')}
+Generate complete character profiles for all main characters.
+
+For voice_archetype, pick one of these — match the character's role and demeanour:
+- noble-male: heroic male leads, warrior princes
+- young-male: younger brothers, adolescent heroes
+- wise-male: sages, ministers, scholars, elders
+- commanding-male: antagonists, deep-voiced kings, villains
+- bright-male: witty/playful male characters, tricksters
+- noble-female: queens, princesses, dignified leads
+- young-female: girls, younger female characters
+- aged-female: queen mothers, elder female characters
+- narrator: when no character voice fits` }] }],
     config: { temperature: 0.6, maxOutputTokens: 3000, responseMimeType: 'application/json', responseSchema: CHARACTER_BIBLE_SCHEMA },
   });
-  const { characters }: { characters: GeneratedCharacter[] } = JSON.parse(charRes.text!);
+  const charactersRaw: GeneratedCharacter[] = JSON.parse(charRes.text!).characters;
+  // Backstop the LLM's archetype with a role-based inference, same as
+  // the OpenAI path. The TTS router reads voice_archetype directly.
+  const characters: GeneratedCharacter[] = charactersRaw.map(c => ({
+    ...c,
+    voice_archetype: c.voice_archetype ?? inferArchetypeFromRole(c.role, c.speech_tone),
+  }));
 
   // STEP 3: Scene details + images
   onProgress?.('Writing scenes...', 50);
@@ -389,20 +518,24 @@ Generate narration, learning_points, source_notes, hotspots, quiz_questions.` }]
       const imageResult = await generateSceneImage(s.visual_description, {
         bookSlug: slug,
         characters: characters.map((c: GeneratedCharacter) => c.name),
-        mood: 'serene',
+        mood: s.mood ?? 'serene',
       });
       backgroundUrl = imageResult.imageUrl;
     } catch { /* fallback to gradient */ }
 
+    const narration = detail.narration as string;
     scenesWithDetails.push({
       scene_id: s.scene_id, title: s.title, order_index: i + 1,
       short_summary: s.short_summary, visual_description: s.visual_description,
       background_asset_url: backgroundUrl,
-      narration: detail.narration, learning_points: detail.learning_points,
+      narration, learning_points: detail.learning_points,
       source_notes: detail.source_notes,
       hotspots: detail.hotspots.map((h: GeneratedHotspot, idx: number) => ({ ...h, id: `hs-${s.scene_id}-${idx}` })),
       quiz_questions: detail.quiz_questions.map((q: GeneratedQuiz, idx: number) => ({ ...q, id: `quiz-${s.scene_id}-${idx}`, scene_id: s.scene_id })),
       previous_scene_id: prev, next_scene_id: next,
+      mood: s.mood, theme: s.theme,
+      motion: detail.motion as SceneMotion | undefined,
+      duration_seconds: estimateNarrationSeconds(narration),
     });
   }
 

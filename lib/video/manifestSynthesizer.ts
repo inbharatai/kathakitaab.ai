@@ -1,0 +1,90 @@
+// ============================================================
+// lib/video/manifestSynthesizer.ts
+//
+// Build a BookMovieManifest at runtime from a registered
+// GeneratedBook. This is what unlocks the movie/trailer mode for
+// books the user types in — no need to commit a static
+// remotion/manifests/{slug}.json or run scripts/build-book-video.ts.
+//
+// What it produces:
+//   - Per-scene durationSeconds (from estimateNarrationSeconds in
+//     bookGeneratorAgent, or freshly recomputed from word count)
+//   - Per-scene motion (from scene.motion if the LLM picked one,
+//     else mood→motion default)
+//   - Per-scene effects[] (from topicTagger + effectRecipes — same
+//     pipeline the live reader uses, so movie + reader stay in sync)
+//   - Per-scene subtitles[] (planSubtitles fits cues inside the
+//     estimated audio window)
+//   - imagePath = scene.background_asset_url (Supabase CDN URL)
+//   - audioPath = empty string. The render-movie route fills this
+//     in by calling /api/livebook/tts per scene at render time —
+//     keeps synthesis cheap and lets us reuse the TTS Redis cache.
+// ============================================================
+
+import type { GeneratedBook } from '@/lib/openai/bookGeneratorAgent';
+import type { BookMovieManifest, BookMovieScene } from '@/remotion/BookMovie';
+import { motionForMood, type SceneMotion } from './motion';
+import { planSubtitles } from './subtitlePlanner';
+import { detectTopics } from './effects/topicTagger';
+import { buildSceneEffects } from './effects/effectRecipes';
+
+/**
+ * Estimate scene playback length from narration word count when the
+ * generator didn't bake one in. ~150 wpm + ~2.5s tail matches the
+ * estimateNarrationSeconds heuristic in bookGeneratorAgent.
+ */
+function fallbackDurationSeconds(narration: string): number {
+  const words = narration.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(8, Math.round((words / 150) * 60 + 2.5));
+}
+
+/**
+ * Convert a GeneratedBook into a BookMovieManifest the Remotion
+ * BookMovie/BookTrailer compositions can render directly.
+ *
+ * The synthesizer is deterministic: same input → same manifest. So
+ * caching the result by book slug + generatedAt is safe (the
+ * render-movie route already hashes the manifest for the MP4 cache).
+ */
+export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManifest {
+  const scenes: BookMovieScene[] = book.scenes
+    // The reader honours order_index but we sort defensively in case
+    // the registry returned them out of order.
+    .slice()
+    .sort((a, b) => a.order_index - b.order_index)
+    .map(s => {
+      const durationSeconds = s.duration_seconds ?? fallbackDurationSeconds(s.narration);
+      const motion: SceneMotion = (s.motion as SceneMotion | undefined) ?? motionForMood(s.mood);
+      const topics = detectTopics(s.narration);
+      const effects = buildSceneEffects(topics, s.mood ?? 'serene');
+
+      return {
+        sceneId: s.scene_id,
+        title: s.title,
+        narration: s.narration,
+        // Caller (render-movie route or Player on the movie page)
+        // fills in audioPath at render-time after invoking TTS.
+        // Keeping it empty here keeps synthesis fast and side-effect
+        // free, which is what the BookMovie composition expects from
+        // a manifest object.
+        imagePath: s.background_asset_url || '',
+        audioPath: '',
+        narrationAudioUrl: undefined,
+        durationSeconds,
+        mood: s.mood ?? 'serene',
+        motion,
+        // backgroundMusicUrl unset → BookMovie picks the procedural
+        // mood bed at the right tempo for s.mood. Universal.
+        backgroundMusicUrl: undefined,
+        effects,
+        subtitles: planSubtitles(s.narration, durationSeconds),
+      };
+    });
+
+  return {
+    bookSlug: book.slug,
+    bookTitle: book.title,
+    scenes,
+    generatedAt: new Date(book.generatedAt).toISOString(),
+  };
+}
