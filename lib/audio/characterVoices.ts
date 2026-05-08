@@ -102,6 +102,44 @@ const CHARACTER_ARCHETYPES: Record<string, CharacterArchetype> = {
   pingalaka: 'commanding-male',
   damanaka: 'bright-male',
   sanjivaka: 'wise-male',
+
+  // Akbar and Birbal (folk / historical)
+  akbar: 'wise-male',          // emperor, contemplative — wise rather than commanding
+  birbal: 'bright-male',       // witty courtier, playful intelligence
+  todarmal: 'wise-male',
+  abul_fazl: 'wise-male',
+  raja_man_singh: 'commanding-male',
+
+  // Tenali Raman / Krishnadevaraya court
+  tenali: 'bright-male',
+  tenali_raman: 'bright-male',
+  krishnadevaraya: 'noble-male',
+
+  // Vikram and Betaal
+  vikramaditya: 'noble-male',
+  vikram: 'noble-male',
+  betaal: 'commanding-male',
+  vetala: 'commanding-male',
+
+  // Buddha tales
+  buddha: 'wise-male',
+  siddhartha: 'noble-male',
+  ananda: 'young-male',
+
+  // Generic role nouns — last-resort match for character labels that
+  // come back from the AI generator using titles instead of names.
+  king: 'noble-male',
+  emperor: 'noble-male',
+  sultan: 'commanding-male',
+  prince: 'young-male',
+  queen: 'noble-female',
+  princess: 'young-female',
+  minister: 'wise-male',
+  vizier: 'wise-male',
+  sage: 'wise-male',
+  guru: 'wise-male',
+  villain: 'commanding-male',
+  servant: 'narrator',
 };
 
 /** Look up the archetype for a character slug; falls back to 'narrator'. */

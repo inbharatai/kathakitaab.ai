@@ -15,7 +15,21 @@
 import { NextResponse } from 'next/server';
 import { runAgent, AgentContext } from '@/lib/openai/orchestratorAgent';
 import { getCharacterBySlug, getSceneById } from '@/lib/data/ramayanaSeed';
-import { getScene, getCharacter } from '@/lib/data/bookRegistry';
+import { getBook, getScene, getCharacter } from '@/lib/data/bookRegistry';
+
+// Turn a slug like "akbar-and-birbal-stories" into a display title
+// "Akbar And Birbal Stories" when we don't have a registered book to
+// quote a title from. Used as a last-ditch fallback so the agent
+// prompt never claims the user is reading "Ramayana LiveBook" when
+// they're actually on a different book.
+function slugToTitle(slug: string): string {
+  if (!slug) return 'LiveBook';
+  return slug
+    .split(/[-_]+/g)
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
 
 // The agent route accepts both the seed (Ramayana) and the registry
 // (AI-generated) shapes. They share the fields the route actually
@@ -79,9 +93,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ result: cached, cached: true, cacheKey });
     }
 
+    // Resolve the book title from the registry first, then fall back
+    // to a slug-derived title. The seed Ramayana path keeps its
+    // historical "Ramayana LiveBook" string only when bookSlug is
+    // empty *and* the seed scene was used — otherwise the agent
+    // prompt would claim the user is reading the wrong book.
+    let bookTitle = 'LiveBook';
+    if (bookSlug) {
+      const registered = await getBook(bookSlug);
+      bookTitle = registered?.title ?? slugToTitle(bookSlug);
+    } else if (getSceneById(sceneId)) {
+      bookTitle = 'Ramayana LiveBook';
+    }
+
     // ---- Build Agent Context ----
     const ctx: AgentContext = {
-      bookTitle: 'Ramayana LiveBook',
+      bookTitle,
       sceneTitle: scene.title,
       sceneNarration: scene.narration,
       sourceNotes: scene.source_notes,

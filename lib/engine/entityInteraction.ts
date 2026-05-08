@@ -14,6 +14,7 @@
 import { getBranch, addBranch, markEntityDiscovered, type SceneBranch } from './sceneGraph';
 import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 import { getCachedBranch } from './branchPreGenerator';
+import { getCharacterArchetype } from '@/lib/audio/characterVoices';
 
 export interface EntityClickContext {
   bookSlug: string;
@@ -197,22 +198,32 @@ export async function handleEntityClick(
 
 /**
  * Pick a voice tag for a branch's narration based on the entity context.
- * Used by SceneViewer when calling `narrationManager.speak()` so each
- * character keeps a consistent, recognizable voice across branches.
+ * Universal across books — delegates to the canonical archetype map in
+ * `lib/audio/characterVoices.ts` so adding a new book just means adding
+ * its characters there, not patching this function.
  *
- * Tags map through the legacy voice table in /api/livebook/tts:
- *   narration → narrator
- *   male_character → noble-male
- *   female_character → noble-female
- *   villain → commanding-male
- *   sage → wise-male
+ * The legacy /api/livebook/tts route still expects coarse string tags
+ * (male_character / female_character / villain / sage / narration), so
+ * we collapse the finer archetype classification down to those buckets.
  */
 export function getVoiceForEntity(ctx: EntityClickContext): string {
   if (ctx.entityType !== 'character') return 'narration';
-  const name = ctx.entityLabel.toLowerCase();
-  if (['rama', 'lakshmana', 'bharata', 'hanuman', 'sugriva'].includes(name)) return 'male_character';
-  if (['sita'].includes(name)) return 'female_character';
-  if (['ravana'].includes(name)) return 'villain';
-  if (['vishwamitra', 'dasharatha', 'janaka', 'vashishtha'].includes(name)) return 'sage';
-  return 'narration';
+  const archetype = getCharacterArchetype(ctx.entityLabel);
+  switch (archetype) {
+    case 'noble-male':
+    case 'young-male':
+    case 'bright-male':
+      return 'male_character';
+    case 'commanding-male':
+      return 'villain';
+    case 'wise-male':
+      return 'sage';
+    case 'noble-female':
+    case 'young-female':
+    case 'aged-female':
+      return 'female_character';
+    case 'narrator':
+    default:
+      return 'narration';
+  }
 }
