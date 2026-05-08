@@ -4,7 +4,18 @@
 
 KathaKitaab turns canon books into living scenes you read, click, and watch. Highlighted characters and objects respond on click; figures breathe, sway, blink, and lean toward each other when they speak; the camera dollies, pushes, and shakes in time with whichever verb you choose; every book also plays as a cinematic film, full or trailer, rendered from the same manifest the interactive reader uses.
 
-The first book in the engine is **Ramayana**. The engine is universal — adding Mahabharata, Panchatantra, or any other title is a canon JSON + a build-script call, not new code.
+**Type any title and the engine builds a complete book.** No canon file required. The default reference book is the curated **Ramayana** (12 hand-tuned scenes); a typed-in book like *Akbar and Birbal* runs through the universal pipeline — gpt-4o-mini for the narrative, gpt-image-1 for the art, Sarvam Bulbul for the narration, all stored on Supabase + Redis, ~3 minutes end to end.
+
+## From a typed title to a movie — what actually happens
+
+When you POST `/api/books/generate { title: "..." }`, the engine runs four parallel phases inside one Vercel function (300s budget):
+
+1. **Outline + characters** — gpt-4o-mini drafts a 9–12 scene chronological arc and assigns each character a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). Sets the `mood` and `theme` per scene up front so downstream modules don't reverse-engineer them from text.
+2. **Scene details** (concurrency 4) — gpt-4o-mini writes per-scene narration, hotspot positions, quiz questions, and per-scene camera motion. ~25s for 11 scenes.
+3. **Scene images** (concurrency 3) — gpt-image-1 paints each scene at 1536×1024. Cached at the prompt level on Supabase, so re-generating the same book is free. ~120–180s.
+4. **Scene narration** (concurrency 6) — Sarvam Bulbul records each scene's narration shaped to the scene's mood. ~10–15s. URLs stored on the scene so the live reader and the movie share the same audio.
+
+The result lands in Redis (`kk:book:<slug>`, 30-day TTL) and is immediately playable at `/books/<slug>` interactively or at `/books/<slug>/movie` as a synthesised cinematic cut.
 
 ---
 
@@ -114,9 +125,33 @@ npm run dev
 ```
 Open [http://localhost:5009](http://localhost:5009).
 
-The reader is at `/books/ramayana`. Click any highlighted hotspot to open the action menu; pick a verb to see the camera burst, character motion, sprite overlay, and emotional narration land together.
+### 4. The full user journey (from landing page to finished movie)
 
-### 4. Tests
+The same flow that runs in production at [kathakitaab-ai.vercel.app](https://kathakitaab-ai.vercel.app):
+
+**Step 1 — Pick a book or type a new one.**
+- Open `/books`. The featured world is **Ramayana** (curated, pre-baked manifest).
+- To make your own: scroll to "Create a Story", type any title (e.g. `Akbar and Birbal`, `Mahabharata`, `NCERT History – Ancient India`), hit **Create Story**.
+
+**Step 2 — KathaKitaab builds the book.**
+- The progress bar walks through *Planning the story → Writing scenes → Illustrating → Narrating*.
+- ~3 minutes for an 11-scene book on the standard pipeline (concurrency 4 details / 3 images / 6 audio).
+- ~$0.40 in API cost (OpenAI text + image, Sarvam narration). Caches kick in on every regeneration.
+
+**Step 3 — Read it interactively.**
+- After completion the page redirects to `/books/<slug>`.
+- Click any highlighted hotspot to open the action menu; pick a verb (Talk / Move / Honor / Comfort / …) and the scene reacts:
+  the camera dollies for *Talk*, pushes + shakes for *Fight*, arcs upward for *Leap*. The figure quickens its breath and a verb-keyed sprite flashes. AI narrates the branch in the speaker's voice (chosen by `voice_archetype` at gen time — Akbar speaks as `wise-male`, Birbal as `bright-male`).
+- Tap empty background and the AI checks for hidden details worth surfacing.
+
+**Step 4 — Watch as a movie.**
+- Open `/books/<slug>/movie`. The page fetches a `BookMovieManifest` from `/api/livebook/manifest`:
+  - For Ramayana, it's the static, hand-tuned `remotion/manifests/ramayana.json`.
+  - For any AI-generated book, it's synthesised on demand from the registry — same scenes, same narration audio URLs, same effects DSL, same procedural mood beds, motion picked by the LLM (or mood-derived).
+- The in-browser Remotion `<Player>` plays the cinematic cut: per-scene camera motion, sentence-timed captions, ducked mood music under Sarvam narration, particles + dust shafts + divine glow per the manifest.
+- MP4 download via the **Export** button works locally (`npm run movie:render`) and on hosts that ship Chromium; on Vercel's standard serverless functions the in-browser Player is the canonical path.
+
+### 5. Tests
 ```bash
 # Priority sweep — runs serially, no flakes. ~45s warm.
 npx playwright test --project=chromium --workers=1 \
@@ -131,7 +166,10 @@ npx playwright test tests/e2e/movie-cues.spec.ts        # subtitle cue advanceme
 npx playwright test tests/e2e/mp4-exists.spec.ts        # MP4 export end-to-end (~6 min)
 ```
 
-### 5. Build a book's manifest
+### 6. Build a curated book's manifest (advanced — only when you want hand-tuning)
+
+The user-facing flow above (typing a title) covers most cases. The CLI manifest builder is for when you want to commit a tuned manifest to `remotion/manifests/<slug>.json` and ship it pre-baked, like Ramayana:
+
 ```bash
 # Standard build: per-scene mood-shaped TTS + topic-derived effects[]
 npm run movie:build:ramayana
@@ -148,7 +186,7 @@ npm run movie:verify
 npm run movie:music
 ```
 
-### 6. Render the MP4 / trailer
+### 7. Render the MP4 / trailer
 
 **CLI path (no server needed):**
 ```bash
@@ -174,7 +212,7 @@ curl -X POST http://localhost:5009/api/livebook/render-movie \
 
 Output: `public/movies/{slug}.{stem}.{hash}.mp4`. The route auto-discovers these and serves them directly.
 
-### 7. Optional upgrades
+### 8. Optional upgrades
 
 ```bash
 # Vision-derived hotspot tightening — runs gpt-4o over each scene
@@ -192,11 +230,23 @@ npm run slice:layers -- --scene=ayodhya_intro      # one scene only
 npm run slice:layers -- --force                    # rebuild existing
 ```
 
-### 8. Infrastructure health check
+### 9. Infrastructure health check + maintenance
 ```bash
-npx tsx scripts/check-infra.ts
+# Read-only inventory: Postgres tables, Supabase storage layout,
+# Redis namespace bucket counts, local .env.local key presence.
+npm run survey:infra
+
+# Push managed keys from .env.local to Vercel env (production +
+# preview + development). Without VERCEL_TOKEN set, prints the
+# `vercel env add` commands you can paste yourself.
+npm run sync:vercel              # dry run
+npm run sync:vercel -- --apply   # actually push (token mode)
+
+# Drop pre-Wave-1.1 TTS cache keys after a cache-key shape change.
+# Default --dry-run; --apply to actually delete.
+npm run flush:stale
+npm run flush:stale -- --apply
 ```
-Read-only probes: Redis ping/pong + namespace stats, Supabase Storage bucket layout, Postgres table presence.
 
 ---
 
