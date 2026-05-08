@@ -9,7 +9,11 @@
 // ============================================================
 
 const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech';
-const SARVAM_TIMEOUT_MS = 15_000;
+// 10s per attempt — Sarvam typical p99 is ~6s. Keeping this tight
+// matters because the book generator has only ~300s of Vercel lambda
+// budget; the previous 15s + 3-retry chain could spend 45s+ on a
+// single bad scene and starve the rest of the TTS pass.
+const SARVAM_TIMEOUT_MS = 10_000;
 
 export type SarvamLanguage = 'hi' | 'en';
 
@@ -52,12 +56,14 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
   const isV3 = /v3/i.test(getSarvamModel());
   const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-  // Retry on transient errors (429 rate limit, 5xx). The book
-  // generator fires several Sarvam calls in parallel; without a
+  // Retry once on transient errors (429 rate limit, 5xx). The book
+  // generator fires several Sarvam calls in parallel; without any
   // retry, even a single 429 in the burst falls all the way through
-  // to Gemini and the whole book ends up with the wrong voice.
+  // to Gemini and the whole book ends up with the wrong voice. But
+  // too many retries balloons worst-case latency past Vercel's 300s
+  // lambda budget — one retry is the right balance.
   let attempt = 0;
-  const MAX_ATTEMPTS = 3;
+  const MAX_ATTEMPTS = 2;
   let lastErr: Error = new Error('sarvamTTS: no attempts made');
   while (attempt < MAX_ATTEMPTS) {
     const controller = new AbortController();
@@ -86,10 +92,9 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
       if (res.status === 429 || (res.status >= 500 && res.status < 600)) {
         const body = await res.text().catch(() => '');
         lastErr = new Error(`Sarvam ${res.status}: ${body.slice(0, 200)}`);
-        // 429 → wait increasing time (1s, 2.5s, 5s)
-        // 5xx → same — service is asking us to come back later
-        const backoffMs = 1000 + attempt * 1500;
-        await new Promise(r => setTimeout(r, backoffMs));
+        // Brief backoff so we don't immediately re-trigger the 429.
+        // After one retry, fall through and let speakTTS try Gemini.
+        await new Promise(r => setTimeout(r, 800));
         attempt++;
         continue;
       }
