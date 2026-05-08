@@ -11,13 +11,34 @@
 // in every scene of every book.
 // ============================================================
 
+import { createHash } from 'node:crypto';
 import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { getGeminiClient } from '@/lib/openai/client';
 import { isGeminiConfigured } from '@/lib/openai/client';
 import { buildVisualPrompt } from './visualPromptBuilder';
 import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
 import { getCanonEntry } from '@/lib/data/canonLookup';
+import { getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 import { toFile } from 'openai';
+
+// 90 days. gpt-image-1 calls cost ~$0.04 each — a cache hit on a
+// scene that was previously generated saves the call, the upload,
+// and the latency. Identical prompts re-resolve to the URL of the
+// first generation, which is exactly what we want when a book is
+// regenerated or two books happen to converge on the same prompt.
+const IMAGE_CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+function imageCacheKey(prompt: string, bookSlug: string | undefined, anchorIds: string[]): string {
+  const h = createHash('sha256')
+    .update(prompt)
+    .update('|')
+    .update(bookSlug ?? '')
+    .update('|')
+    .update([...anchorIds].sort().join(','))
+    .digest('hex')
+    .slice(0, 32);
+  return `image:scene:${h}`;
+}
 
 // ── Anchor Reference Resolution ──────────────────────────────
 
@@ -128,6 +149,18 @@ export async function generateSceneImage(
     ? await collectAnchorReferences(ctx.bookSlug, ctx.characters ?? [])
     : [];
 
+  // Prompt-level cache. The fingerprint is (full prompt, book,
+  // anchor IDs) — exactly the inputs to the image model. A hit
+  // returns the URL we generated last time; a miss falls through.
+  // Without this, regenerating the same book pays the full
+  // gpt-image-1 cost again, and orphans the previous Supabase
+  // bytes that nothing now points to.
+  const cacheKey = imageCacheKey(built.prompt, ctx.bookSlug, anchorRefs.map(a => a.id));
+  const cached = await getCachedResponse(cacheKey) as VisualGenerationResult | null;
+  if (cached?.imageUrl) {
+    return cached;
+  }
+
   // Try OpenAI gpt-image-1 first
   if (isOpenAIConfigured()) {
     try {
@@ -171,12 +204,14 @@ export async function generateSceneImage(
           mimeType: 'image/png',
           pathHint: ctx.bookSlug,
         });
-        return {
+        const result: VisualGenerationResult = {
           imageUrl,
           source: 'openai',
           promptUsed: built.prompt,
           charactersLocked: built.charactersInjected,
         };
+        await setCachedResponse(cacheKey, result, 'gpt-image-1', IMAGE_CACHE_TTL_MS);
+        return result;
       }
     } catch (err) {
       console.error('[VisualAgent] OpenAI image generation failed, trying Gemini fallback:', err);
@@ -203,12 +238,14 @@ export async function generateSceneImage(
           mimeType: 'image/jpeg',
           pathHint: ctx.bookSlug,
         });
-        return {
+        const result: VisualGenerationResult = {
           imageUrl,
           source: 'gemini',
           promptUsed: built.prompt,
           charactersLocked: built.charactersInjected,
         };
+        await setCachedResponse(cacheKey, result, 'imagen-3.0', IMAGE_CACHE_TTL_MS);
+        return result;
       }
     } catch (err) {
       console.error('[VisualAgent] Gemini image generation failed:', err);
