@@ -94,34 +94,20 @@ export async function getManifestForSlugAsync(slug: string): Promise<BookMovieMa
   return synthesizeBookMovieManifest(generated);
 }
 
-// Tracks slugs whose hydration is currently running on this lambda.
-// Without this, every concurrent manifest fetch for the same slug
-// fires its own hydration job — wasteful and confusing under load.
-// (Cross-lambda coordination would need Redis; this is a per-instance
-// best-effort dedupe that's good enough for the typical "user opens
-// movie page → maybe refreshes → fetches twice" pattern.)
-const inFlightHydrations = new Set<string>();
-
 /**
- * Run audio hydration for any scenes that are still missing URLs,
- * if no other hydration for this slug is already in flight on the
- * same lambda. Designed to be called from `after()` so the cost
- * lands AFTER the response, inside the lambda's 300s budget.
+ * Synchronous audio hydration. Returns when all missing scene
+ * narrations have been rendered + uploaded + saved back to the
+ * registry. No-op on an already-hydrated book or one that's not in
+ * the registry. The caller (manifest route) awaits this so the
+ * response carries fully-populated audio URLs.
  */
-export async function kickOffAudioHydrationIfNeeded(slug: string): Promise<void> {
-  if (inFlightHydrations.has(slug)) return;
+export async function hydrateAndPersist(slug: string): Promise<void> {
   const generated = await getBook(slug);
   if (!generated) return;
   const needsAudio = generated.scenes.some(s => !s.narration_audio_url);
   if (!needsAudio) return;
-
-  inFlightHydrations.add(slug);
-  try {
-    const hydrated = await hydrateBookAudio(generated);
-    await saveGeneratedBook(hydrated);
-  } finally {
-    inFlightHydrations.delete(slug);
-  }
+  const hydrated = await hydrateBookAudio(generated);
+  await saveGeneratedBook(hydrated);
 }
 
 export function getAvailableMovieSlugs(): string[] {

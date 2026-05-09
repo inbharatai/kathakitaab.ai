@@ -27,44 +27,8 @@ import { motionForMood, type SceneMotion } from './motion';
 import { planSubtitles } from './subtitlePlanner';
 import { detectTopics } from './effects/topicTagger';
 import { buildSceneEffects } from './effects/effectRecipes';
-import { speakTTS } from '@/lib/audio/ttsRouter';
+import { geminiTTS } from '@/lib/audio/geminiAudioClient';
 import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
-import { concatWav } from '@/lib/audio/concatWav';
-
-// Sarvam latency scales with input length. Below ~450 chars we
-// reliably get a response in 8-12s; above 600 chars the call drifts
-// past 20s and starts tripping the 22s timeout. Chunking long
-// narrations into sentence-aligned segments keeps every individual
-// Sarvam call fast, so a 1200-char scene completes in ~24s
-// (2 chunks × 12s) instead of timing out at 22s and falling to
-// Gemini. concatWav stitches the PCM together byte-perfect.
-const SARVAM_CHUNK_CHAR_TARGET = 420;
-
-function chunkNarration(text: string): string[] {
-  const sentences = text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g) ?? [text];
-  const chunks: string[] = [];
-  let buf = '';
-  for (const raw of sentences) {
-    const s = raw.trim();
-    if (!s) continue;
-    // If a single sentence already exceeds the target, ship the
-    // current buf first (if any), then ship the long sentence on its
-    // own — Sarvam handles up to 1500 chars even if slow.
-    if (s.length > SARVAM_CHUNK_CHAR_TARGET) {
-      if (buf) { chunks.push(buf); buf = ''; }
-      chunks.push(s);
-      continue;
-    }
-    if (buf.length + s.length + 1 > SARVAM_CHUNK_CHAR_TARGET) {
-      chunks.push(buf);
-      buf = s;
-    } else {
-      buf = buf ? `${buf} ${s}` : s;
-    }
-  }
-  if (buf) chunks.push(buf);
-  return chunks;
-}
 
 /**
  * Estimate scene playback length from narration word count when the
@@ -100,47 +64,28 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     .filter(({ s }) => !s.narration_audio_url);
   if (missing.length === 0) return book;
 
-  // Serial across scenes (Sarvam rate limit), chunked within each
-  // scene (Sarvam latency on long text). For each scene's narration
-  // we split into ~420-char chunks, render each chunk through the
-  // TTS chain, then byte-concat the PCM WAVs into one file. This
-  // gives every individual Sarvam call a fast (~10s) shot at success
-  // — no timeouts, no Gemini fallback, no mixed-voice scenes.
+  // Gemini Native Audio for hydration. Sarvam stays as the primary
+  // for the live reader (short snippets, fast response) but its
+  // long-text latency is too unreliable for serial bulk narration —
+  // multiple iterations of retries, chunking, and parallel attempts
+  // could not get the full book hydrated inside the 300s lambda
+  // budget. Gemini's per-call latency is consistent ~5-7s per scene
+  // regardless of text length, so 11 scenes complete in ~70s.
   for (const { s, i } of missing) {
     try {
-      const chunks = chunkNarration(s.narration);
-      const wavBuffers: Buffer[] = [];
-      let mime = 'audio/wav';
-      for (const chunk of chunks) {
-        const result = await speakTTS({
-          text: chunk,
-          bookSlug: slug,
-          mood: s.mood,
-        });
-        wavBuffers.push(result.audio);
-        mime = result.mimeType;
-      }
-      // If any chunk fell through to Gemini (24kHz vs Sarvam's 22050)
-      // concatWav rejects mismatched sample rates. In that case
-      // we keep just the first chunk — better one consistent voice
-      // than a broken concat.
-      let audio: Buffer;
-      try {
-        audio = wavBuffers.length === 1 ? wavBuffers[0] : concatWav(wavBuffers).buffer;
-      } catch (concatErr) {
-        console.warn(`[hydrateBookAudio] concat failed for ${s.scene_id} (${concatErr instanceof Error ? concatErr.message : concatErr}); using first chunk only`);
-        audio = wavBuffers[0];
-      }
-      const url = await uploadGeneratedNarration(audio, {
-        mimeType: mime,
-        path: `${slug}/narration/${s.scene_id}.${mime === 'audio/mpeg' ? 'mp3' : 'wav'}`,
+      const result = await geminiTTS({
+        text: s.narration.slice(0, 4000),
+        language: /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en',
+        voiceName: 'Aoede', // narrator voice
+      });
+      const url = await uploadGeneratedNarration(result.audio, {
+        mimeType: result.mimeType,
+        path: `${slug}/narration/${s.scene_id}.${result.mimeType === 'audio/mpeg' ? 'mp3' : 'wav'}`,
       });
       scenes[i] = { ...scenes[i], narration_audio_url: url };
     } catch (err) {
       console.error(`[hydrateBookAudio] scene ${s.scene_id} failed:`, err instanceof Error ? err.message : err);
-      // Leave narration_audio_url unset — the movie composition
-      // will play silent for that scene with the mood bed under it,
-      // and the next manifest fetch will retry just this one.
+      // Leave unset; next manifest fetch will retry just this one.
     }
   }
   return { ...book, scenes };

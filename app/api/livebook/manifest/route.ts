@@ -11,12 +11,12 @@
 // universal for every book the engine knows about.
 // ============================================================
 
-import { NextResponse, after } from 'next/server';
-import { getManifestForSlugAsync, kickOffAudioHydrationIfNeeded } from '@/lib/video/manifestRegistry';
+import { NextResponse } from 'next/server';
+import { getManifestForSlugAsync, hydrateAndPersist } from '@/lib/video/manifestRegistry';
 
-// We respond immediately with whatever audio is already hydrated and
-// kick off the rest in `after()`. The lambda still gets 300s for the
-// background hydration to finish.
+// First call for an AI-generated book hydrates all scene narrations
+// via Gemini → Supabase. ~11 scenes × 6s = ~70s. Subsequent calls
+// hit the cached URLs and return in milliseconds.
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
@@ -25,6 +25,11 @@ export async function GET(request: Request) {
   if (!slug) {
     return NextResponse.json({ error: 'slug query parameter is required' }, { status: 400 });
   }
+
+  // Hydrate inline. Sarvam-in-after() couldn't deliver reliably; the
+  // synchronous Gemini path takes ~70s on a fresh book and 0s once
+  // the book has been hydrated.
+  await hydrateAndPersist(slug);
 
   const manifest = await getManifestForSlugAsync(slug);
   if (!manifest) {
@@ -36,20 +41,6 @@ export async function GET(request: Request) {
       { status: 404 },
     );
   }
-
-  // If any scenes still need narration audio, run the hydration pass
-  // AFTER the response is sent. The user gets the manifest instantly
-  // (images + captions + music + any already-hydrated audio); the
-  // background pass writes URLs back to the registry. On the next
-  // fetch — usually a refresh a couple of minutes later — the audio
-  // is there.
-  after(async () => {
-    try {
-      await kickOffAudioHydrationIfNeeded(slug);
-    } catch (err) {
-      console.error('[manifest] background hydration failed:', err instanceof Error ? err.message : err);
-    }
-  });
 
   return NextResponse.json({ manifest });
 }
