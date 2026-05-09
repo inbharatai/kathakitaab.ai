@@ -28,6 +28,7 @@ import { planSubtitles } from './subtitlePlanner';
 import { detectTopics } from './effects/topicTagger';
 import { buildSceneEffects } from './effects/effectRecipes';
 import { sarvamTTS } from '@/lib/audio/sarvamClient';
+import { geminiTTS } from '@/lib/audio/geminiAudioClient';
 import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
 
 /**
@@ -77,26 +78,53 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     while (cursor < missing.length) {
       const idx = cursor++;
       const { s, i } = missing[idx];
+      const language = /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en';
+      let audio: Buffer | null = null;
+      let mime = 'audio/wav';
+
+      // Primary: Sarvam Bulbul. Indian-language voice, paid tier
+      // handles parallel calls comfortably.
       try {
         const result = await sarvamTTS({
           text: s.narration.slice(0, 1500),
-          language: /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en',
-          // Narrator voice — same archetype the live reader uses
-          // for scene narration. Per-character voices kick in only
-          // on hotspot interactions, not on scene narration.
-          speaker: 'priya',
+          language,
+          speaker: 'priya', // narrator archetype
           pace: 1.0,
         });
-        const url = await uploadGeneratedNarration(result.audio, {
-          mimeType: result.mimeType,
+        audio = result.audio;
+        mime = result.mimeType;
+      } catch (err) {
+        console.warn(`[hydrateBookAudio] sarvam failed for ${s.scene_id}, trying Gemini with Indian voice:`, err instanceof Error ? err.message : err);
+      }
+
+      // Fallback: Gemini Native Audio. We can't pick an actually
+      // Indian voice (Gemini's roster is generic), but we can prefix
+      // a stage direction so the model leans into an Indian-English
+      // delivery rather than a Hollywood narrator.
+      if (!audio) {
+        try {
+          const stageDirection = '[Read this as a warm, dignified Indian-English narrator. Steady pace, slight resonance.]\n';
+          const result = await geminiTTS({
+            text: stageDirection + s.narration.slice(0, 4000),
+            language,
+            voiceName: 'Charon', // deep, dignified — least Hollywood
+          });
+          audio = result.audio;
+          mime = result.mimeType;
+        } catch (err) {
+          console.error(`[hydrateBookAudio] gemini fallback failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
+        }
+      }
+
+      if (audio) {
+        const url = await uploadGeneratedNarration(audio, {
+          mimeType: mime,
           path: `${slug}/narration/${s.scene_id}.wav`,
         });
         scenes[i] = { ...scenes[i], narration_audio_url: url };
-      } catch (err) {
-        console.error(`[hydrateBookAudio] sarvam failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
-        // No Gemini fallback — the user explicitly wants Sarvam for
-        // Indian voices. Failed scenes stay silent until a refresh.
       }
+      // Both failed → leave URL unset; refresh retries this scene
+      // only without re-narrating ones that succeeded.
     }
   });
   await Promise.all(workers);
