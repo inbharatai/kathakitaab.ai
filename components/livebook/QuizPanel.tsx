@@ -6,10 +6,11 @@ import { QuizQuestion } from '@/lib/types/livebook';
 interface Props {
   sceneId: string;
   quizzes: QuizQuestion[];
+  bookSlug?: string;
   onAnswer?: (correct: boolean, x: number, y: number) => void;
 }
 
-export default function QuizPanel({ sceneId, quizzes, onAnswer }: Props) {
+export default function QuizPanel({ sceneId, quizzes, bookSlug, onAnswer }: Props) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [results, setResults] = useState<Record<string, { correct: boolean; explanation: string; correctAnswer: number }>>({});
 
@@ -28,7 +29,7 @@ export default function QuizPanel({ sceneId, quizzes, onAnswer }: Props) {
       const res = await fetch('/api/livebook/quiz-answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quizId, sceneId, selectedAnswer }),
+        body: JSON.stringify({ quizId, sceneId, selectedAnswer, bookSlug }),
       });
       const data = await res.json();
       

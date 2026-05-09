@@ -213,6 +213,9 @@ export interface QuizAnswerRequest {
   quizId: string;
   sceneId: string;
   selectedAnswer: number;
+  /** Book slug — universal lookup. The route falls back to the
+   *  bookRegistry when the seed Ramayana doesn't have the quiz. */
+  bookSlug?: string;
 }
 
 export interface QuizAnswerResponse {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { QuizAnswerRequest } from '@/lib/types/livebook';
 import { getQuizzesBySceneId } from '@/lib/data/ramayanaSeed';
+import { getScene as getRegistryScene } from '@/lib/data/bookRegistry';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 
 export async function POST(request: Request) {
@@ -9,10 +10,17 @@ export async function POST(request: Request) {
 
   try {
     const body: QuizAnswerRequest = await request.json();
-    const { quizId, sceneId, selectedAnswer } = body;
+    const { quizId, sceneId, selectedAnswer, bookSlug } = body;
 
-    const quizzes = getQuizzesBySceneId(sceneId);
-    const quiz = quizzes.find(q => q.id === quizId);
+    // Universal quiz lookup: Ramayana seed first, then bookRegistry
+    // (each AI-generated scene carries its own quiz_questions[]).
+    let quiz: { correct_answer: number; explanation: string } | undefined;
+    const seedQuizzes = getQuizzesBySceneId(sceneId);
+    quiz = seedQuizzes.find(q => q.id === quizId);
+    if (!quiz && bookSlug) {
+      const scene = await getRegistryScene(bookSlug, sceneId);
+      quiz = scene?.quiz_questions.find(q => q.id === quizId);
+    }
 
     if (!quiz) {
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });

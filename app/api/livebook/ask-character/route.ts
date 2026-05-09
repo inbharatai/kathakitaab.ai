@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { AskCharacterRequest } from '@/lib/types/livebook';
 import { askCharacter } from '@/lib/openai/livebookAgent';
-import { getCharacterBySlug, getSceneById, getBook } from '@/lib/data/ramayanaSeed';
+import { getCharacterBySlug, getSceneById, getBook as getSeedBook } from '@/lib/data/ramayanaSeed';
+import { getBook as getRegistryBook, getScene as getRegistryScene, getCharacter as getRegistryCharacter } from '@/lib/data/bookRegistry';
 import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 import { getTextModel, isGeminiConfigured } from '@/lib/openai/client';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
@@ -38,10 +39,47 @@ export async function POST(request: Request) {
       });
     }
 
-    // Get data
-    const book = getBook(bookSlug);
-    const scene = getSceneById(sceneId);
-    const character = getCharacterBySlug(characterSlug);
+    // Universal lookup: try the curated Ramayana seed first, fall
+    // back to the bookRegistry for any AI-generated book. The two
+    // sources have slightly different shapes — we normalise to the
+    // fields askCharacter actually consumes (id, slug, title; scene
+    // id/title/narration/source_notes; character name/role/traits/
+    // speech_tone/source_notes).
+    const seedBook = getSeedBook(bookSlug);
+    const seedScene = getSceneById(sceneId);
+    const seedChar = getCharacterBySlug(characterSlug);
+
+    let book: { id: string; slug: string; title: string } | null = null;
+    let scene: { scene_id: string; title: string; narration: string; source_notes: string } | null = null;
+    let character: { name: string; role: string; traits: string[]; speech_tone: string; source_notes: string; short_summary: string; slug: string } | null = null;
+
+    if (seedBook) book = { id: seedBook.id, slug: seedBook.slug, title: seedBook.title };
+    if (seedScene) scene = { scene_id: seedScene.scene_id, title: seedScene.title, narration: seedScene.narration, source_notes: seedScene.source_notes };
+    if (seedChar) character = {
+      name: seedChar.name, role: seedChar.role, traits: seedChar.traits,
+      speech_tone: seedChar.character_bible?.speech_tone ?? 'wise and grounded',
+      source_notes: seedChar.source_notes, short_summary: seedChar.short_summary, slug: seedChar.slug,
+    };
+
+    if (!book) {
+      const registryBook = await getRegistryBook(bookSlug);
+      if (registryBook) book = { id: registryBook.id, slug: registryBook.slug, title: registryBook.title };
+    }
+    if (!scene) {
+      const registryScene = await getRegistryScene(bookSlug, sceneId);
+      if (registryScene) scene = {
+        scene_id: registryScene.scene_id, title: registryScene.title,
+        narration: registryScene.narration, source_notes: registryScene.source_notes,
+      };
+    }
+    if (!character) {
+      const registryChar = await getRegistryCharacter(bookSlug, characterSlug);
+      if (registryChar) character = {
+        name: registryChar.name, role: registryChar.role, traits: registryChar.traits,
+        speech_tone: registryChar.speech_tone ?? 'warm and grounded',
+        source_notes: registryChar.source_notes, short_summary: registryChar.short_summary, slug: registryChar.slug,
+      };
+    }
 
     if (!book || !scene || !character) {
       return NextResponse.json({ error: 'Book, scene, or character not found' }, { status: 404 });
@@ -93,7 +131,7 @@ export async function POST(request: Request) {
         name: character.name,
         role: character.role,
         traits: character.traits,
-        speech_tone: character.character_bible.speech_tone,
+        speech_tone: character.speech_tone,
         source_notes: character.source_notes,
       },
       userQuestion: question,

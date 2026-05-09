@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateInfo } from '@/lib/openai/infoAgent';
 import { getSceneById } from '@/lib/data/ramayanaSeed';
+import { getScene as getRegistryScene } from '@/lib/data/bookRegistry';
 import { getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 import { isGeminiConfigured } from '@/lib/openai/client';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
@@ -21,8 +22,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const scene = getSceneById(sceneId);
-    if (!scene) {
+    // Universal scene lookup: Ramayana seed first, then bookRegistry.
+    let sceneTitle = '';
+    let sceneNarration = '';
+    const seedScene = getSceneById(sceneId);
+    if (seedScene) {
+      sceneTitle = seedScene.title;
+      sceneNarration = seedScene.narration;
+    } else if (bookSlug) {
+      const registryScene = await getRegistryScene(bookSlug, sceneId);
+      if (registryScene) {
+        sceneTitle = registryScene.title;
+        sceneNarration = registryScene.narration;
+      }
+    }
+    if (!sceneTitle) {
       return NextResponse.json({ error: 'Scene not found' }, { status: 404 });
     }
 
@@ -38,8 +52,8 @@ export async function POST(request: Request) {
     const canonContext = bookSlug ? buildCanonPromptFragment(bookSlug, clickedItem) : '';
 
     const aiResponse = await generateInfo(
-      scene.title,
-      scene.narration,
+      sceneTitle,
+      sceneNarration,
       clickedItem,
       question,
       canonContext || undefined,

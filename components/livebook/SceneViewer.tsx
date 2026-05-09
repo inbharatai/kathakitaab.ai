@@ -1172,7 +1172,7 @@ export default function SceneViewer({
                           </p>
                         </div>
                       )}
-                      {mode === 'quiz' && <QuizPanel sceneId={storyScene.scene_id} quizzes={rawScene?.quiz_questions || (storyScene.quiz_questions || []).map(q => ({ ...q, scene_id: storyScene.scene_id, created_at: '' }))} onAnswer={handleQuizAnswer} />}
+                      {mode === 'quiz' && <QuizPanel sceneId={storyScene.scene_id} bookSlug={bookSlug} quizzes={rawScene?.quiz_questions || (storyScene.quiz_questions || []).map(q => ({ ...q, scene_id: storyScene.scene_id, created_at: '' }))} onAnswer={handleQuizAnswer} />}
                       {storyChoices.length > 0 && mode !== 'quiz' ? (
                         <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                           {storyChoices.map(choice => (
