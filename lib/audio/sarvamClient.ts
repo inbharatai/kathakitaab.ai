@@ -9,11 +9,12 @@
 // ============================================================
 
 const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech';
-// 10s per attempt — Sarvam typical p99 is ~6s. Keeping this tight
-// matters because the book generator has only ~300s of Vercel lambda
-// budget; the previous 15s + 3-retry chain could spend 45s+ on a
-// single bad scene and starve the rest of the TTS pass.
-const SARVAM_TIMEOUT_MS = 10_000;
+// 22s per attempt. Long English-only narrations (800+ chars) needed
+// 18-20s in production traces; the previous 10s ceiling forced
+// every scene into Gemini fallback because Sarvam never had time
+// to finish. 22s leaves slack for legitimate first-call success
+// without ballooning the worst-case per-scene wait.
+const SARVAM_TIMEOUT_MS = 22_000;
 
 export type SarvamLanguage = 'hi' | 'en';
 
@@ -56,14 +57,15 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
   const isV3 = /v3/i.test(getSarvamModel());
   const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-  // Retry once on transient errors (429 rate limit, 5xx). The book
-  // generator fires several Sarvam calls in parallel; without any
-  // retry, even a single 429 in the burst falls all the way through
-  // to Gemini and the whole book ends up with the wrong voice. But
-  // too many retries balloons worst-case latency past Vercel's 300s
-  // lambda budget — one retry is the right balance.
+  // No retry. With the longer 22s timeout, Sarvam either responds
+  // or it doesn't — retrying a slow endpoint just doubles wait time
+  // without improving the success rate. If Sarvam fails on the
+  // first attempt, speakTTS falls through to Gemini (still WAV,
+  // still emotional, just a different voice). Better to ship the
+  // book on time with mixed voices than to push the lambda over
+  // its budget chasing a perfect Sarvam pass.
   let attempt = 0;
-  const MAX_ATTEMPTS = 2;
+  const MAX_ATTEMPTS = 1;
   let lastErr: Error = new Error('sarvamTTS: no attempts made');
   while (attempt < MAX_ATTEMPTS) {
     const controller = new AbortController();
