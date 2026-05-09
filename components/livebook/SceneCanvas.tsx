@@ -344,10 +344,11 @@ export default function SceneCanvas({
   // 0.85 so the pulse is always visible but never blown out.
   const [heartbeat, setHeartbeat] = useState(0);
   useEffect(() => {
-    if (!speaker.audio || prefersReducedMotion) {
-      setHeartbeat(0);
-      return;
-    }
+    // No audio or reduce-motion: stop the rAF loop entirely. The
+    // initial useState(0) keeps heartbeat at 0, so we don't need a
+    // setState in the early return — that would be a setState-in-
+    // effect cascading-render lint violation.
+    if (!speaker.audio || prefersReducedMotion) return;
     let raf = 0;
     const tick = () => {
       const t = performance.now() / 1000;
@@ -357,6 +358,10 @@ export default function SceneCanvas({
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
+    // On unmount or when speaker.audio flips to null, the cleanup
+    // cancels the loop and leaves heartbeat at its last value — but
+    // the lipDrive consumer is gated on speaker.audio so the stale
+    // value is never read.
     return () => cancelAnimationFrame(raf);
   }, [speaker.audio, prefersReducedMotion]);
   // Use whichever signal is louder — real amplitude when Web Audio

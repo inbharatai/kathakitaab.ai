@@ -16,8 +16,6 @@ import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from './openaiCli
 import { isGeminiConfigured, getGeminiClient, getTextModel } from './client';
 import { generateSceneImage } from '@/lib/agents/visualAgent';
 import { inferArchetypeFromRole, type CharacterArchetype } from '@/lib/audio/characterVoices';
-import { speakTTS } from '@/lib/audio/ttsRouter';
-import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
 import { Type, Schema } from '@google/genai';
 
 // Universal moods + themes that downstream modules already consume.
@@ -32,48 +30,6 @@ export type SceneMotion = 'slow_zoom_in' | 'slow_zoom_out' | 'pan_left' | 'pan_r
 function estimateNarrationSeconds(narration: string): number {
   const words = narration.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(8, Math.round((words / 150) * 60 + 2.5));
-}
-
-/**
- * Render scene narration through the TTS router and upload to
- * Supabase Storage. Returns the public URL the manifest synthesizer
- * embeds in the BookMovieScene. Returns empty string on any failure
- * — callers should accept silent narration in that case rather than
- * abort the whole book generation. Movie audio is best-effort; the
- * live reader can still fetch /api/livebook/tts on demand.
- */
-async function renderSceneAudio(args: {
-  text: string;
-  bookSlug: string;
-  sceneId: string;
-  mood?: SceneMood;
-}): Promise<string> {
-  if (!args.text || args.text.trim().length < 10) return '';
-  try {
-    const result = await speakTTS({
-      text: args.text.slice(0, 1500),
-      bookSlug: args.bookSlug,
-      mood: args.mood,
-      // Scene narration uses the universal narrator voice — character
-      // voices kick in only on hotspot interactions in the live reader.
-      // The mood signal still propagates so a sorrowful scene plays slow.
-    });
-    return await uploadGeneratedNarration(result.audio, {
-      mimeType: result.mimeType,
-      // Deterministic per-scene path so re-runs of the same book
-      // overwrite the same object and the Supabase CDN cache stays
-      // warm — much faster than the content-hash filename for a
-      // re-narrated scene.
-      path: `${slugify(args.bookSlug)}/narration/${slugify(args.sceneId)}.${result.mimeType === 'audio/mpeg' ? 'mp3' : 'wav'}`,
-    });
-  } catch (err) {
-    console.error(`[BookGenerator] TTS failed for scene ${args.sceneId}:`, err instanceof Error ? err.message : err);
-    return '';
-  }
-}
-
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 /**

@@ -836,7 +836,7 @@ export default function SceneViewer({
         setIsNarrating(true);
       }
     }
-  }, [rawScene, storyScene]);
+  }, [rawScene, storyScene, bookSlug]);
 
   const handleToggleMute = useCallback(() => {
     const next = !isMutedRef.current;

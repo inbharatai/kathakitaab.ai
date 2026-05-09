@@ -22,15 +22,21 @@ const RAMAYANA_DEFAULT_SCENE = 'ayodhya_intro';
 function SceneViewerWrapper({ params }: { params: { slug: string } }) {
   const searchParams = useSearchParams();
   const explicitScene = searchParams.get('scene');
-  const [resolvedSceneId, setResolvedSceneId] = useState<string | null>(explicitScene);
+  // Initial value is derived synchronously from the URL + slug so we
+  // never need a setState in the effect just to seed it. For Ramayana
+  // (the only book whose first-scene id is known statically), we
+  // resolve it inline; everything else stays null until the fetch
+  // below resolves the real first scene.
+  const initialSceneId = explicitScene
+    ?? (params.slug === 'ramayana' ? RAMAYANA_DEFAULT_SCENE : null);
+  const [resolvedSceneId, setResolvedSceneId] = useState<string | null>(initialSceneId);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (explicitScene) return;
-    if (params.slug === 'ramayana') {
-      setResolvedSceneId(RAMAYANA_DEFAULT_SCENE);
-      return;
-    }
+    // If we already know the scene id (URL param or Ramayana default),
+    // there's nothing for this effect to fetch. The early return keeps
+    // us out of a setState-in-effect cascade.
+    if (initialSceneId) return;
 
     // For any other book — including every AI-generated one — fetch
     // the book and pick its first scene by order_index. This is what
@@ -56,7 +62,7 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [params.slug, explicitScene]);
+  }, [params.slug, initialSceneId]);
 
   if (error) {
     return (

@@ -13,7 +13,7 @@ import {
   defaultCharacterName,
   determineToolUnlock,
 } from '@/lib/game/rewardAgent';
-import { evaluateActionSafety } from '@/lib/game/safetyAgent';
+import { evaluateActionSafety } from '@/lib/game/actionSafety';
 import {
   buildDefaultActions,
   TOOL_METADATA,
