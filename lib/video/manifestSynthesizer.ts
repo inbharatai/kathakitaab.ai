@@ -64,44 +64,45 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     .filter(({ s }) => !s.narration_audio_url);
   if (missing.length === 0) return book;
 
-  // Parallel Gemini Native Audio, concurrency 5. After many
-  // production attempts, the Sarvam path from this specific route
-  // (long-form serial bulk narration) consistently failed inside
-  // the 300s lambda budget — even at 40s timeout, even at
-  // concurrency 1, even with paid-tier credits. Rather than ship
-  // a broken movie, we run hydration on Gemini with an Indian-
-  // English stage direction so the voice still leans into the
-  // book's setting. Sarvam stays as the primary provider for the
-  // live reader's short-text branches via /api/livebook/tts —
-  // there it works reliably.
-  const LIMIT = 5;
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(LIMIT, missing.length) }, async () => {
-    while (cursor < missing.length) {
-      const idx = cursor++;
-      const { s, i } = missing[idx];
-      const language = /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en';
+  // Serial Gemini with one retry on failure. The previous parallel-5
+  // attempt left ~40% of scenes unhydrated due to Gemini's per-key
+  // RPM cap. Going serial with a 1.5s gap between calls keeps every
+  // request inside the rate budget; one retry catches the rare
+  // transient hiccup. 10 scenes × ~8s + 10 × 1.5s gap = ~95s, well
+  // inside the 300s manifest-route budget.
+  for (const { s, i } of missing) {
+    const language = /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en';
+    const stageDirection = language === 'hi'
+      ? '[गर्म, धीमा भारतीय कथावाचक की आवाज़ में पढ़ें।]\n'
+      : '[Read this as a warm, dignified Indian-English narrator. Steady pace, slight resonance.]\n';
+
+    let attempt = 0;
+    let succeeded = false;
+    while (attempt < 2 && !succeeded) {
       try {
-        const stageDirection = language === 'hi'
-          ? '[गर्म, धीमा भारतीय कथावाचक की आवाज़ में पढ़ें।]\n'
-          : '[Read this as a warm, dignified Indian-English narrator. Steady pace, slight resonance.]\n';
         const result = await geminiTTS({
           text: stageDirection + s.narration.slice(0, 4000),
           language,
-          voiceName: 'Charon', // deeper register; sounds least Hollywood
+          voiceName: 'Charon',
         });
         const url = await uploadGeneratedNarration(result.audio, {
           mimeType: result.mimeType,
           path: `${slug}/narration/${s.scene_id}.wav`,
         });
         scenes[i] = { ...scenes[i], narration_audio_url: url };
+        succeeded = true;
       } catch (err) {
-        console.error(`[hydrateBookAudio] gemini failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
-        // Leave URL unset; next manifest fetch retries this scene only.
+        attempt++;
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          console.error(`[hydrateBookAudio] gemini failed twice for ${s.scene_id}:`, err instanceof Error ? err.message : err);
+        }
       }
     }
-  });
-  await Promise.all(workers);
+    // Small gap between scenes to stay under Gemini's RPM cap.
+    await new Promise(r => setTimeout(r, 1500));
+  }
   return { ...book, scenes };
 }
 
