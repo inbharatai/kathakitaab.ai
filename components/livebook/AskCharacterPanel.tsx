@@ -39,11 +39,18 @@ export default function AskCharacterPanel({ bookSlug, sceneId, characterSlug, ch
         }),
       });
 
-      const data = await res.json();
-      
+      // Check status BEFORE parsing — a 5xx may return HTML error
+      // page bodies that crash JSON.parse with an opaque error,
+      // hiding the real failure from the catch handler.
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to get answer');
+        let serverMsg = '';
+        try {
+          const j = await res.json();
+          serverMsg = j.error || '';
+        } catch { /* non-JSON body */ }
+        throw new Error(serverMsg || `Failed to get answer (${res.status})`);
       }
+      const data = await res.json();
 
       setResponse(data);
       setIsResponseCollapsed(false);

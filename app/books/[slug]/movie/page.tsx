@@ -61,8 +61,21 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookSlug: slug, mode }),
       });
+      // Order matters: a 5xx may serve an HTML error page that fails
+      // res.json() with an opaque parse error, masking the real
+      // status. Check ok first; fall back to text() when JSON parsing
+      // fails so we always surface a useful message.
+      if (!res.ok) {
+        let msg = '';
+        try {
+          const j = await res.json();
+          msg = j.error || j.detail || '';
+        } catch {
+          try { msg = (await res.text()).slice(0, 200); } catch { /* */ }
+        }
+        throw new Error(msg || `Render failed (${res.status})`);
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.detail || 'Render failed');
       setter({ status: 'done', url: data.url, error: null });
     } catch (err) {
       setter({ status: 'failed', url: null, error: err instanceof Error ? err.message : 'Unknown error' });

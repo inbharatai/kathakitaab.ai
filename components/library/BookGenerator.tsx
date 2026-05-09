@@ -38,6 +38,13 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title.trim() }),
       });
+      // Vercel renders HTML error pages on 5xx, so check ok before
+      // parsing — otherwise res.json() throws an opaque parse error
+      // and the user sees nothing actionable.
+      if (!res.ok) {
+        const msg = await safeReadError(res);
+        throw new Error(msg);
+      }
       const data = await res.json();
 
       if (data.cached) {
@@ -48,7 +55,12 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
       if (data.generating) {
         setStatus('polling');
         pollProgress(data.slug);
+        return;
       }
+
+      // Neither cached nor generating — server returned an unexpected
+      // shape. Surface it instead of silently leaving the spinner.
+      throw new Error('Unexpected response from book generator.');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unable to create this story right now.');
       setStatus('error');
@@ -56,9 +68,25 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
   };
 
   const pollProgress = async (slug: string) => {
+    // Cap consecutive transient failures so a flaky network or a
+    // permanently-broken slug doesn't loop forever.
+    let consecutiveFailures = 0;
+    const MAX_FAILURES = 8;
+
     const poll = async () => {
       try {
         const res = await fetch(`/api/books/generate?slug=${slug}`);
+        if (!res.ok) {
+          consecutiveFailures++;
+          if (consecutiveFailures >= MAX_FAILURES) {
+            setError('Lost connection to the book generator. Try again in a moment.');
+            setStatus('error');
+            return;
+          }
+          setTimeout(poll, 2000);
+          return;
+        }
+        consecutiveFailures = 0;
         const data = await res.json();
 
         if (data.done && data.book) {
@@ -77,11 +105,33 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
         setProgress({ step: data.step || 'Working...', percent: data.percent || 0 });
         setTimeout(poll, 1500);
       } catch {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_FAILURES) {
+          setError('Lost connection to the book generator. Try again in a moment.');
+          setStatus('error');
+          return;
+        }
         setTimeout(poll, 2000);
       }
     };
     poll();
   };
+
+  // Best-effort error message extraction. Tries JSON first, falls back
+  // to text, falls back to an HTTP-status string. Never throws.
+  async function safeReadError(res: Response): Promise<string> {
+    try {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const j = await res.json();
+        return j.error || j.message || `Request failed (${res.status})`;
+      }
+      const t = await res.text();
+      return t.slice(0, 200) || `Request failed (${res.status})`;
+    } catch {
+      return `Request failed (${res.status})`;
+    }
+  }
 
   return (
     <div id="create-story">

@@ -36,11 +36,28 @@ export function subscribeActiveSpeaker(l: SpeakerListener): () => void {
 }
 
 let currentAudio: HTMLAudioElement | null = null;
+// Tracks the blob: URL backing currentAudio so every exit path
+// (onended, onerror, stopNarration, scene change) can revoke it.
+// Without this, each TTS call leaks ~50–200KB of audio data — a long
+// reading session adds up to several MB. Pre-rendered Supabase URLs
+// don't go through createObjectURL, so this stays null in that path.
+let currentAudioObjectUrl: string | null = null;
 let abortController: AbortController | null = null;
 let currentSceneId: string | null = null;
 let muted = false;
 let state: NarrationState = 'idle';
 const listeners: Set<Listener> = new Set();
+
+function releaseCurrentAudio() {
+  if (currentAudio) {
+    try { currentAudio.pause(); } catch { /* */ }
+    currentAudio = null;
+  }
+  if (currentAudioObjectUrl) {
+    try { URL.revokeObjectURL(currentAudioObjectUrl); } catch { /* */ }
+    currentAudioObjectUrl = null;
+  }
+}
 
 // ── Audio autoplay unlock ────────────────────────────────────
 // Browsers block HTMLAudioElement.play() until the page has seen a
@@ -171,10 +188,9 @@ export function isMuted(): boolean {
 
 export function stopNarration() {
   if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
+    try { currentAudio.currentTime = 0; } catch { /* */ }
   }
+  releaseCurrentAudio();
   if (abortController) {
     abortController.abort();
     abortController = null;
@@ -229,15 +245,20 @@ export async function speak(
   if (opts?.preRenderedUrl) {
     try {
       currentAudio = new Audio(opts.preRenderedUrl);
+      // Pre-rendered path uses a remote CDN URL, not a blob — leave
+      // currentAudioObjectUrl null so releaseCurrentAudio() doesn't
+      // try to revoke a non-blob URL.
+      currentAudioObjectUrl = null;
       currentAudio.crossOrigin = 'anonymous';
       currentAudio.volume = 0.9;
       currentAudio.onended = () => {
-        currentAudio = null;
+        releaseCurrentAudio();
         setActiveSpeaker({ audio: null, entityId: null });
         restoreMusic();
         setState('idle');
       };
       currentAudio.onerror = () => {
+        releaseCurrentAudio();
         setActiveSpeaker({ audio: null, entityId: null });
         restoreMusic();
         setState('idle');
@@ -273,6 +294,7 @@ export async function speak(
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       currentAudio = new Audio(url);
+      currentAudioObjectUrl = url;
       // crossOrigin lets the Web Audio AnalyserNode tap the audio
       // stream for amplitude. Blob: URLs are same-origin so this is
       // a no-op on the wire, but the AudioContext source-node
@@ -280,13 +302,13 @@ export async function speak(
       currentAudio.crossOrigin = 'anonymous';
       currentAudio.volume = 0.9;
       currentAudio.onended = () => {
-        URL.revokeObjectURL(url);
-        currentAudio = null;
+        releaseCurrentAudio();
         setActiveSpeaker({ audio: null, entityId: null });
         restoreMusic();
         setState('idle');
       };
       currentAudio.onerror = () => {
+        releaseCurrentAudio();
         setActiveSpeaker({ audio: null, entityId: null });
         restoreMusic();
         setState('idle');
@@ -305,8 +327,7 @@ export async function speak(
         if (name !== 'NotAllowedError' && name !== 'AbortError') {
           console.warn('[narrationManager] audio.play() failed:', name, (playErr as Error)?.message);
         }
-        currentAudio = null;
-        URL.revokeObjectURL(url);
+        releaseCurrentAudio();
         restoreMusic();
         setState('idle');
       }
