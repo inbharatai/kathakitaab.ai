@@ -40,7 +40,7 @@ export default function EducatorPage() {
             KathaKitaab.ai
           </span>
         </Link>
-        <span style={{ color: 'var(--color-text-dim)', fontSize: '0.9rem' }}>/ Educator Dashboard</span>
+        <span style={{ color: 'var(--color-text-dim)', fontSize: '0.9rem' }}>/ KathaKitaab Studio</span>
         <div style={{ marginLeft: 'auto' }}>
           <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 16px', fontSize: '0.85rem' }}>
             View Library
@@ -55,7 +55,7 @@ export default function EducatorPage() {
             <span style={{ fontSize: '2.5rem' }}>👩‍🏫</span>
             <div>
               <h1 className="font-serif" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.5rem)', fontWeight: 800, color: 'var(--color-gold-light)', margin: 0 }}>
-                Educator Dashboard
+                KathaKitaab Studio
               </h1>
               <p style={{ color: 'var(--color-saffron)', fontSize: '0.9rem', margin: 0, marginTop: 4 }}>
                 Generate any book · Assign to students · Track comprehension

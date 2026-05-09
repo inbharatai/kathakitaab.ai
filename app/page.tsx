@@ -136,7 +136,7 @@ export default function HomePage() {
         </Link>
         <div className="lp-nav-links">
           <Link href="/books" className="lp-nav-link">Stories</Link>
-          <Link href="/educator" className="lp-nav-link">Educators</Link>
+          <Link href="/educator" className="lp-nav-link">Studio</Link>
           <Link href="/books/ramayana" className="lp-btn-glow">Enter Ramayana</Link>
         </div>
       </nav>

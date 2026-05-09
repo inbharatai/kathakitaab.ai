@@ -27,7 +27,7 @@ import { motionForMood, type SceneMotion } from './motion';
 import { planSubtitles } from './subtitlePlanner';
 import { detectTopics } from './effects/topicTagger';
 import { buildSceneEffects } from './effects/effectRecipes';
-import { geminiTTS } from '@/lib/audio/geminiAudioClient';
+import { sarvamTTS } from '@/lib/audio/sarvamClient';
 import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
 
 /**
@@ -64,30 +64,42 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     .filter(({ s }) => !s.narration_audio_url);
   if (missing.length === 0) return book;
 
-  // Gemini Native Audio for hydration. Sarvam stays as the primary
-  // for the live reader (short snippets, fast response) but its
-  // long-text latency is too unreliable for serial bulk narration —
-  // multiple iterations of retries, chunking, and parallel attempts
-  // could not get the full book hydrated inside the 300s lambda
-  // budget. Gemini's per-call latency is consistent ~5-7s per scene
-  // regardless of text length, so 11 scenes complete in ~70s.
-  for (const { s, i } of missing) {
-    try {
-      const result = await geminiTTS({
-        text: s.narration.slice(0, 4000),
-        language: /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en',
-        voiceName: 'Aoede', // narrator voice
-      });
-      const url = await uploadGeneratedNarration(result.audio, {
-        mimeType: result.mimeType,
-        path: `${slug}/narration/${s.scene_id}.${result.mimeType === 'audio/mpeg' ? 'mp3' : 'wav'}`,
-      });
-      scenes[i] = { ...scenes[i], narration_audio_url: url };
-    } catch (err) {
-      console.error(`[hydrateBookAudio] scene ${s.scene_id} failed:`, err instanceof Error ? err.message : err);
-      // Leave unset; next manifest fetch will retry just this one.
+  // Parallel Sarvam Bulbul, concurrency 5. KathaKitaab uses an
+  // Indian-language story engine — Sarvam is the right voice for
+  // the content. With paid-tier rate limits we can fan out to 5 in
+  // flight comfortably. ~22s/call worst case, so 11 scenes finish
+  // in ~3 waves ≈ 70s — well inside the 300s lambda budget.
+  // Failed scenes leave their URL unset; a refresh re-attempts
+  // only those without re-narrating the rest.
+  const LIMIT = 5;
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(LIMIT, missing.length) }, async () => {
+    while (cursor < missing.length) {
+      const idx = cursor++;
+      const { s, i } = missing[idx];
+      try {
+        const result = await sarvamTTS({
+          text: s.narration.slice(0, 1500),
+          language: /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en',
+          // Narrator voice — same archetype the live reader uses
+          // for scene narration. Per-character voices kick in only
+          // on hotspot interactions, not on scene narration.
+          speaker: 'priya',
+          pace: 1.0,
+        });
+        const url = await uploadGeneratedNarration(result.audio, {
+          mimeType: result.mimeType,
+          path: `${slug}/narration/${s.scene_id}.wav`,
+        });
+        scenes[i] = { ...scenes[i], narration_audio_url: url };
+      } catch (err) {
+        console.error(`[hydrateBookAudio] sarvam failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
+        // No Gemini fallback — the user explicitly wants Sarvam for
+        // Indian voices. Failed scenes stay silent until a refresh.
+      }
     }
-  }
+  });
+  await Promise.all(workers);
   return { ...book, scenes };
 }
 
