@@ -64,32 +64,31 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     .filter(({ s }) => !s.narration_audio_url);
   if (missing.length === 0) return book;
 
-  const LIMIT = 2;
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(LIMIT, missing.length) }, async () => {
-    while (cursor < missing.length) {
-      const idx = cursor++;
-      const { s, i } = missing[idx];
-      try {
-        const result = await speakTTS({
-          text: s.narration.slice(0, 1500),
-          bookSlug: slug,
-          mood: s.mood,
-        });
-        const url = await uploadGeneratedNarration(result.audio, {
-          mimeType: result.mimeType,
-          path: `${slug}/narration/${s.scene_id}.${result.mimeType === 'audio/mpeg' ? 'mp3' : 'wav'}`,
-        });
-        scenes[i] = { ...scenes[i], narration_audio_url: url };
-      } catch (err) {
-        console.error(`[hydrateBookAudio] scene ${s.scene_id} failed:`, err instanceof Error ? err.message : err);
-        // Leave narration_audio_url unset — the movie composition
-        // will play silent for that scene with the mood bed under it,
-        // and the next manifest fetch will retry just this one.
-      }
+  // Serial. Sarvam's per-key rate limit on the standard tier turns
+  // out to be tight enough that even concurrency 2 reliably tipped
+  // every call into the Gemini fallback during a hydration burst. A
+  // single in-flight request keeps Sarvam happy and the whole pass
+  // for 9 scenes finishes in ~45s — still well under the 300s
+  // manifest-route budget.
+  for (const { s, i } of missing) {
+    try {
+      const result = await speakTTS({
+        text: s.narration.slice(0, 1500),
+        bookSlug: slug,
+        mood: s.mood,
+      });
+      const url = await uploadGeneratedNarration(result.audio, {
+        mimeType: result.mimeType,
+        path: `${slug}/narration/${s.scene_id}.${result.mimeType === 'audio/mpeg' ? 'mp3' : 'wav'}`,
+      });
+      scenes[i] = { ...scenes[i], narration_audio_url: url };
+    } catch (err) {
+      console.error(`[hydrateBookAudio] scene ${s.scene_id} failed:`, err instanceof Error ? err.message : err);
+      // Leave narration_audio_url unset — the movie composition
+      // will play silent for that scene with the mood bed under it,
+      // and the next manifest fetch will retry just this one.
     }
-  });
-  await Promise.all(workers);
+  }
   return { ...book, scenes };
 }
 
