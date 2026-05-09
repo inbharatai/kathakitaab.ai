@@ -11,13 +11,12 @@
 // universal for every book the engine knows about.
 // ============================================================
 
-import { NextResponse } from 'next/server';
-import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';
+import { NextResponse, after } from 'next/server';
+import { getManifestForSlugAsync, kickOffAudioHydrationIfNeeded } from '@/lib/video/manifestRegistry';
 
-// First call for an AI-generated book hydrates scene narrations via
-// Sarvam → Supabase. ~10 scenes × concurrency 2 = ~5 waves of TTS,
-// which fits in Vercel's 300s budget with headroom. Subsequent calls
-// hit the Redis-cached book and return instantly.
+// We respond immediately with whatever audio is already hydrated and
+// kick off the rest in `after()`. The lambda still gets 300s for the
+// background hydration to finish.
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
@@ -37,6 +36,20 @@ export async function GET(request: Request) {
       { status: 404 },
     );
   }
+
+  // If any scenes still need narration audio, run the hydration pass
+  // AFTER the response is sent. The user gets the manifest instantly
+  // (images + captions + music + any already-hydrated audio); the
+  // background pass writes URLs back to the registry. On the next
+  // fetch — usually a refresh a couple of minutes later — the audio
+  // is there.
+  after(async () => {
+    try {
+      await kickOffAudioHydrationIfNeeded(slug);
+    } catch (err) {
+      console.error('[manifest] background hydration failed:', err instanceof Error ? err.message : err);
+    }
+  });
 
   return NextResponse.json({ manifest });
 }
