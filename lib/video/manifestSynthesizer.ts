@@ -27,7 +27,6 @@ import { motionForMood, type SceneMotion } from './motion';
 import { planSubtitles } from './subtitlePlanner';
 import { detectTopics } from './effects/topicTagger';
 import { buildSceneEffects } from './effects/effectRecipes';
-import { sarvamTTS } from '@/lib/audio/sarvamClient';
 import { geminiTTS } from '@/lib/audio/geminiAudioClient';
 import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
 
@@ -65,13 +64,16 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     .filter(({ s }) => !s.narration_audio_url);
   if (missing.length === 0) return book;
 
-  // Parallel Sarvam Bulbul, concurrency 5. KathaKitaab uses an
-  // Indian-language story engine — Sarvam is the right voice for
-  // the content. With paid-tier rate limits we can fan out to 5 in
-  // flight comfortably. ~22s/call worst case, so 11 scenes finish
-  // in ~3 waves ≈ 70s — well inside the 300s lambda budget.
-  // Failed scenes leave their URL unset; a refresh re-attempts
-  // only those without re-narrating the rest.
+  // Parallel Gemini Native Audio, concurrency 5. After many
+  // production attempts, the Sarvam path from this specific route
+  // (long-form serial bulk narration) consistently failed inside
+  // the 300s lambda budget — even at 40s timeout, even at
+  // concurrency 1, even with paid-tier credits. Rather than ship
+  // a broken movie, we run hydration on Gemini with an Indian-
+  // English stage direction so the voice still leans into the
+  // book's setting. Sarvam stays as the primary provider for the
+  // live reader's short-text branches via /api/livebook/tts —
+  // there it works reliably.
   const LIMIT = 5;
   let cursor = 0;
   const workers = Array.from({ length: Math.min(LIMIT, missing.length) }, async () => {
@@ -79,52 +81,24 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
       const idx = cursor++;
       const { s, i } = missing[idx];
       const language = /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en';
-      let audio: Buffer | null = null;
-      let mime = 'audio/wav';
-
-      // Primary: Sarvam Bulbul. Indian-language voice, paid tier
-      // handles parallel calls comfortably.
       try {
-        const result = await sarvamTTS({
-          text: s.narration.slice(0, 1500),
+        const stageDirection = language === 'hi'
+          ? '[गर्म, धीमा भारतीय कथावाचक की आवाज़ में पढ़ें।]\n'
+          : '[Read this as a warm, dignified Indian-English narrator. Steady pace, slight resonance.]\n';
+        const result = await geminiTTS({
+          text: stageDirection + s.narration.slice(0, 4000),
           language,
-          speaker: 'priya', // narrator archetype
-          pace: 1.0,
+          voiceName: 'Charon', // deeper register; sounds least Hollywood
         });
-        audio = result.audio;
-        mime = result.mimeType;
-      } catch (err) {
-        console.warn(`[hydrateBookAudio] sarvam failed for ${s.scene_id}, trying Gemini with Indian voice:`, err instanceof Error ? err.message : err);
-      }
-
-      // Fallback: Gemini Native Audio. We can't pick an actually
-      // Indian voice (Gemini's roster is generic), but we can prefix
-      // a stage direction so the model leans into an Indian-English
-      // delivery rather than a Hollywood narrator.
-      if (!audio) {
-        try {
-          const stageDirection = '[Read this as a warm, dignified Indian-English narrator. Steady pace, slight resonance.]\n';
-          const result = await geminiTTS({
-            text: stageDirection + s.narration.slice(0, 4000),
-            language,
-            voiceName: 'Charon', // deep, dignified — least Hollywood
-          });
-          audio = result.audio;
-          mime = result.mimeType;
-        } catch (err) {
-          console.error(`[hydrateBookAudio] gemini fallback failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
-        }
-      }
-
-      if (audio) {
-        const url = await uploadGeneratedNarration(audio, {
-          mimeType: mime,
+        const url = await uploadGeneratedNarration(result.audio, {
+          mimeType: result.mimeType,
           path: `${slug}/narration/${s.scene_id}.wav`,
         });
         scenes[i] = { ...scenes[i], narration_audio_url: url };
+      } catch (err) {
+        console.error(`[hydrateBookAudio] gemini failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
+        // Leave URL unset; next manifest fetch retries this scene only.
       }
-      // Both failed → leave URL unset; refresh retries this scene
-      // only without re-narrating ones that succeeded.
     }
   });
   await Promise.all(workers);
