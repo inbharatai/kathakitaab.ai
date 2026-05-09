@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense, use } from 'react';
+import { Suspense, use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import SceneViewer from '@/components/livebook/SceneViewer';
 
@@ -13,10 +13,77 @@ function toTitleCase(slug: string): string {
     .join(' ');
 }
 
+// Fallback default for the curated Ramayana — the first scene there
+// is `ayodhya_intro`. Any other book gets its first scene id by
+// fetching /api/books/<slug>, since AI-generated books each have
+// their own scene id vocabulary.
+const RAMAYANA_DEFAULT_SCENE = 'ayodhya_intro';
+
 function SceneViewerWrapper({ params }: { params: { slug: string } }) {
   const searchParams = useSearchParams();
-  const sceneId = searchParams.get('scene') || 'ayodhya_intro';
-  return <SceneViewer bookSlug={params.slug} initialSceneId={sceneId} />;
+  const explicitScene = searchParams.get('scene');
+  const [resolvedSceneId, setResolvedSceneId] = useState<string | null>(explicitScene);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (explicitScene) return;
+    if (params.slug === 'ramayana') {
+      setResolvedSceneId(RAMAYANA_DEFAULT_SCENE);
+      return;
+    }
+
+    // For any other book — including every AI-generated one — fetch
+    // the book and pick its first scene by order_index. This is what
+    // unblocks "type any title" → working reader.
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/books/${params.slug}`);
+        if (!res.ok) {
+          if (!cancelled) setError(`Book "${params.slug}" hasn't been generated yet — go to the library to create it.`);
+          return;
+        }
+        const data = await res.json();
+        const scenes: Array<{ scene_id: string; order_index?: number }> = data.scenes ?? [];
+        if (scenes.length === 0) {
+          if (!cancelled) setError('This book has no scenes yet.');
+          return;
+        }
+        const sorted = [...scenes].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+        if (!cancelled) setResolvedSceneId(sorted[0].scene_id);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load book');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [params.slug, explicitScene]);
+
+  if (error) {
+    return (
+      <div className="glass-card" style={{ padding: 40, textAlign: 'center', marginTop: 40 }}>
+        <p style={{ color: '#ff8a8a', marginBottom: 24 }}>{error}</p>
+        <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none' }}>
+          Go to the Library
+        </Link>
+      </div>
+    );
+  }
+
+  if (!resolvedSceneId) {
+    return (
+      <div style={{ height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%',
+          border: '3px solid rgba(212,168,71,0.15)',
+          borderTop: '3px solid var(--color-gold)',
+          animation: 'spin 1.5s linear infinite',
+        }} />
+        <p style={{ color: 'var(--color-gold)', fontWeight: 600 }}>Opening the book...</p>
+      </div>
+    );
+  }
+
+  return <SceneViewer bookSlug={params.slug} initialSceneId={resolvedSceneId} />;
 }
 
 export default function BookPage({ params }: { params: Promise<{ slug: string }> }) {
