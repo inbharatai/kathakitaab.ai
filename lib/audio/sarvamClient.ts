@@ -9,12 +9,12 @@
 // ============================================================
 
 const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech';
-// 22s per attempt. Long English-only narrations (800+ chars) needed
-// 18-20s in production traces; the previous 10s ceiling forced
-// every scene into Gemini fallback because Sarvam never had time
-// to finish. 22s leaves slack for legitimate first-call success
-// without ballooning the worst-case per-scene wait.
-const SARVAM_TIMEOUT_MS = 22_000;
+// 40s. Long-form scene narrations (1000-1500 chars) on the paid
+// tier reliably need 25-32s. A tighter ceiling forced every long
+// scene into the Gemini fallback. The live-reader path passes
+// short text (≤200 chars per branch) and finishes well under
+// this anyway, so widening here doesn't slow that path.
+const SARVAM_TIMEOUT_MS = 40_000;
 
 export type SarvamLanguage = 'hi' | 'en';
 
