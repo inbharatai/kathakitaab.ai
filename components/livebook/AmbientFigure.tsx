@@ -92,12 +92,16 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
     ? 'rgba(255, 220, 140, 0.18)'
     : 'rgba(232, 170, 90, 0.10)';
 
-  // Sway amplitude is small on purpose — bigger numbers cross from
-  // "alive" into "wobbling cardboard cutout".
-  const swayDeg = isCharacter ? 0.35 : 0.18;
-  // Breath scale similarly subtle; 1.5% at peak is just enough that
-  // the eye notices the chest rise without seeing the figure grow.
-  const breathPeak = isCharacter ? 1.015 : 1.008;
+  // Sway amplitude — visible enough that the figure clearly reads as
+  // alive without crossing into "wobbling cardboard cutout". Earlier
+  // values (0.35°) were below the threshold most users perceive on a
+  // 1080p display; 1.2° is the sweet spot — readable at a glance,
+  // never distracting.
+  const swayDeg = isCharacter ? 1.2 : 0.6;
+  // Breath scale — 4% at peak shows a clear chest rise. Anchored at
+  // the feet (transformOrigin 50% 100%) so the figure breathes
+  // upward without the silhouette appearing to grow.
+  const breathPeak = isCharacter ? 1.04 : 1.02;
 
   return (
     <div
@@ -123,15 +127,15 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
           head turn rather than a body lean. */}
       <motion.div
         animate={state === 'idle'
-          ? { rotate: [0, 1.6, 0, -1.4, 0] }
+          ? { rotate: [0, 3.2, 0, -2.6, 0] }
           : { rotate: 0 }}
         transition={state === 'idle'
           ? {
-              duration: 8 + phase * 6,
+              duration: 6 + phase * 4,
               times: [0, 0.18, 0.42, 0.62, 1],
               repeat: Infinity,
               ease: 'easeInOut',
-              delay: 1.5 + phase * 4,
+              delay: 1.0 + phase * 3,
             }
           : { duration: 0.4, ease: 'easeOut' }}
         style={{

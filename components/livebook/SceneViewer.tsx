@@ -438,8 +438,16 @@ export default function SceneViewer({
       // amber → green in real time as branches warm, without a re-poll.
       subscribeToReadiness(loadedScene.scene_id);
 
-      // Narration Manager: scene changed → narrate
-      narrationManager.onSceneChanged(loadedScene.scene_id, loadedScene.narration);
+      // Narration Manager: scene changed → narrate. AI-generated books
+      // ship a pre-rendered Supabase URL on the scene; passing it lets
+      // the manager skip /api/livebook/tts (no Sarvam wait, no Gemini
+      // fallback) and play the CDN audio directly.
+      narrationManager.onSceneChanged(
+        loadedScene.scene_id,
+        loadedScene.narration,
+        undefined,
+        loadedScene.narration_audio_url,
+      );
 
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unknown error');

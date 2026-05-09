@@ -335,6 +335,34 @@ export default function SceneCanvas({
     ? scene.hotspots.find(h => h.target_id === speaker.entityId) ?? null
     : null;
 
+  // ── Heartbeat lip-pulse fallback ──
+  // Web Audio amplitude reads silently fail on cross-origin Supabase
+  // streams (Gemini-rendered narration in particular) — the analyser
+  // wires up but RMS reads zero. Without this fallback, the speaker's
+  // mouth would stay still even though we KNOW audio is playing.
+  // A 3-Hz sinusoid gives a "talking" feel; clamped between 0.25 and
+  // 0.85 so the pulse is always visible but never blown out.
+  const [heartbeat, setHeartbeat] = useState(0);
+  useEffect(() => {
+    if (!speaker.audio || prefersReducedMotion) {
+      setHeartbeat(0);
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      const t = performance.now() / 1000;
+      // Mix two close frequencies for a less mechanical rhythm.
+      const v = 0.55 + 0.30 * Math.sin(t * 6.0) + 0.15 * Math.sin(t * 9.7);
+      setHeartbeat(Math.max(0.25, Math.min(0.85, v)));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [speaker.audio, prefersReducedMotion]);
+  // Use whichever signal is louder — real amplitude when Web Audio
+  // reads it, heartbeat fallback otherwise.
+  const lipDrive = Math.max(amplitude, heartbeat);
+
   // ── Gaze bias ──
   // When a different hotspot was the most recent interaction (the
   // implicit "addressee"), compute a small directional offset for the
@@ -673,7 +701,7 @@ export default function SceneCanvas({
           amplitude. Reads as "the figure's mouth is moving" without
           any actual lip-sync model. Pointer-events:none so it never
           blocks hotspot taps. */}
-      {pulsingHotspot && amplitude > 0 && (
+      {pulsingHotspot && lipDrive > 0 && (
         <div
           aria-hidden
           style={{
@@ -690,18 +718,18 @@ export default function SceneCanvas({
             // speaker's "voice" leans in the right direction. The
             // bias is in % of canvas; the pulse layer is sized to
             // the speaker's bbox so we apply it as a translate.
-            transform: `translate(${gazeOffsetX.toFixed(2)}%, ${(Math.round(pulsingHotspot.height * 0.22 * 100) / 100) + gazeOffsetY}%) scale(${1 + amplitude * 0.08})`,
-            transition: 'transform 240ms cubic-bezier(0.22, 1, 0.36, 1)',
+            transform: `translate(${gazeOffsetX.toFixed(2)}%, ${(Math.round(pulsingHotspot.height * 0.22 * 100) / 100) + gazeOffsetY}%) scale(${1 + lipDrive * 0.18})`,
+            transition: 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         >
           <div
             style={{
               position: 'absolute', inset: 0,
               borderRadius: '50%',
-              background: `radial-gradient(ellipse at 50% 50%, rgba(255,235,180,${0.18 + amplitude * 0.32}) 0%, transparent 65%)`,
-              filter: `blur(${4 + amplitude * 8}px)`,
+              background: `radial-gradient(ellipse at 50% 50%, rgba(255,235,180,${0.30 + lipDrive * 0.45}) 0%, transparent 65%)`,
+              filter: `blur(${5 + lipDrive * 10}px)`,
               mixBlendMode: 'screen',
-              opacity: 0.7 + amplitude * 0.3,
+              opacity: 0.85 + lipDrive * 0.15,
             }}
           />
         </div>

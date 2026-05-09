@@ -200,8 +200,11 @@ export async function speak(
   /** Universality plumbing: when the speaker belongs to a registered
    *  AI-generated book, pass the book + character slug so the TTS
    *  router can pick the LLM's chosen voice_archetype rather than
-   *  falling through to the global hardcoded archetype map. */
-  opts?: { bookSlug?: string; characterSlug?: string; mood?: string },
+   *  falling through to the global hardcoded archetype map.
+   *  preRenderedUrl, when provided, bypasses /api/livebook/tts
+   *  entirely — we just stream the existing CDN file. Used for
+   *  scene narration that the manifest hydration already produced. */
+  opts?: { bookSlug?: string; characterSlug?: string; mood?: string; preRenderedUrl?: string },
 ): Promise<void> {
   // If the same id is already speaking, skip — prevents re-renders
   // from restarting playback mid-sentence.
@@ -218,6 +221,36 @@ export async function speak(
   currentSceneId = sceneId ?? null;
   setState('loading', text);
   duckMusic();
+
+  // Fast path: if the scene already has narration audio on Supabase
+  // (every AI-generated book hydrates these on first movie open),
+  // play that URL directly. No TTS API round-trip, no wait for
+  // Sarvam, no possible Gemini fallback — just an instant CDN fetch.
+  if (opts?.preRenderedUrl) {
+    try {
+      currentAudio = new Audio(opts.preRenderedUrl);
+      currentAudio.crossOrigin = 'anonymous';
+      currentAudio.volume = 0.9;
+      currentAudio.onended = () => {
+        currentAudio = null;
+        setActiveSpeaker({ audio: null, entityId: null });
+        restoreMusic();
+        setState('idle');
+      };
+      currentAudio.onerror = () => {
+        setActiveSpeaker({ audio: null, entityId: null });
+        restoreMusic();
+        setState('idle');
+      };
+      setState('speaking', text);
+      setActiveSpeaker({ audio: currentAudio, entityId: speakerEntityId ?? null });
+      await currentAudio.play();
+      return;
+    } catch (preErr) {
+      console.warn('[narration] pre-rendered URL failed, falling back to TTS API:', preErr instanceof Error ? preErr.message : preErr);
+      // Fall through to the TTS API below.
+    }
+  }
 
   // Try OpenAI TTS
   try {
@@ -314,13 +347,21 @@ function clearPendingSceneTimer() {
   }
 }
 
-export function onSceneChanged(sceneId: string, narration: string, voice?: string) {
+export function onSceneChanged(
+  sceneId: string,
+  narration: string,
+  voice?: string,
+  /** Pre-rendered Supabase URL — when provided, bypasses /api/livebook/tts
+   *  for an instant CDN play. Manifest hydration produces these once per
+   *  AI-generated book. */
+  preRenderedUrl?: string,
+) {
   clearPendingSceneTimer();
   if (muted) return;
   // Small delay to let the visual transition complete.
   pendingSceneTimer = setTimeout(() => {
     pendingSceneTimer = null;
-    speak(narration, voice ?? 'narration', sceneId);
+    speak(narration, voice ?? 'narration', sceneId, undefined, { preRenderedUrl });
   }, 800);
 }
 
