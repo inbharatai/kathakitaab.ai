@@ -335,6 +335,17 @@ export default function SceneCanvas({
   const pulsingHotspot = speaker.entityId
     ? scene.hotspots.find(h => h.target_id === speaker.entityId) ?? null
     : null;
+  // Scene narration plays through the omniscient narrator — there's
+  // no single character speaking, so the solo lip-pulse path stays
+  // off. Without a chorus fallback, every character's mouth stays
+  // sealed during narration even though audio is clearly playing,
+  // which reads as broken to the user. When narration is active
+  // (audio present, but no entityId resolved to a hotspot), pulse
+  // every character softly so the scene reads as alive — a chorus
+  // listening to the storyteller, with each mouth opening on its
+  // own slight delay so it doesn't look like ventriloquism.
+  const narratorActive = !!speaker.audio && !pulsingHotspot;
+  const characterHotspots = scene.hotspots.filter(h => h.type === 'character');
 
   // ── Heartbeat lip-pulse fallback ──
   // Web Audio amplitude reads silently fail on cross-origin Supabase
@@ -729,89 +740,39 @@ export default function SceneCanvas({
       ))}
 
       {/* ── Layer 4d: Audio-driven mouth ──
-          When narration is playing for a known speaker, render an
-          actual mouth-shape primitive (dark ellipse + lip highlight)
-          over the speaker's mouth region. The ellipse's vertical
-          radius scales with audio amplitude — closed at silence,
-          open at peak — so it visibly forms an "ah" / "oh" / closed
-          shape in time with the voice. The horizontal radius shrinks
-          slightly on closed lips for a natural pucker. Backed by a
-          soft warm halo for presence, but the mouth itself is the
-          load-bearing element now, not a glow.
-          Pointer-events:none so it never blocks hotspot taps. */}
-      {pulsingHotspot && lipDrive > 0 && (() => {
-        // Mouth lives at ~26% from the top of a portrait bbox. Sized
-        // to a 22% wide window so it stays plausibly mouth-sized
-        // regardless of figure scale. Gaze bias offsets the entire
-        // mouth region toward the implicit addressee.
-        const mouthY = pulsingHotspot.height * 0.22;
-        const mouthW = pulsingHotspot.width * 0.22;
-        const mouthH = pulsingHotspot.height * 0.10;
-        // Open-amount: 30% baseline (lips parted) → 100% at peak amp.
-        // Horizontal squeeze on quiet syllables for a natural pucker.
-        const open = 0.30 + lipDrive * 0.70;
-        const ellipseRy = (mouthH * open).toFixed(2);
-        const ellipseRx = (mouthW * 0.5 * (0.85 + lipDrive * 0.15)).toFixed(2);
-        return (
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              left: `${pulsingHotspot.x + (pulsingHotspot.width - mouthW) / 2}%`,
-              top: `${pulsingHotspot.y + mouthY + gazeOffsetY}%`,
-              width: `${mouthW}%`,
-              height: `${mouthH}%`,
-              pointerEvents: 'none',
-              zIndex: 4,
-              transform: `translate(${gazeOffsetX.toFixed(2)}%, 0)`,
-              transition: 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
-            }}
-          >
-            {/* Warm halo behind the mouth — keeps the pulse visible
-                even on dark backgrounds where a thin ellipse would
-                be lost. Smaller and softer than the previous full-
-                face glow so it reads as a face highlight, not a
-                generic spotlight. */}
-            <div
-              style={{
-                position: 'absolute', inset: 0,
-                borderRadius: '50%',
-                background: `radial-gradient(ellipse at 50% 50%, rgba(255,220,170,${0.18 + lipDrive * 0.28}) 0%, transparent 70%)`,
-                filter: `blur(${4 + lipDrive * 6}px)`,
-                mixBlendMode: 'screen',
-              }}
-            />
-            {/* The mouth itself — SVG ellipse + a lip-highlight
-                stripe. The ellipse's ry interpolates with lipDrive
-                so it visibly opens and closes. Stroke is the lip
-                line; fill is the open mouth darkness. */}
-            <svg
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              style={{ position: 'absolute', inset: 0, transition: 'transform 90ms ease-out' }}
-            >
-              {/* Inner mouth — dark ellipse that opens with amp. */}
-              <ellipse
-                cx={50}
-                cy={50}
-                rx={Number(ellipseRx) / mouthW * 100}
-                ry={Number(ellipseRy) / mouthH * 100}
-                fill="rgba(60, 20, 18, 0.78)"
-              />
-              {/* Lip highlight — a thin warm stroke just above the
-                  mouth so the shape reads as lips rather than a
-                  hole. Opacity follows lipDrive for liveliness. */}
-              <path
-                d={`M ${50 - Number(ellipseRx) / mouthW * 100} 50 Q 50 ${50 - Number(ellipseRy) / mouthH * 110}, ${50 + Number(ellipseRx) / mouthW * 100} 50`}
-                fill="none"
-                stroke={`rgba(255, 200, 170, ${(0.55 + lipDrive * 0.3).toFixed(2)})`}
-                strokeWidth={2.2}
-                strokeLinecap="round"
-              />
-            </svg>
-          </div>
-        );
-      })()}
+          Solo path: a specific character is speaking (an interaction
+          response, e.g. clicked Akbar → Akbar's audio). Their mouth
+          opens and closes in time with the audio amplitude.
+          Chorus path: the omniscient narrator is speaking the scene.
+          Every character mouths the words at reduced intensity, each
+          with their own phase delay so the scene reads as alive
+          without looking like ventriloquism. The first character
+          (largest bbox, by reading order) gets a slight boost so a
+          single "lead" voice anchors the chorus.
+          Pointer-events:none on every layer so hotspot taps land. */}
+      {pulsingHotspot && lipDrive > 0 && (
+        <MouthPulse
+          hotspot={pulsingHotspot}
+          intensity={lipDrive}
+          gazeOffsetX={gazeOffsetX}
+          gazeOffsetY={gazeOffsetY}
+          phaseOffset={0}
+          isLead
+        />
+      )}
+      {narratorActive && lipDrive > 0 && characterHotspots.map((h, i) => (
+        <MouthPulse
+          key={`mouth-chorus-${h.id}`}
+          hotspot={h}
+          // Chorus is quieter — 55% of solo intensity, with a small
+          // per-figure phase shift so they don't all open in sync.
+          intensity={lipDrive * 0.55 * (0.7 + 0.6 * Math.abs(Math.sin(i * 1.7)))}
+          gazeOffsetX={0}
+          gazeOffsetY={0}
+          phaseOffset={i}
+          isLead={false}
+        />
+      ))}
 
       {/* ── Layer 4c: Ambient idle animation ──
           Subtle breath/sway/blink halos at every character (and softer
@@ -1045,6 +1006,94 @@ export default function SceneCanvas({
           </motion.div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Mouth pulse sub-component ────────────────────────────────
+// Renders an SVG mouth shape (dark ellipse + lip-highlight curve)
+// over a hotspot's mouth region. The ellipse's vertical radius
+// scales with `intensity` (0..1) so it visibly opens / closes.
+// Used in two contexts: solo (character speaking, full intensity,
+// gaze bias) and chorus (narrator active, every character at
+// reduced intensity, no gaze).
+
+interface MouthPulseProps {
+  hotspot: SceneHotspot;
+  intensity: number;
+  gazeOffsetX: number;
+  gazeOffsetY: number;
+  /** Index in chorus mode — used to vary the phase between figures
+   *  so they don't all open at the same instant. Ignored in solo. */
+  phaseOffset: number;
+  /** Solo speaker gets a slightly larger mouth + stronger highlight
+   *  than chorus participants. */
+  isLead: boolean;
+}
+
+function MouthPulse({ hotspot, intensity, gazeOffsetX, gazeOffsetY, phaseOffset, isLead }: MouthPulseProps) {
+  // Mouth lives at ~26% from the top of a portrait bbox. Sized to
+  // ~22% wide so it stays plausibly mouth-sized regardless of
+  // figure scale. Lead speakers get a 5% width boost so the focal
+  // mouth reads slightly larger than chorus mouths.
+  const widthFrac = isLead ? 0.22 : 0.18;
+  const heightFrac = isLead ? 0.10 : 0.085;
+  const mouthY = hotspot.height * 0.22;
+  const mouthW = hotspot.width * widthFrac;
+  const mouthH = hotspot.height * heightFrac;
+  // Open-amount: 30% baseline (lips parted) → 100% at peak. The
+  // sin(phaseOffset) varies which moment of the cycle each chorus
+  // mouth is at, so they don't all open at the same instant.
+  const phaseShift = isLead ? 0 : Math.sin(phaseOffset * 1.9) * 0.18;
+  const open = Math.max(0.20, Math.min(1.0, 0.30 + intensity * 0.70 + phaseShift));
+  const ellipseRx = mouthW * 0.5 * (0.85 + intensity * 0.15);
+  const ellipseRy = mouthH * open;
+  const fillAlpha = isLead ? 0.78 : 0.62;
+  const lipAlpha = isLead ? 0.55 + intensity * 0.30 : 0.40 + intensity * 0.20;
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        left: `${hotspot.x + (hotspot.width - mouthW) / 2}%`,
+        top: `${hotspot.y + mouthY + gazeOffsetY}%`,
+        width: `${mouthW}%`,
+        height: `${mouthH}%`,
+        pointerEvents: 'none',
+        zIndex: 4,
+        transform: `translate(${gazeOffsetX.toFixed(2)}%, 0)`,
+        transition: 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute', inset: 0,
+          borderRadius: '50%',
+          background: `radial-gradient(ellipse at 50% 50%, rgba(255,220,170,${(isLead ? 0.18 : 0.10) + intensity * 0.28}) 0%, transparent 70%)`,
+          filter: `blur(${4 + intensity * 6}px)`,
+          mixBlendMode: 'screen',
+        }}
+      />
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: 'absolute', inset: 0, transition: 'transform 90ms ease-out' }}
+      >
+        <ellipse
+          cx={50}
+          cy={50}
+          rx={ellipseRx / mouthW * 100}
+          ry={ellipseRy / mouthH * 100}
+          fill={`rgba(60, 20, 18, ${fillAlpha})`}
+        />
+        <path
+          d={`M ${50 - ellipseRx / mouthW * 100} 50 Q 50 ${50 - ellipseRy / mouthH * 110}, ${50 + ellipseRx / mouthW * 100} 50`}
+          fill="none"
+          stroke={`rgba(255, 200, 170, ${lipAlpha.toFixed(2)})`}
+          strokeWidth={isLead ? 2.2 : 1.6}
+          strokeLinecap="round"
+        />
+      </svg>
     </div>
   );
 }

@@ -392,14 +392,17 @@ const SceneShot: React.FC<{
       )}
 
       {/* ── Per-character ambient layer ── puppet states baked into
-          the movie. Each character hotspot gets a pulsing glow ring
-          that breathes at ~0.4 Hz, with a small scale + translate
-          oscillation phase-offset by the character's label so they
-          don't all breathe in lockstep. The figures themselves are
-          baked into the bg image; this layer is the "alive" signal
-          that the live reader expresses through AmbientFigure. */}
+          the movie. Each character hotspot gets a pulsing glow over
+          the lower body, plus a mouth that opens/closes whenever a
+          subtitle cue is active. The bg figures are flat — this
+          layer is what makes them read as alive during narration. */}
       {scene.hotspots && scene.hotspots.length > 0 && (
-        <AmbientFiguresLayer hotspots={scene.hotspots} frame={frame} fps={fps} />
+        <AmbientFiguresLayer
+          hotspots={scene.hotspots}
+          frame={frame}
+          fps={fps}
+          cueActive={!!activeCue}
+        />
       )}
 
       {/* ── Top header chip + scene title ── */}
@@ -457,12 +460,19 @@ const AmbientFiguresLayer: React.FC<{
   hotspots: BookMovieHotspot[];
   frame: number;
   fps: number;
-}> = ({ hotspots, frame, fps }) => {
+  /** True when a subtitle cue is on-screen → mouths open. False
+   *  during inter-cue silence → mouths return to a closed/parted
+   *  pose. Drives the chorus mouth motion universally for any
+   *  book whose manifest has cues (the synthesizer always emits
+   *  them via planSubtitles). */
+  cueActive: boolean;
+}> = ({ hotspots, frame, fps, cueActive }) => {
   const t = frame / fps; // seconds since scene start
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       {hotspots.map((h, i) => {
         if (h.type !== 'character' && h.type !== 'object') return null;
+        const isCharacter = h.type === 'character';
         // Stable per-figure phase from the label so the same scene
         // always animates the same way (deterministic for caching).
         const phase = (i * 1.07 + h.label.length * 0.31) % (2 * Math.PI);
@@ -471,32 +481,86 @@ const AmbientFiguresLayer: React.FC<{
         const breath = Math.sin(2 * Math.PI * breathHz * t + phase);
         const sway = Math.sin(2 * Math.PI * swayHz * t + phase * 0.5);
 
-        // Scale 1 ± 0.012 — small enough to feel natural, large enough
-        // to read on a 1920×1080 frame. Translate ±0.3% horizontally.
-        const scale = 1 + breath * 0.012;
-        const tx = sway * 0.3;
+        // Visible breath / sway — the previous 1.2% scale was below
+        // the perceptual threshold on a 1920×1080 still. 4% scale +
+        // 1.2% translate matches the live reader's amplitude.
+        const scale = 1 + breath * 0.04;
+        const tx = sway * 1.2;
         // Glow ring opacity pulses at the breath rate. Characters get
         // a stronger ring than objects.
-        const ringAlpha = (h.type === 'character' ? 0.18 : 0.08) + breath * 0.06;
-        const ringColor = h.type === 'character' ? '255,215,140' : '255,200,140';
+        const ringAlpha = (isCharacter ? 0.18 : 0.08) + breath * 0.06;
+        const ringColor = isCharacter ? '255,215,140' : '255,200,140';
+
+        // Mouth oscillation — when cueActive, the mouth opens / closes
+        // at ~3.5 Hz (natural speech cadence). Phase-offset per figure
+        // so they're never all open at the exact same instant. When
+        // no cue is active (between sentences), the mouth slowly
+        // closes to a parted resting pose.
+        const speechHz = 3.6;
+        const speechMix = (Math.sin(2 * Math.PI * speechHz * t + phase * 2.3) + 1) / 2; // 0..1
+        const mouthOpen = isCharacter
+          ? (cueActive ? 0.30 + speechMix * 0.70 : 0.22)
+          : 0;
+        const mouthW = h.width * 0.20;
+        const mouthH = h.height * 0.085;
+        const ellipseRy = mouthH * mouthOpen;
+        const ellipseRx = mouthW * 0.5 * (0.85 + speechMix * 0.15);
 
         return (
-          <div
-            key={`${h.label}-${i}`}
-            style={{
-              position: 'absolute',
-              left: `${h.x}%`,
-              top: `${h.y}%`,
-              width: `${h.width}%`,
-              height: `${h.height}%`,
-              transform: `translate(${tx}%, 0) scale(${scale})`,
-              transformOrigin: 'center bottom',
-              transition: 'none',
-              borderRadius: '50%',
-              boxShadow: `inset 0 0 60px rgba(${ringColor},${ringAlpha.toFixed(3)}), 0 0 80px rgba(${ringColor},${(ringAlpha * 0.5).toFixed(3)})`,
-              mixBlendMode: 'screen',
-            }}
-          />
+          <React.Fragment key={`${h.label}-${i}`}>
+            {/* Body aura — narrow vertical ellipse over the lower 60%
+                of the bbox so it lights the torso/legs, not the empty
+                bg above the head. */}
+            <div
+              style={{
+                position: 'absolute',
+                left: `${h.x + h.width * 0.12}%`,
+                top: `${h.y + h.height * 0.38}%`,
+                width: `${h.width * 0.76}%`,
+                height: `${h.height * 0.60}%`,
+                transform: `translate(${tx}%, 0) scale(${scale})`,
+                transformOrigin: 'center bottom',
+                transition: 'none',
+                borderRadius: '50% 50% 45% 45% / 60% 60% 40% 40%',
+                background: `radial-gradient(ellipse at 50% 50%, rgba(${ringColor},${ringAlpha.toFixed(3)}) 0%, transparent 70%)`,
+                filter: 'blur(8px)',
+                mixBlendMode: 'screen',
+              }}
+            />
+            {/* Mouth — only on character hotspots. Opens/closes with
+                cueActive so the bg figures appear to be speaking the
+                narration. Subtle horizontal pucker on the closed
+                pose for natural lip shape. */}
+            {isCharacter && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${h.x + (h.width - mouthW) / 2}%`,
+                  top: `${h.y + h.height * 0.22}%`,
+                  width: `${mouthW}%`,
+                  height: `${mouthH}%`,
+                  pointerEvents: 'none',
+                }}
+              >
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
+                  <ellipse
+                    cx={50}
+                    cy={50}
+                    rx={ellipseRx / mouthW * 100}
+                    ry={ellipseRy / mouthH * 100}
+                    fill={`rgba(60, 20, 18, ${cueActive ? 0.78 : 0.45})`}
+                  />
+                  <path
+                    d={`M ${50 - ellipseRx / mouthW * 100} 50 Q 50 ${50 - ellipseRy / mouthH * 110}, ${50 + ellipseRx / mouthW * 100} 50`}
+                    fill="none"
+                    stroke={`rgba(255, 200, 170, ${cueActive ? 0.65 : 0.35})`}
+                    strokeWidth={2.0}
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+            )}
+          </React.Fragment>
         );
       })}
     </div>
