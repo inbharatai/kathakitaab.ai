@@ -14,8 +14,12 @@
 
 import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from './openaiClient';
 import { isGeminiConfigured, getGeminiClient, getTextModel } from './client';
-import { generateSceneImage } from '@/lib/agents/visualAgent';
+import { generateSceneImage, generateCharacterPortrait } from '@/lib/agents/visualAgent';
+import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
+import { registerRuntimeCanon } from '@/lib/data/canonLookup';
+import type { CanonEntry } from '@/lib/types/canon';
 import { inferArchetypeFromRole, type CharacterArchetype } from '@/lib/audio/characterVoices';
+import type { StylePreset } from '@/lib/types/style';
 import { Type, Schema } from '@google/genai';
 
 // Universal moods + themes that downstream modules already consume.
@@ -30,6 +34,30 @@ export type SceneMotion = 'slow_zoom_in' | 'slow_zoom_out' | 'pan_left' | 'pan_r
 function estimateNarrationSeconds(narration: string): number {
   const words = narration.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(8, Math.round((words / 150) * 60 + 2.5));
+}
+
+/**
+ * Project the in-flight characters[] into universal CanonEntry shape
+ * so registerRuntimeCanon can index them. Filters out anything that
+ * lacks both an appearance and an anchor — those don't help the
+ * prompt builder (and would just bloat the index). Used twice during
+ * generation: once after the outline (appearance-only canon for
+ * scene-image prompts) and once after anchor baking (full canon
+ * with anchor URLs for face-locked images.edit).
+ */
+function charactersToCanonEntries(characters: GeneratedCharacter[]): CanonEntry[] {
+  return characters
+    .filter(c => c.appearance || c.anchor_image_url)
+    .map(c => ({
+      id: c.slug,
+      label: c.name,
+      aliases: c.aliases ?? [],
+      kind: 'character' as const,
+      summary: c.short_summary || c.role || c.name,
+      appearance: c.appearance,
+      divine: c.divine,
+      anchor_image_url: c.anchor_image_url,
+    }));
 }
 
 /**
@@ -134,6 +162,29 @@ export interface GeneratedCharacter {
    *  table entry. The LLM is asked to pick this; if it returns
    *  garbage we fall back to inferArchetypeFromRole(). */
   voice_archetype?: CharacterArchetype;
+
+  // ── Universal canon fields (added so AI-generated books get the
+  // same character consistency Ramayana has via lib/data/canon/*.json) ──
+
+  /** Detailed visual identity — skin tone, hair, eyes, age, build,
+   *  signature clothing/items. Injected into every scene-image prompt
+   *  via visualPromptBuilder so the same character looks the same
+   *  across scenes. Required for face-locking. */
+  appearance?: string;
+  /** Alternative names the LLM or user might use when referring to
+   *  this character (nicknames, honorifics, role-only references).
+   *  Used by canon name matching. */
+  aliases?: string[];
+  /** Marks deities / sacred figures whose appearance must be
+   *  especially guarded. Anchors are prioritised when there are too
+   *  many candidates for gpt-image-1's 4-reference cap. */
+  divine?: boolean;
+  /** Public CDN URL of the pre-baked canonical portrait. Used by
+   *  visualAgent.collectAnchorReferences for images.edit anchoring,
+   *  so faces stay locked across scenes. Filled in by the generator's
+   *  anchor-portrait phase; empty for characters whose appearance was
+   *  not specific enough to lock. */
+  anchor_image_url?: string;
 }
 
 export interface GeneratedHotspot {
@@ -227,6 +278,11 @@ export interface GeneratedBook {
    *  this advances on rename / re-generation. Optional so old books
    *  read fine. */
   updatedAt?: number;
+  /** Visual style preset chosen at generation time. Drives the
+   *  style clause in every scene-image prompt and anchor portrait.
+   *  Optional so books created before the preset shipped still read
+   *  fine — they fall back to the universal photoreal default. */
+  stylePreset?: StylePreset;
 }
 
 /** Optional knobs for non-world generation modes. The pipeline is
@@ -237,6 +293,9 @@ export interface GenerateBookOptions {
   /** Complete user-content for the outline LLM call. When omitted,
    *  the world-mode prompt is used (existing behaviour). */
   outlinePrompt?: string;
+  /** Visual style preset for image generation. Defaults to
+   *  photoreal_cinematic when omitted. */
+  stylePreset?: StylePreset;
 }
 
 // ---- Main Generator (OpenAI primary, Gemini fallback) ----
@@ -304,9 +363,69 @@ async function generateBookOpenAI(
   const characters: GeneratedCharacter[] = charactersRaw.map(c => ({
     ...c,
     voice_archetype: c.voice_archetype ?? inferArchetypeFromRole(c.role, c.speech_tone),
+    aliases: Array.isArray(c.aliases) ? c.aliases : [],
+    divine: c.divine ?? false,
   }));
 
   if (sceneOutlines.length === 0) throw new Error('Failed to generate scene outline');
+
+  // STEP 2.5: Bake canonical character anchor portraits.
+  // For each character with an `appearance` description, render a
+  // single canonical portrait via the universal visualAgent so the
+  // scene-image phase can use it as an images.edit reference and
+  // lock the face across every scene. Without this, AI books get
+  // the "Rama looks different every scene" drift that Ramayana
+  // solved years ago via hand-curated canon. Universal — works for
+  // any book in any genre.
+  //
+  // Concurrency 3: portraits are ~20-30s on gpt-image-1, and we want
+  // them done quickly because the scene-image phase is gated on them.
+  //
+  // Failure mode: a single character whose portrait gen errors keeps
+  // its anchor_image_url empty; the visualPromptBuilder still injects
+  // its appearance text, just without face-locking. Better than
+  // dropping the whole generation.
+  //
+  // We also push the partial canon (characters with appearance but no
+  // anchor yet) into the runtime registry BEFORE scene images run so
+  // visualPromptBuilder can inject appearance text immediately. Once
+  // the portraits land we re-register with the anchor URLs.
+  registerRuntimeCanon(slug, charactersToCanonEntries(characters), {
+    book_slug: slug,
+    book_title: bookTitle,
+    source: 'AI-generated narrative',
+  });
+
+  const portraitTargets = characters.filter(c => c.appearance && c.appearance.length > 20);
+  if (portraitTargets.length > 0) {
+    onProgress?.('Locking character looks...', 36);
+    let portraitsDone = 0;
+    await pMapLimit(portraitTargets, 3, async (c) => {
+      try {
+        const r = await generateCharacterPortrait(c.name, c.appearance!, slug, options.stylePreset);
+        if (!r.imageUrl) return;
+        // Re-upload to the stable anchor path so the URL stays
+        // permanent across regenerations and any later canon-JSON
+        // promotion can drop straight in.
+        const stable = await uploadGeneratedImage(r.imageUrl, {
+          path: `${slug}/anchors/character-${c.slug}.png`,
+          mimeType: 'image/png',
+        });
+        c.anchor_image_url = stable;
+      } catch (err) {
+        console.warn(`[BookGenerator] anchor portrait failed for ${c.slug}:`,
+          err instanceof Error ? err.message : err);
+      } finally {
+        portraitsDone++;
+        onProgress?.(
+          `Locked ${portraitsDone}/${portraitTargets.length} character looks`,
+          36 + (portraitsDone / portraitTargets.length) * 4,
+        );
+      }
+    });
+    // Re-register so subsequent visualAgent calls see the new anchor URLs.
+    registerRuntimeCanon(slug, charactersToCanonEntries(characters));
+  }
 
   // STEP 2: Detail LLM calls (parallel, fast).
   // Each detail call is ~5-10s; with concurrency 4 the 11 calls
@@ -390,6 +509,7 @@ motion guide:
         bookSlug: slug,
         characters: characters.map(c => c.name),
         mood: sceneOutlines[job.sceneIndex].mood ?? 'serene',
+        stylePreset: options.stylePreset,
       });
       completedImages++;
       onProgress?.(
@@ -718,5 +838,6 @@ Generate narration, learning_points, source_notes, hotspots, quiz_questions.` }]
     subtitle: outline.book_subtitle, description: outline.book_description,
     source_tradition: outline.source_tradition,
     scenes: scenesWithDetails, characters, generatedAt: Date.now(),
+    stylePreset: _options.stylePreset,
   };
 }

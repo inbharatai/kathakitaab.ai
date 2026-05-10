@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
 
 interface Props {
   existingBooks?: string[];
@@ -66,6 +67,7 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
   // (studio-truth.spec.ts) pins the resume behaviour so this stays
   // correct across refactors.
   const [bookTitle, setBookTitle] = useState('');
+  const [stylePreset, setStylePreset] = useState<StylePreset>('photoreal_cinematic');
   const [status, setStatus] = useState<Status>('idle');
   const [progress, setProgress] = useState<{ step: string; percent: number }>({ step: '', percent: 0 });
   const [error, setError] = useState('');
@@ -108,7 +110,7 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
       const res = await fetch('/api/books/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim() }),
+        body: JSON.stringify({ title: title.trim(), stylePreset }),
       });
       if (!res.ok) {
         const msg = await safeReadError(res);
@@ -291,6 +293,53 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
             {busy ? 'Creating…' : 'Create Story'}
           </motion.button>
         </form>
+
+        {/* Style preset selector — locks the visual register of every
+            scene image. Photoreal default, storybook for fables /
+            kids, animation as the in-between. The same scene
+            narration + character anchors apply across all three;
+            only the rendering aesthetic changes. */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{
+            fontSize: '0.72rem', color: 'var(--color-text-dim)',
+            textTransform: 'uppercase', letterSpacing: '0.18em', marginBottom: 10,
+          }}>
+            Visual style
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {(Object.keys(STYLE_PRESETS) as StylePreset[]).map(key => {
+              const meta = STYLE_PRESETS[key];
+              const active = stylePreset === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => !busy && setStylePreset(key)}
+                  disabled={busy}
+                  style={{
+                    flex: '1 1 220px',
+                    minWidth: 200,
+                    padding: '12px 14px',
+                    textAlign: 'left',
+                    borderRadius: 12,
+                    border: active ? '1px solid var(--color-gold)' : '1px solid rgba(255,255,255,0.08)',
+                    background: active ? 'rgba(212,168,71,0.12)' : 'rgba(255,255,255,0.03)',
+                    color: active ? 'var(--color-gold-light)' : 'var(--color-text-dim)',
+                    cursor: busy ? 'default' : 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{ fontSize: '0.92rem', fontWeight: 600, marginBottom: 4 }}>
+                    {meta.label}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', lineHeight: 1.45, color: active ? 'rgba(255,255,255,0.78)' : 'var(--color-text-dim)' }}>
+                    {meta.description}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {SUGGESTED_BOOKS.filter(b => !existingBooks.includes(b.toLowerCase().replace(/\s+/g, '-'))).slice(0, 6).map(book => (

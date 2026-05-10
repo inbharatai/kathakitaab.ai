@@ -2,14 +2,17 @@
 // KathaKitaab.ai — Universal Canon Lookup
 //
 // A book-agnostic registry of canonical entries for entities
-// (characters, objects, places, events). Each book has its own
-// JSON file in lib/data/canon/{slug}.json. Books without a canon
-// file gracefully degrade — the system returns null and the
-// caller falls back to research grounding.
+// (characters, objects, places, events). Two sources:
+//
+//   1. Static canon JSON at lib/data/canon/{slug}.json — for the
+//      hand-curated showcase books (Ramayana, Mahabharata, Panchatantra).
+//   2. Runtime canon registered by the book generator — every
+//      AI-generated book pushes its characters here so they get the
+//      same appearance-injection + anchor-locking the static books do.
 //
 // Used by entity-interact and ask-character to inject verified
-// source material into LLM prompts, dramatically reducing
-// hallucination for canonical entities.
+// source material into LLM prompts, and by visualPromptBuilder /
+// visualAgent to lock character faces across scenes.
 // ============================================================
 
 import type { CanonEntry, CanonFile } from '@/lib/types/canon';
@@ -20,34 +23,79 @@ import ramayanaCanon from './canon/ramayana.json';
 import mahabharataCanon from './canon/mahabharata.json';
 import panchatantraCanon from './canon/panchatantra.json';
 
-const CANON_BY_SLUG: Record<string, CanonFile> = {
+const STATIC_CANON: Record<string, CanonFile> = {
   ramayana: ramayanaCanon as CanonFile,
   mahabharata: mahabharataCanon as CanonFile,
   panchatantra: panchatantraCanon as CanonFile,
 };
 
-// Pre-built lookup index: bookSlug -> Map<normalizedKey, CanonEntry>
-// where normalizedKey is the lowercased id, label, or alias.
-const INDEX = buildIndex();
+// Combined lookup index: bookSlug -> Map<normalizedKey, CanonEntry>.
+// Built from STATIC_CANON at module load and extended by
+// registerRuntimeCanon() each time an AI-generated book is read or
+// generated. Runtime entries shadow static ones with the same key
+// for the same slug (a book that ships its own canon overrides the
+// static fallback if the slugs collide — they shouldn't in practice).
+const INDEX: Record<string, Map<string, CanonEntry>> = {};
+// Per-book runtime metadata (style + book_title + source). Lets the
+// prompt builder fetch a per-AI-book style preset without forcing
+// every caller to thread a style argument through.
+const RUNTIME_META: Record<string, CanonFile['meta']> = {};
 
-function buildIndex(): Record<string, Map<string, CanonEntry>> {
-  const out: Record<string, Map<string, CanonEntry>> = {};
-  for (const [slug, file] of Object.entries(CANON_BY_SLUG)) {
-    const m = new Map<string, CanonEntry>();
-    for (const entry of file.entries) {
-      m.set(normalize(entry.id), entry);
-      m.set(normalize(entry.label), entry);
-      for (const alias of entry.aliases ?? []) {
-        m.set(normalize(alias), entry);
-      }
+// Seed the index from the static JSON canon at module load.
+for (const [slug, file] of Object.entries(STATIC_CANON)) {
+  INDEX[slug] = entriesToMap(file.entries);
+}
+
+function entriesToMap(entries: CanonEntry[]): Map<string, CanonEntry> {
+  const m = new Map<string, CanonEntry>();
+  for (const entry of entries) {
+    m.set(normalize(entry.id), entry);
+    m.set(normalize(entry.label), entry);
+    for (const alias of entry.aliases ?? []) {
+      m.set(normalize(alias), entry);
     }
-    out[slug] = m;
   }
-  return out;
+  return m;
 }
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+/**
+ * Register or update a book's canon at runtime. Idempotent — call as
+ * many times as you like with the same slug to overwrite previous
+ * entries (e.g., when re-loading a book after its anchor portraits
+ * have been baked and the URLs are now filled in).
+ *
+ * Used by bookRegistry.getBook() after pulling an AI-generated book
+ * from Redis, and by bookGeneratorAgent during book creation, so
+ * every code path that needs canon (visualPromptBuilder, entity-
+ * interact, ask-character) sees a uniform view regardless of whether
+ * the book is static or generated.
+ */
+export function registerRuntimeCanon(
+  slug: string,
+  entries: CanonEntry[],
+  meta?: CanonFile['meta'],
+): void {
+  if (!slug) return;
+  // Don't blow away a static canon file by registering an empty
+  // generated canon for the same slug.
+  if (entries.length === 0 && INDEX[slug]) return;
+  // Static entries stay; runtime entries layer on top so a static
+  // canon (Ramayana) is not erased by registering its book record.
+  const existing = INDEX[slug] ?? new Map<string, CanonEntry>();
+  const merged = new Map(existing);
+  for (const entry of entries) {
+    merged.set(normalize(entry.id), entry);
+    merged.set(normalize(entry.label), entry);
+    for (const alias of entry.aliases ?? []) {
+      merged.set(normalize(alias), entry);
+    }
+  }
+  INDEX[slug] = merged;
+  if (meta) RUNTIME_META[slug] = meta;
 }
 
 /**
@@ -69,7 +117,9 @@ export function getCanonEntry(bookSlug: string, idOrLabel: string): CanonEntry |
  * to any prompt.
  */
 export function getCanonBookMeta(bookSlug: string): CanonFile['meta'] | null {
-  return CANON_BY_SLUG[bookSlug]?.meta ?? null;
+  // Runtime meta (AI-generated books) wins so per-book style presets
+  // override the static-canon default when both exist for the same slug.
+  return RUNTIME_META[bookSlug] ?? STATIC_CANON[bookSlug]?.meta ?? null;
 }
 
 /**
@@ -109,15 +159,26 @@ export function buildCanonPromptFragment(bookSlug: string, idOrLabel: string): s
  * for filtering generated entities to canonically-known ones.
  */
 export function listCanonIds(bookSlug: string): string[] {
-  const file = CANON_BY_SLUG[bookSlug];
-  if (!file) return [];
-  return file.entries.map(e => e.id);
+  const idx = INDEX[bookSlug];
+  if (!idx) return [];
+  // The same entry is registered under multiple keys (id, label,
+  // aliases); dedupe via the canonical id field.
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of idx.values()) {
+    if (!seen.has(entry.id)) {
+      seen.add(entry.id);
+      out.push(entry.id);
+    }
+  }
+  return out;
 }
 
 /**
- * Return the list of book slugs that have a canon file. The UI
- * can show a "verified canon" badge on the book card for these.
+ * Return the list of book slugs that have any canon registered —
+ * static JSON-shipped or runtime-registered. The UI can show a
+ * "verified canon" badge on the book card for these.
  */
 export function listCanonBooks(): string[] {
-  return Object.keys(CANON_BY_SLUG);
+  return Object.keys(INDEX);
 }

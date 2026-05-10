@@ -1,5 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { generateBook, type GeneratedBook, type GenerationMode, type BookMetadata } from '@/lib/openai/bookGeneratorAgent';
+import type { StylePreset } from '@/lib/types/style';
+import { defaultPresetForBook, STYLE_PRESETS } from '@/lib/types/style';
 import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
 import { isGeminiConfigured } from '@/lib/openai/client';
@@ -33,13 +35,27 @@ export const maxDuration = 300;
 //                { mode: 'personalized_text', payload: {...} }
 // Form (1) keeps existing clients (BookGenerator before the mode
 // selector ships) working without coordinated rollout.
-interface WorldBody { mode?: 'world'; title: string; }
-interface ClassroomBody { mode: 'classroom'; payload: ClassroomMeta; }
+// Every body shape can carry an optional `stylePreset` field. The
+// client-side BookGenerator surfaces this; the server falls back to
+// the title-derived default when the client omits it.
+interface WorldBody { mode?: 'world'; title: string; stylePreset?: StylePreset; }
+interface ClassroomBody { mode: 'classroom'; payload: ClassroomMeta; stylePreset?: StylePreset; }
 interface PersonalizedTextBody {
   mode: 'personalized_text';
   payload: PersonalizedTextMeta & { consent: boolean };
+  stylePreset?: StylePreset;
 }
 type GenerateBody = WorldBody | ClassroomBody | PersonalizedTextBody;
+
+/** Resolve the style preset for this request — explicit client choice
+ *  wins, otherwise we suggest a sensible default based on the title /
+ *  tradition (fables → watercolour, everything else → photoreal). */
+function resolveStylePreset(body: GenerateBody, bookTitle: string): StylePreset {
+  const explicit = body.stylePreset;
+  if (explicit && explicit in STYLE_PRESETS) return explicit;
+  const isChildrenStory = body.mode === 'personalized_text';
+  return defaultPresetForBook({ title: bookTitle, isChildrenStory });
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -218,11 +234,12 @@ export async function POST(request: Request) {
 
   after(async () => {
     try {
+      const stylePreset = resolveStylePreset(body, bookTitle);
       const book = await generateBook(bookTitle, (step, percent) => {
         void setProgress(slug, step, percent).catch(err => {
           console.error('[generate] progress write failed:', scrubError(err).message);
         });
-      }, { outlinePrompt });
+      }, { outlinePrompt, stylePreset });
 
       // Stamp the book with mode-specific metadata. The generator
       // doesn't know about ownership — it just produces scenes /
@@ -234,6 +251,7 @@ export async function POST(request: Request) {
         ownerId: isPrivateMode ? ownerId ?? undefined : undefined,
         visibility,
         metadata,
+        stylePreset,                            // record the choice on the book
         updatedAt: Date.now(),
       };
 

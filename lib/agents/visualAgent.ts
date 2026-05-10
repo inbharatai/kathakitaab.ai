@@ -17,6 +17,7 @@ import { buildVisualPrompt } from './visualPromptBuilder';
 import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
 import { getCanonEntry } from '@/lib/data/canonLookup';
 import { getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
+import type { StylePreset } from '@/lib/types/style';
 import { toFile } from 'openai';
 
 // 90 days. gpt-image-1 calls cost ~$0.04 each — a cache hit on a
@@ -111,6 +112,10 @@ export interface SceneImageContext {
   /** Narrative theme (universal: courage / sacrifice / love / loss / …
    *  + tradition aliases dharma / bhakti / karma / hubris). Optional. */
   theme?: string;
+  /** Visual style preset — overrides the per-book canon style and
+   *  the universal default. Lets the user pick photoreal vs storybook
+   *  vs animation at generation time without touching canon files. */
+  stylePreset?: StylePreset;
 }
 
 /**
@@ -136,6 +141,7 @@ export async function generateSceneImage(
     mood: ctx.mood,
     theme: ctx.theme,
     characters: ctx.characters,
+    stylePreset: ctx.stylePreset,
   });
 
   // Resolve anchor references for any canon character in the scene
@@ -238,12 +244,14 @@ export async function generateCharacterPortrait(
   characterName: string,
   visualDescription: string,
   bookSlug?: string,
+  stylePreset?: StylePreset,
 ): Promise<VisualGenerationResult> {
   const built = buildVisualPrompt({
     description: `Close-up devotional portrait of ${characterName}. ${visualDescription}. Centred, eye contact with viewer, clean neutral background, full identifying details visible.`,
     bookSlug,
     mood: 'sacred',
     characters: [characterName],
+    stylePreset,
   });
 
   if (isOpenAIConfigured()) {

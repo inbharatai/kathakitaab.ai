@@ -14,6 +14,8 @@
 // ============================================================
 import { GeneratedBook } from '@/lib/openai/bookGeneratorAgent';
 import { getRedis } from '@/lib/redis';
+import { registerRuntimeCanon } from './canonLookup';
+import type { CanonEntry } from '@/lib/types/canon';
 
 interface ProgressEntry {
   step: string;
@@ -47,14 +49,22 @@ export function registerSeedBook(book: GeneratedBook) {
 
 export async function getBook(slug: string): Promise<GeneratedBook | null> {
   // Hot path: same lambda already answered this slug.
-  if (memBooks.has(slug)) return memBooks.get(slug)!;
-  if (SEED_BOOKS[slug]) return SEED_BOOKS[slug];
+  if (memBooks.has(slug)) {
+    const book = memBooks.get(slug)!;
+    syncCanonFromBook(book);
+    return book;
+  }
+  if (SEED_BOOKS[slug]) {
+    syncCanonFromBook(SEED_BOOKS[slug]);
+    return SEED_BOOKS[slug];
+  }
 
   const r = getRedis();
   if (r) {
     const book = await r.get<GeneratedBook>(bookKey(slug));
     if (book) {
       memBooks.set(slug, book);
+      syncCanonFromBook(book);
       return book;
     }
   }
@@ -63,8 +73,43 @@ export async function getBook(slug: string): Promise<GeneratedBook | null> {
 
 export async function saveGeneratedBook(book: GeneratedBook): Promise<void> {
   memBooks.set(book.slug, book);
+  syncCanonFromBook(book);
   const r = getRedis();
   if (r) await r.set(bookKey(book.slug), book, { ex: BOOK_TTL_SEC });
+}
+
+/**
+ * Push the book's characters into the universal canon index so
+ * visualPromptBuilder + visualAgent see them as first-class canon
+ * entries. This is what makes every AI-generated book benefit from
+ * the same appearance injection + anchor-based face locking that
+ * the hand-curated Ramayana / Mahabharata canon books get.
+ *
+ * Idempotent — calling it on every getBook is fine, the canon
+ * registrar merges by normalized key.
+ */
+function syncCanonFromBook(book: GeneratedBook): void {
+  if (!book.slug || !book.characters?.length) return;
+  const entries: CanonEntry[] = book.characters
+    // Skip characters without enough to anchor against — registering
+    // an entry with no appearance teaches visualPromptBuilder to
+    // "lock" to an empty string, which hurts more than it helps.
+    .filter(c => c.appearance || c.anchor_image_url)
+    .map(c => ({
+      id: c.slug,
+      label: c.name,
+      aliases: c.aliases ?? [],
+      kind: 'character' as const,
+      summary: c.short_summary || c.role || c.name,
+      appearance: c.appearance,
+      divine: c.divine,
+      anchor_image_url: c.anchor_image_url,
+    }));
+  registerRuntimeCanon(book.slug, entries, {
+    book_slug: book.slug,
+    book_title: book.title,
+    source: book.source_tradition || 'AI-generated narrative',
+  });
 }
 
 /** Owner-driven deletion of an AI-generated book. Removes both the

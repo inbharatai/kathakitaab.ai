@@ -73,7 +73,10 @@ const OUTLINE_JSON_SHAPE = `Return JSON with this structure:
       "speech_tone": "string (e.g., warm and steady, witty and quick, commanding, gentle)",
       "talk_examples": ["string", "string"],
       "source_notes": "string",
-      "voice_archetype": "one of: noble-male, young-male, wise-male, commanding-male, bright-male, noble-female, young-female, aged-female, narrator"
+      "voice_archetype": "one of: noble-male, young-male, wise-male, commanding-male, bright-male, noble-female, young-female, aged-female, narrator",
+      "appearance": "REQUIRED. 4-6 sentences locking the character's physical look so every scene image keeps them consistent. Cover: approximate age, skin tone, hair (color/length/style), eyes, face shape and notable features, build/height, signature clothing palette and silhouette, signature props or weapons. Be concrete and specific — 'tall lean warrior in dark green silk with a curved sword at the hip' beats 'handsome young man'.",
+      "aliases": ["string (alternative names, nicknames, titles, role-only references the LLM or user might use — empty array if none)"],
+      "divine": "boolean — true ONLY for deities, avatars of gods, or sacred figures whose face should be especially locked across scenes; false for ordinary mortals, animals, or invented characters"
     }
   ]
 }`;

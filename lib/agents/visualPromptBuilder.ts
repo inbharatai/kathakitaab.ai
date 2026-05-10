@@ -15,6 +15,7 @@
 
 import { listCanonIds, getCanonEntry, getCanonBookMeta } from '@/lib/data/canonLookup';
 import type { CanonEntry, CanonStyle } from '@/lib/types/canon';
+import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
 
 const MOOD_LIGHTING: Record<string, string> = {
   serene: 'Soft golden sunrise light, peaceful warm shadows, gentle aerial haze.',
@@ -79,6 +80,10 @@ export interface BuildVisualPromptInput {
    * average canonical character. The whole prompt still fits well inside
    * gpt-image-1's 4000-char budget even with five characters injected. */
   appearanceClampPerChar?: number;
+  /** User-chosen visual style preset for this book. Overrides both the
+   *  per-book canon style and the universal default. Empty falls
+   *  through to canon style → universal default. */
+  stylePreset?: StylePreset;
 }
 
 export interface BuiltVisualPrompt {
@@ -124,13 +129,16 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
     positiveParts.push(`Character identity (must remain consistent): ${characterAppearance}`);
   }
 
-  if (style) {
+  // Style resolution order:
+  //   1. User-chosen stylePreset (per-generation choice — wins everything)
+  //   2. Per-book canon style (Ramayana, Mahabharata, Panchatantra)
+  //   3. Universal photoreal cinematic default
+  const preset = input.stylePreset ? STYLE_PRESETS[input.stylePreset] : null;
+  if (preset) {
+    positiveParts.push(preset.promptClause);
+  } else if (style) {
     positiveParts.push(buildStyleClause(style));
   } else {
-    // Universal default — photorealistic cinematic Bollywood-mythology
-    // film still. Real actors, ornate period costume, dramatic lighting,
-    // anamorphic widescreen composition. This applies to any book that
-    // doesn't ship its own canon style override.
     positiveParts.push(
       'Style: photorealistic cinematic still from a high-budget Bollywood mythological epic film — real actors in ornate ancient Vedic-era costume, authentic period setting, dramatic golden-hour lighting, rich saturated color grading, shallow depth of field, subtle film grain, anamorphic widescreen composition, hyper-detailed painterly realism. NOT cartoon, NOT anime, NOT flat illustration.',
     );
@@ -150,11 +158,19 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
     positiveParts.push(`Composition: ${style.framing}`);
   }
 
-  // Negative prompt — bundle book-level "never_show" + per-character
-  // negatives. gpt-image-1 ignores a literal "negative_prompt" field,
-  // so we end the prompt with an explicit Avoid clause.
+  // Negative prompt — bundle preset-level negatives, book-level
+  // "never_show", and per-character negatives. gpt-image-1 ignores a
+  // literal "negative_prompt" field, so we end the prompt with an
+  // explicit Avoid clause.
   const negativeParts: string[] = [];
-  if (style?.never_show?.length) {
+  if (preset) {
+    negativeParts.push(...preset.negative);
+  }
+  // Book-level never_show only applies when the user is using the
+  // book's canon style (no explicit preset override). Otherwise the
+  // canon's "no photorealism" rule would block the user-chosen
+  // photoreal preset.
+  if (!preset && style?.never_show?.length) {
     negativeParts.push(...style.never_show);
   }
   if (characterNegatives.length) {
@@ -162,7 +178,6 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
   }
   negativeParts.push(
     'No text, captions, watermarks, signatures, or modern objects.',
-    'No cartoon style, no anime, no flat illustration — this is a photorealistic film still.',
   );
 
   const negative = negativeParts.join(' ');
