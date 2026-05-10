@@ -19,7 +19,8 @@
     "slice:layers": "npx tsx scripts/slice-scene-layers.ts",
     "survey:infra": "npx tsx scripts/survey-infra.ts",
     "sync:vercel": "npx tsx scripts/sync-vercel-env.ts",
-    "flush:stale": "npx tsx scripts/flush-stale-redis.ts"
+    "flush:stale": "npx tsx scripts/flush-stale-redis.ts",
+    "regenerate:book": "npx tsx scripts/regenerate-book.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
