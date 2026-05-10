@@ -29,6 +29,7 @@ import { detectTopics } from './effects/topicTagger';
 import { buildSceneEffects } from './effects/effectRecipes';
 import { speakTTS } from '@/lib/audio/ttsRouter';
 import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
+import { saveGeneratedBook } from '@/lib/data/bookRegistry';
 
 /**
  * Estimate scene playback length from narration word count when the
@@ -75,6 +76,13 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     .filter(({ s }) => !s.narration_audio_url);
   if (missing.length === 0) return book;
 
+  // Persist after EACH successful scene so partial progress survives
+  // a process restart, lambda timeout, or page navigation. The previous
+  // contract only saved at the very end, which meant losing 8 minutes
+  // of paid TTS work whenever scene 9 of 10 timed out. Saving inline
+  // also lets a follow-up call to hydrateBookAudio resume from where
+  // the prior run gave up — `missing` already filters to scenes
+  // without a URL, so re-running is cheap and idempotent.
   for (const { s, i } of missing) {
     // speakTTS auto-detects language from script (Devanagari → hi,
     // else → en) so we don't need to pass it explicitly. Mood is
@@ -94,6 +102,16 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
         });
         scenes[i] = { ...scenes[i], narration_audio_url: url };
         succeeded = true;
+        // Checkpoint: write the partially-hydrated book back to Redis
+        // so this URL is durable even if the next scene blows up.
+        try {
+          await saveGeneratedBook({ ...book, scenes });
+        } catch (saveErr) {
+          // A failed checkpoint isn't fatal — the next scene will try
+          // again, and the final return still carries the full result
+          // for the caller's own save. Just surface it for debugging.
+          console.warn(`[hydrateBookAudio] checkpoint save failed for ${slug} after ${s.scene_id}:`, saveErr instanceof Error ? saveErr.message : saveErr);
+        }
       } catch (err) {
         attempt++;
         if (attempt < 2) {
