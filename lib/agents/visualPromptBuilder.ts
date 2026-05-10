@@ -127,8 +127,12 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
   if (style) {
     positiveParts.push(buildStyleClause(style));
   } else {
+    // Universal default — photorealistic cinematic Bollywood-mythology
+    // film still. Real actors, ornate period costume, dramatic lighting,
+    // anamorphic widescreen composition. This applies to any book that
+    // doesn't ship its own canon style override.
     positiveParts.push(
-      'Cinematic 2D illustration in epic Indian animation style, rich warm colours, painterly rendering.',
+      'Style: photorealistic cinematic still from a high-budget Bollywood mythological epic film — real actors in ornate ancient Vedic-era costume, authentic period setting, dramatic golden-hour lighting, rich saturated color grading, shallow depth of field, subtle film grain, anamorphic widescreen composition, hyper-detailed painterly realism. NOT cartoon, NOT anime, NOT flat illustration.',
     );
   }
 
@@ -158,7 +162,7 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
   }
   negativeParts.push(
     'No text, captions, watermarks, signatures, or modern objects.',
-    'No photorealism — keep it stylised painted animation.',
+    'No cartoon style, no anime, no flat illustration — this is a photorealistic film still.',
   );
 
   const negative = negativeParts.join(' ');

@@ -5,14 +5,14 @@
     "source": "Valmiki Ramayana (public domain)",
     "genre": "mythology-indian",
     "style": {
-      "tagline": "Cinematic devotional Indian epic — hand-painted 2D animation in the spirit of classical Mughal-Rajput miniatures fused with modern animated film.",
-      "palette": "Saffron orange (#E97A3A), marigold yellow (#F2B72A), ruby red (#A82321), deep indigo night (#1F2A55), forest green (#2F5D3A), divine gold (#D8A93A), white-cream skin highlights, blue-tinted complexion for Rama and Lakshmana.",
-      "medium": "Hand-painted 2D animation cel with soft cel-shading, painterly backgrounds, gentle film grain, no photographic realism.",
-      "framing": "Cinematic 3:2 wide composition, slight low-angle hero shots for dharmic figures, dramatic rim-lighting, foreground silhouettes layered over deep painted backgrounds.",
+      "tagline": "Photorealistic cinematic still from a high-budget Bollywood mythological epic — real actors in ornate Vedic-era costume, the visual register of S.S. Rajamouli or Ashutosh Gowariker mythology productions.",
+      "palette": "Saffron orange (#E97A3A), marigold yellow (#F2B72A), ruby red (#A82321), deep indigo night (#1F2A55), forest green (#2F5D3A), divine gold (#D8A93A), warm Indian skin tones, subtle blue-tinted complexion for Rama and Lakshmana (devotional iconography, applied as a soft cinematic gel rather than makeup).",
+      "medium": "Photorealistic film still — real Indian actors in authentic ancient costume, professional cinematography, anamorphic widescreen, shallow depth of field, subtle film grain, painterly hyper-detailed realism. NOT cartoon, NOT anime, NOT flat illustration.",
+      "framing": "Cinematic 3:2 wide composition, slight low-angle hero shots for dharmic figures, dramatic rim-lighting, foreground silhouettes layered over deep period-accurate backgrounds.",
       "era": "Ancient Vedic / treta-yuga India — wooden chariots, palmyra forests, river-girt cities, stone-carved temples, gold-thread textiles. No modern objects, no anachronisms.",
       "never_show": [
         "Guns, cars, watches, modern clothing, electric lighting, anything post-19th-century.",
-        "Photographic / hyperreal faces.",
+        "Cartoon, anime, or flat 2D illustration aesthetic.",
         "Western fantasy tropes (dragons, plate armour, Tudor castles).",
         "Text, watermarks, captions, signatures of any kind."
       ]
