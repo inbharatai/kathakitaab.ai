@@ -728,45 +728,90 @@ export default function SceneCanvas({
         <EffectLayer key={effect.id} effect={effect} />
       ))}
 
-      {/* ── Layer 4d: Audio-driven lip-pulse ──
-          When narration is playing for a known speaker, scale + glow
-          the top quarter of their hotspot bbox in time with audio
-          amplitude. Reads as "the figure's mouth is moving" without
-          any actual lip-sync model. Pointer-events:none so it never
-          blocks hotspot taps. */}
-      {pulsingHotspot && lipDrive > 0 && (
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            left: `${pulsingHotspot.x}%`,
-            top: `${pulsingHotspot.y}%`,
-            width: `${pulsingHotspot.width}%`,
-            height: `${pulsingHotspot.height * 0.28}%`,
-            pointerEvents: 'none',
-            zIndex: 4,
-            // Position the pulse on the upper face region (mouth area
-            // is roughly 12-30% from the top of a portrait bbox).
-            // Add gaze bias toward the implicit addressee so the
-            // speaker's "voice" leans in the right direction. The
-            // bias is in % of canvas; the pulse layer is sized to
-            // the speaker's bbox so we apply it as a translate.
-            transform: `translate(${gazeOffsetX.toFixed(2)}%, ${(Math.round(pulsingHotspot.height * 0.22 * 100) / 100) + gazeOffsetY}%) scale(${1 + lipDrive * 0.18})`,
-            transition: 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
-          }}
-        >
+      {/* ── Layer 4d: Audio-driven mouth ──
+          When narration is playing for a known speaker, render an
+          actual mouth-shape primitive (dark ellipse + lip highlight)
+          over the speaker's mouth region. The ellipse's vertical
+          radius scales with audio amplitude — closed at silence,
+          open at peak — so it visibly forms an "ah" / "oh" / closed
+          shape in time with the voice. The horizontal radius shrinks
+          slightly on closed lips for a natural pucker. Backed by a
+          soft warm halo for presence, but the mouth itself is the
+          load-bearing element now, not a glow.
+          Pointer-events:none so it never blocks hotspot taps. */}
+      {pulsingHotspot && lipDrive > 0 && (() => {
+        // Mouth lives at ~26% from the top of a portrait bbox. Sized
+        // to a 22% wide window so it stays plausibly mouth-sized
+        // regardless of figure scale. Gaze bias offsets the entire
+        // mouth region toward the implicit addressee.
+        const mouthY = pulsingHotspot.height * 0.22;
+        const mouthW = pulsingHotspot.width * 0.22;
+        const mouthH = pulsingHotspot.height * 0.10;
+        // Open-amount: 30% baseline (lips parted) → 100% at peak amp.
+        // Horizontal squeeze on quiet syllables for a natural pucker.
+        const open = 0.30 + lipDrive * 0.70;
+        const ellipseRy = (mouthH * open).toFixed(2);
+        const ellipseRx = (mouthW * 0.5 * (0.85 + lipDrive * 0.15)).toFixed(2);
+        return (
           <div
+            aria-hidden
             style={{
-              position: 'absolute', inset: 0,
-              borderRadius: '50%',
-              background: `radial-gradient(ellipse at 50% 50%, rgba(255,235,180,${0.30 + lipDrive * 0.45}) 0%, transparent 65%)`,
-              filter: `blur(${5 + lipDrive * 10}px)`,
-              mixBlendMode: 'screen',
-              opacity: 0.85 + lipDrive * 0.15,
+              position: 'absolute',
+              left: `${pulsingHotspot.x + (pulsingHotspot.width - mouthW) / 2}%`,
+              top: `${pulsingHotspot.y + mouthY + gazeOffsetY}%`,
+              width: `${mouthW}%`,
+              height: `${mouthH}%`,
+              pointerEvents: 'none',
+              zIndex: 4,
+              transform: `translate(${gazeOffsetX.toFixed(2)}%, 0)`,
+              transition: 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
             }}
-          />
-        </div>
-      )}
+          >
+            {/* Warm halo behind the mouth — keeps the pulse visible
+                even on dark backgrounds where a thin ellipse would
+                be lost. Smaller and softer than the previous full-
+                face glow so it reads as a face highlight, not a
+                generic spotlight. */}
+            <div
+              style={{
+                position: 'absolute', inset: 0,
+                borderRadius: '50%',
+                background: `radial-gradient(ellipse at 50% 50%, rgba(255,220,170,${0.18 + lipDrive * 0.28}) 0%, transparent 70%)`,
+                filter: `blur(${4 + lipDrive * 6}px)`,
+                mixBlendMode: 'screen',
+              }}
+            />
+            {/* The mouth itself — SVG ellipse + a lip-highlight
+                stripe. The ellipse's ry interpolates with lipDrive
+                so it visibly opens and closes. Stroke is the lip
+                line; fill is the open mouth darkness. */}
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              style={{ position: 'absolute', inset: 0, transition: 'transform 90ms ease-out' }}
+            >
+              {/* Inner mouth — dark ellipse that opens with amp. */}
+              <ellipse
+                cx={50}
+                cy={50}
+                rx={Number(ellipseRx) / mouthW * 100}
+                ry={Number(ellipseRy) / mouthH * 100}
+                fill="rgba(60, 20, 18, 0.78)"
+              />
+              {/* Lip highlight — a thin warm stroke just above the
+                  mouth so the shape reads as lips rather than a
+                  hole. Opacity follows lipDrive for liveliness. */}
+              <path
+                d={`M ${50 - Number(ellipseRx) / mouthW * 100} 50 Q 50 ${50 - Number(ellipseRy) / mouthH * 110}, ${50 + Number(ellipseRx) / mouthW * 100} 50`}
+                fill="none"
+                stroke={`rgba(255, 200, 170, ${(0.55 + lipDrive * 0.3).toFixed(2)})`}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        );
+      })()}
 
       {/* ── Layer 4c: Ambient idle animation ──
           Subtle breath/sway/blink halos at every character (and softer

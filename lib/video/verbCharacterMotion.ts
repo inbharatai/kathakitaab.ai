@@ -44,8 +44,9 @@ const VERB_MOTION: Partial<Record<HotspotClickAction, CharacterMotion>> = {
   // Vault — vertical leap with a slight forward-arc landing pose.
   // Note: framer-motion can't sequence dx/dy mid-animation here;
   // we just settle on a peak-of-arc pose; the camera burst handles
-  // the actual arc feel.
-  leap: { dx:  4, dy: -22, scale: 1.06, rotate: -4, durationMs: 540, ease: [0.34, 1.56, 0.64, 1] },
+  // the actual arc feel. -14% Y stays inside the cutout's 30%
+  // top-padding so the head never clips out of the ellipse mask.
+  leap: { dx:  3, dy: -14, scale: 1.06, rotate: -4, durationMs: 540, ease: [0.34, 1.56, 0.64, 1] },
 
   // Walking — drift sideways.
   move:   { dx:  8, dy: 0, scale: 1.0,  rotate: 0, durationMs: 700 },

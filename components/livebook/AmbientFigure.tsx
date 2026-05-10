@@ -14,11 +14,14 @@
 //     ground stays put, the way a person actually breathes.
 //   • Sway   — slow ±0.3° rotation around the same anchor; reads
 //     as a body shifting weight or a head tilting.
-//   • Blink  — quick brightness flicker every ~6s, only on
-//     character hotspots, simulating an eye-blink moment.
+//   • Blink  — quick brightness flicker, only on character
+//     hotspots, simulating an eye-blink moment. The point in the
+//     cycle when the blink fires is independently phase-offset so
+//     adjacent figures don't blink in lockstep.
 //   • Aura   — a body-shaped soft radial glow that pulses with
-//     the breath. Object hotspots get a slightly cooler aura
-//     (no blink, slower sway).
+//     the breath. Sized + positioned to the lower 60% of the bbox
+//     (where the figure's body actually sits) so it doesn't halo
+//     empty bg above the head.
 //
 // Universal: driven entirely by the hotspot bbox + a deterministic
 // per-figure phase offset, so the same scene animates the same way
@@ -37,10 +40,11 @@ import type { CharacterState } from '@/lib/hooks/useCharacterStates';
 // Stable hash → 0..1, used to phase-offset each figure so multiple
 // characters don't breathe in lockstep. Tiny FNV-1a — deterministic
 // across renders and across hosts (vs Math.random which would jitter).
-function phaseFor(id: string): number {
+function phaseFor(id: string, salt = ''): number {
   let h = 2166136261;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
+  const s = salt + id;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
     h = (h * 16777619) >>> 0;
   }
   return (h % 1000) / 1000;
@@ -56,29 +60,28 @@ interface AmbientFigureProps {
 }
 
 export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureProps) {
-  // Each instance subscribes to prefers-reduced-motion via the shared hook.
-  // useSyncExternalStore handles SSR safety and re-renders cleanly when the
-  // user toggles their OS setting mid-session.
   const reducedMotion = usePrefersReducedMotion();
   if (reducedMotion) return null;
 
   const isCharacter = hotspot.type === 'character';
   const isObject = hotspot.type === 'object';
-  // Skip places/backgrounds — they're not figures, animating them
-  // would just be noise.
   if (!isCharacter && !isObject) return null;
 
-  const phase = phaseFor(hotspot.id || `${hotspot.target_id}-${index}`);
+  const baseId = hotspot.id || `${hotspot.target_id}-${index}`;
+  const phase = phaseFor(baseId);
+  // Independent phase for blink — without this, every figure blinks
+  // at the same fraction of its breath cycle and adjacent figures
+  // sync visually. The 'blink' salt produces an uncorrelated value.
+  const blinkPhase = phaseFor(baseId, 'blink');
   // Active states quicken the breath/sway timing so a character in
   // mid-fight visibly stirs faster than one at rest. The numbers are
   // small — we don't want to break the "subtle" promise of ambient.
   const stateMultiplier = state === 'idle' ? 1.0
-    : state === 'talk'   ? 1.25  // chest rises a bit faster while speaking
+    : state === 'talk'   ? 1.25
     : state === 'fight'  ? 1.7
     : state === 'leap'   ? 1.6
     : state === 'animate'? 1.4
-    : 1.15;                       // honor / observe / comfort — slight uplift
-  // Stagger durations so adjacent figures feel organically out-of-sync.
+    : 1.15;
   const breathSec = (3.4 + phase * 1.2) / stateMultiplier;
   const swaySec   = (5.8 + phase * 1.6) / stateMultiplier;
   const breathDelay = phase * breathSec;
@@ -92,16 +95,15 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
     ? 'rgba(255, 220, 140, 0.18)'
     : 'rgba(232, 170, 90, 0.10)';
 
-  // Sway amplitude — visible enough that the figure clearly reads as
-  // alive without crossing into "wobbling cardboard cutout". Earlier
-  // values (0.35°) were below the threshold most users perceive on a
-  // 1080p display; 1.2° is the sweet spot — readable at a glance,
-  // never distracting.
   const swayDeg = isCharacter ? 1.2 : 0.6;
-  // Breath scale — 4% at peak shows a clear chest rise. Anchored at
-  // the feet (transformOrigin 50% 100%) so the figure breathes
-  // upward without the silhouette appearing to grow.
   const breathPeak = isCharacter ? 1.04 : 1.02;
+
+  // Blink fires at an independently-phased fraction of its own cycle.
+  // Without the second phase term, every character flashes at the
+  // same midpoint of their breath cycle. Now characters with
+  // close breath phases will still blink at different times.
+  const blinkAt = 0.18 + blinkPhase * 0.64;        // 0.18..0.82 of cycle
+  const blinkCycle = 5.0 + blinkPhase * 3.0;        // 5..8s per blink
 
   return (
     <div
@@ -118,13 +120,6 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
         zIndex: 3,
       }}
     >
-      {/* Idle look-around wrapper — head-pivoted rotation that
-          animates only while state === 'idle'. Every ~8-14s the figure
-          does a small head-tilt that reads as "checking the
-          surroundings", then settles. Active states clamp the rotation
-          back to 0 so the verb burst owns the motion. Anchored at
-          top-center (head pivot) instead of feet so it reads as a
-          head turn rather than a body lean. */}
       <motion.div
         animate={state === 'idle'
           ? { rotate: [0, 3.2, 0, -2.6, 0] }
@@ -145,7 +140,6 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
           pointerEvents: 'none',
         }}
       >
-      {/* Outer wrapper: sway (slow rotation around feet) */}
       <motion.div
         animate={{ rotate: [-swayDeg, swayDeg, -swayDeg] }}
         transition={{
@@ -160,10 +154,6 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
           transformOrigin: '50% 100%',
         }}
       >
-        {/* Inner wrapper: breath (vertical-biased scale around feet).
-            Splitting sway and breath onto separate motion.div nodes lets
-            them run on independent timelines without interfering — one
-            transform per layer, GPU-friendly. */}
         <motion.div
           animate={{ scale: [1, breathPeak, 1] }}
           transition={{
@@ -178,7 +168,12 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
             transformOrigin: '50% 100%',
           }}
         >
-          {/* Body aura — vertical ellipse, breath-synced opacity */}
+          {/* Body aura — narrower vertical ellipse positioned over the
+              lower 60% of the bbox where the figure's torso/legs sit.
+              Painted character figures rarely fill the upper third of
+              their hotspot (head + headroom), so a full-bbox aura
+              halos empty sky above the head. Tightening to the lower
+              60% keeps the glow on the body. */}
           <motion.div
             animate={{ opacity: [0.55, 1, 0.55] }}
             transition={{
@@ -189,24 +184,26 @@ export function AmbientFigure({ hotspot, index, state = 'idle' }: AmbientFigureP
             }}
             style={{
               position: 'absolute',
-              inset: 0,
+              left: '12%',
+              right: '12%',
+              top: '38%',
+              bottom: '2%',
               borderRadius: '50% 50% 45% 45% / 60% 60% 40% 40%',
-              background: `radial-gradient(ellipse at 50% 55%, ${auraColor} 0%, transparent 65%)`,
-              filter: 'blur(6px)',
+              background: `radial-gradient(ellipse at 50% 50%, ${auraColor} 0%, transparent 70%)`,
+              filter: 'blur(8px)',
               mixBlendMode: 'screen',
             }}
           />
 
-          {/* Eye-blink flicker — characters only. A brief brightness
-              spike every ~6s. The two-keyframe spike at the start of
-              the cycle is what makes it read as a blink rather than a
-              continuous shimmer. */}
+          {/* Eye-blink flicker — characters only. Two-keyframe spike
+              at `blinkAt` of the cycle (independently phased per
+              character so neighbours don't blink in lockstep). */}
           {isCharacter && (
             <motion.div
               animate={{ opacity: [0, 0, 0.42, 0, 0] }}
               transition={{
-                duration: 6 + phase * 2,
-                times: [0, 0.48, 0.5, 0.52, 1],
+                duration: blinkCycle,
+                times: [0, Math.max(0.001, blinkAt - 0.02), blinkAt, Math.min(0.999, blinkAt + 0.02), 1],
                 repeat: Infinity,
                 ease: 'linear',
                 delay: 1.2 + phase * 3,

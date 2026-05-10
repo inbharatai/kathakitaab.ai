@@ -19,10 +19,11 @@
 //                      character region IS the cutout, just
 //                      masked.
 //
-// Why both modes share one component:
-//   • The verb-driven motion (Wave 2.3) treats both the same.
-//   • The renderer doesn't need to branch on "do we have slices
-//     yet?" everywhere. The component owns the choice.
+// Idle puppet motion: every figure breathes (chest pulse anchored
+// at feet) and sways (small body rotation) when no verb burst is
+// active. Without this, the cutout is statue-still while the
+// AmbientFigure aura overlay pulses around it — visually broken.
+// Now both move in sync with phase-offset timing per figure.
 //
 // Universal: works for any book. No book-specific logic. New
 // scenes get virtual cutouts for free; high-priority scenes
@@ -66,6 +67,17 @@ interface SceneLayersProps {
   reducedMotion?: boolean;
 }
 
+// Stable per-id phase, mirrors AmbientFigure.phaseFor so the cutout
+// breathes in sync with its aura overlay. FNV-1a; deterministic.
+function phaseFor(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return (h % 1000) / 1000;
+}
+
 export function SceneLayers({
   bgImageUrl,
   bgPlateUrl,
@@ -82,31 +94,24 @@ export function SceneLayers({
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-      {/* Layer 1 — background plate. When sliced, this is a
-          characters-removed version (slightly inpainted by the slicer).
-          When virtual, it's the original bg with a faint blur to push
-          it back perceptually behind the cutouts. */}
       <div
         style={{
           position: 'absolute', inset: 0,
           backgroundImage: `url(${plateUrl})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          // Light blur on virtual mode pushes the bg back; sliced mode
-          // (when bgPlateUrl is provided) skips the blur because the
-          // plate is already character-free.
           filter: bgPlateUrl ? 'none' : 'blur(0.5px) brightness(0.92)',
         }}
       />
 
-      {/* Layer 2 — character cutouts. One per figure hotspot. */}
-      {figures.map(h => {
+      {figures.map((h, i) => {
         const cutoutUrl = cutouts?.[h.target_id];
         const charMotion = motions?.[h.target_id];
         return (
           <FigureLayer
             key={`fig-${h.id}`}
             hotspot={h}
+            phase={phaseFor(h.id || `${h.target_id}-${i}`)}
             cutoutUrl={cutoutUrl}
             bgImageUrl={bgImageUrl}
             charMotion={charMotion}
@@ -122,6 +127,7 @@ export function SceneLayers({
 
 interface FigureLayerProps {
   hotspot: SceneHotspot;
+  phase: number;
   /** True cutout PNG with alpha. When set, sliced mode is used. */
   cutoutUrl?: string;
   /** Bg image used as the source for the virtual ellipse-clip
@@ -131,23 +137,40 @@ interface FigureLayerProps {
   reducedMotion: boolean;
 }
 
-function FigureLayer({ hotspot, cutoutUrl, bgImageUrl, charMotion, reducedMotion }: FigureLayerProps) {
-  // Active motion → animate to the delta; otherwise sit at rest.
-  const animate = (charMotion && !reducedMotion) ? {
-    x: `${charMotion.dx}%`,
-    y: `${charMotion.dy}%`,
-    scale: charMotion.scale,
-    rotate: charMotion.rotate,
+function FigureLayer({ hotspot, phase, cutoutUrl, bgImageUrl, charMotion, reducedMotion }: FigureLayerProps) {
+  // When a verb burst is firing, hand control to the verb motion —
+  // the cutout snaps to the burst pose and back. Otherwise idle
+  // puppet motion: chest-rise breath + slow body sway, anchored
+  // at the figure's feet so it reads biologically correct.
+  const burstActive = charMotion && !reducedMotion;
+  const breathSec = 3.4 + phase * 1.2;
+  const swaySec = 5.8 + phase * 1.6;
+  const breathPeak = 1.04;
+  const swayDeg = 1.2;
+
+  // Verb-burst transform: explicit one-shot pose. Idle transform:
+  // looping breath + sway via keyframes.
+  const animate = burstActive ? {
+    x: `${charMotion!.dx}%`,
+    y: `${charMotion!.dy}%`,
+    scale: charMotion!.scale,
+    rotate: charMotion!.rotate,
+  } : reducedMotion ? {
+    x: '0%', y: '0%', scale: 1, rotate: 0,
   } : {
-    x: '0%',
-    y: '0%',
-    scale: 1,
-    rotate: 0,
+    // Looping idle: body sway around feet, breath via scale.
+    rotate: [-swayDeg, swayDeg, -swayDeg],
+    scale: [1, breathPeak, 1],
   };
-  const transition = charMotion ? {
-    duration: charMotion.durationMs / 1000,
-    ease: charMotion.ease ?? [0.22, 1, 0.36, 1],
-  } : { duration: 0.4, ease: 'easeOut' as const };
+  const transition = burstActive ? {
+    duration: charMotion!.durationMs / 1000,
+    ease: charMotion!.ease ?? [0.22, 1, 0.36, 1],
+  } : reducedMotion ? {
+    duration: 0,
+  } : {
+    rotate: { duration: swaySec, repeat: Infinity, ease: 'easeInOut' as const, delay: phase * swaySec },
+    scale:  { duration: breathSec, repeat: Infinity, ease: 'easeInOut' as const, delay: phase * breathSec },
+  };
 
   // Sliced mode: render the cutout PNG positioned to its bbox.
   if (cutoutUrl) {
@@ -166,6 +189,9 @@ function FigureLayer({ hotspot, cutoutUrl, bgImageUrl, charMotion, reducedMotion
           height: `${hotspot.height}%`,
           objectFit: 'contain',
           objectPosition: 'top center',
+          // Anchor at feet so breath and sway behave like a
+          // standing figure, not a hovering box.
+          transformOrigin: '50% 100%',
           pointerEvents: 'none',
           willChange: 'transform',
         }}
@@ -174,24 +200,16 @@ function FigureLayer({ hotspot, cutoutUrl, bgImageUrl, charMotion, reducedMotion
   }
 
   // Virtual mode: clip the original bg image to an ellipse around the
-  // hotspot bbox. The trick: a scaled-up duplicate of the same bg
-  // image, positioned so the hotspot's pixels land in the same place,
-  // clipped by an ellipse with feathered edges via radial-gradient
-  // mask. This gives a soft-edged figural slice without alpha assets.
-  // The clip ratio is generous (110% × 115%) so head/feet aren't cut
-  // off when AmbientFigure / character motion translate the layer.
+  // hotspot bbox. The clip ratio is generous enough to absorb the
+  // largest verb translation we ship (`leap` at -14% Y) without
+  // cropping the head — 30% padding above the bbox top covers it.
   const padX = hotspot.width * 0.10;
-  const padY = hotspot.height * 0.18;
+  const padY = hotspot.height * 0.30;
   const x = Math.max(0, hotspot.x - padX);
   const y = Math.max(0, hotspot.y - padY);
   const w = Math.min(100, hotspot.width + padX * 2);
-  const h = Math.min(100, hotspot.height + padY * 2);
+  const h = Math.min(100, hotspot.height + padY * 1.4);
 
-  // The inner div is the bg-image source, sized to mirror the FULL
-  // canvas. We then negative-position it so the hotspot region lands
-  // at (0,0) of the wrapper. backgroundSize:cover on a wrapper sized
-  // to (canvas.width / hotspot.width * 100%, canvas.height / hotspot.height * 100%)
-  // gives a 1:1 alignment with the parent's bg painting.
   const bgScaleX = 100 / w;
   const bgScaleY = 100 / h;
   const bgOffsetX = -x * bgScaleX;
@@ -207,12 +225,13 @@ function FigureLayer({ hotspot, cutoutUrl, bgImageUrl, charMotion, reducedMotion
         top: `${y}%`,
         width: `${w}%`,
         height: `${h}%`,
-        // CSS mask creates the soft ellipse falloff. The radial
-        // gradient is opaque in the center (where the figure is) and
-        // fades to 0 by ~85% of the radius. mix-blend doesn't apply —
-        // this is a real alpha mask.
-        WebkitMaskImage: 'radial-gradient(ellipse at 50% 55%, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 85%)',
-        maskImage: 'radial-gradient(ellipse at 50% 55%, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 85%)',
+        // Ellipse mask falls off by ~85% of the radius; the figure
+        // lives at 50% so it stays opaque while the clipping fades
+        // gracefully into the bg plate.
+        WebkitMaskImage: 'radial-gradient(ellipse at 50% 60%, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 85%)',
+        maskImage: 'radial-gradient(ellipse at 50% 60%, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 85%)',
+        // Anchor breath/sway at feet — same as sliced mode.
+        transformOrigin: '50% 100%',
         pointerEvents: 'none',
         willChange: 'transform',
       }}
@@ -227,8 +246,6 @@ function FigureLayer({ hotspot, cutoutUrl, bgImageUrl, charMotion, reducedMotion
           backgroundImage: `url(${bgImageUrl})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          // Slight saturation/brightness pop so the cutout reads as
-          // "nearer to camera" — separates from the blurred plate.
           filter: 'saturate(1.05) brightness(1.02)',
         }}
       />
