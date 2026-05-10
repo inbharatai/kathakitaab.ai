@@ -28,18 +28,41 @@
 import type { BookMovieManifest } from '@/remotion/BookMovie';
 import ramayanaManifest from '@/remotion/manifests/ramayana.json';
 import { getBook, saveGeneratedBook } from '@/lib/data/bookRegistry';
+import { ramayanaHotspots } from '@/lib/data/hotspots';
 import { synthesizeBookMovieManifest, hydrateBookAudio } from './manifestSynthesizer';
 
-// Static manifests ship pre-rendered into the JSON itself: scene
-// images, narration audio URLs, hotspots, and durations are all
-// inline. The previous build pulled hotspots from a separate seed
-// file at module load, but the AI-regenerated Ramayana carries its
-// own hotspots and the seed's scene_ids no longer line up — running
-// the old enrichment would have erased every hotspot. Refresh
-// ramayana.json via `scripts/refresh-static-manifest.ts ramayana`
-// after each regen so this stays in sync.
+/**
+ * Enrich the static Ramayana manifest with the hand-authored
+ * hotspot positions from `lib/data/hotspots.ts`. The committed JSON
+ * pre-dates the BookMovie ambient layer, so without this step the
+ * Ramayana movie wouldn't have per-character puppet states (breath,
+ * sway, glow ring) — only the live reader would. Doing it here once
+ * at module load keeps the manifest immutable and avoids
+ * regenerating the JSON every time the hotspots change.
+ */
+function enrichRamayanaWithHotspots(m: BookMovieManifest): BookMovieManifest {
+  return {
+    ...m,
+    scenes: m.scenes.map(s => {
+      // The seed lives at lib/data/hotspots.ts indexed by scene_id.
+      const sceneHotspots = ramayanaHotspots
+        .filter(h => h.scene_id === s.sceneId)
+        .filter(h => h.hotspot_type === 'character' || h.hotspot_type === 'object' || h.hotspot_type === 'place')
+        .map(h => ({
+          label: h.label,
+          type: h.hotspot_type as 'character' | 'object' | 'place',
+          x: h.x,
+          y: h.y,
+          width: h.width,
+          height: h.height,
+        }));
+      return { ...s, hotspots: sceneHotspots };
+    }),
+  };
+}
+
 const STATIC_REGISTRY: Record<string, BookMovieManifest> = {
-  ramayana: ramayanaManifest as BookMovieManifest,
+  ramayana: enrichRamayanaWithHotspots(ramayanaManifest as BookMovieManifest),
   // Add new books here as their pre-baked manifests are committed.
 };
 
