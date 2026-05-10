@@ -27,7 +27,7 @@ import { motionForMood, type SceneMotion } from './motion';
 import { planSubtitles } from './subtitlePlanner';
 import { detectTopics } from './effects/topicTagger';
 import { buildSceneEffects } from './effects/effectRecipes';
-import { geminiTTS } from '@/lib/audio/geminiAudioClient';
+import { speakTTS } from '@/lib/audio/ttsRouter';
 import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
 
 /**
@@ -41,16 +41,27 @@ function fallbackDurationSeconds(narration: string): number {
 }
 
 /**
- * Lazily render scene narrations for a generated book that hasn't
- * been narrated yet. Designed for use from the manifest lookup path:
- * the book gen lambda exits fast (text + images only); the first
- * /api/livebook/manifest fetch hydrates audio inside its own 300s
- * budget. Subsequent fetches see the URLs already on the book and
- * skip this work.
+ * Render scene narrations into Supabase Storage so the live reader and
+ * movie can play them straight from CDN. Routes through speakTTS
+ * (Sarvam → Gemini fallback) — same chain as /api/livebook/tts, so
+ * the pre-rendered voice matches the on-the-fly voice exactly.
  *
- * Concurrency is intentionally low (2) to stay under Sarvam's per-key
- * rate limits — the same setting that finally produced consistent
- * Sarvam-not-Gemini narrations during testing.
+ * Why not call Gemini directly:
+ *   The previous implementation hardcoded geminiTTS, which meant
+ *   every pre-hydrated book got Gemini regardless of Sarvam's
+ *   availability. Sarvam is faster and produces better Indic
+ *   prosody; skipping it forced every reader through the slow
+ *   path. Routing through speakTTS gets each scene whichever
+ *   provider Sarvam gives us first, with Gemini as the safety net.
+ *
+ * Resilience:
+ *   - Per-scene try/catch — one bad scene doesn't poison the rest.
+ *   - speakTTS already has its own provider-fallback chain inside,
+ *     so a per-scene failure here means BOTH Sarvam and Gemini
+ *     refused the text.
+ *   - Serial with a small gap. Sarvam's per-key RPM is generous;
+ *     Gemini's is the bottleneck. Spacing keeps both inside their
+ *     budgets even when scenes fall through to Gemini.
  */
 export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBook> {
   const slug = book.slug;
@@ -64,30 +75,22 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     .filter(({ s }) => !s.narration_audio_url);
   if (missing.length === 0) return book;
 
-  // Serial Gemini with one retry on failure. The previous parallel-5
-  // attempt left ~40% of scenes unhydrated due to Gemini's per-key
-  // RPM cap. Going serial with a 1.5s gap between calls keeps every
-  // request inside the rate budget; one retry catches the rare
-  // transient hiccup. 10 scenes × ~8s + 10 × 1.5s gap = ~95s, well
-  // inside the 300s manifest-route budget.
   for (const { s, i } of missing) {
-    const language = /[ऀ-ॿ]/.test(s.narration) ? 'hi' : 'en';
-    const stageDirection = language === 'hi'
-      ? '[गर्म, धीमा भारतीय कथावाचक की आवाज़ में पढ़ें।]\n'
-      : '[Read this as a warm, dignified Indian-English narrator. Steady pace, slight resonance.]\n';
-
+    // speakTTS auto-detects language from script (Devanagari → hi,
+    // else → en) so we don't need to pass it explicitly. Mood is
+    // forwarded so Sarvam can pick a matching pace/pitch/loudness.
     let attempt = 0;
     let succeeded = false;
     while (attempt < 2 && !succeeded) {
       try {
-        const result = await geminiTTS({
-          text: stageDirection + s.narration.slice(0, 4000),
-          language,
-          voiceName: 'Charon',
+        const result = await speakTTS({
+          text: s.narration.slice(0, 1500),
+          mood: s.mood,
         });
+        const ext = result.mimeType.includes('wav') ? 'wav' : result.mimeType.includes('mp3') ? 'mp3' : 'bin';
         const url = await uploadGeneratedNarration(result.audio, {
           mimeType: result.mimeType,
-          path: `${slug}/narration/${s.scene_id}.wav`,
+          path: `${slug}/narration/${s.scene_id}.${ext}`,
         });
         scenes[i] = { ...scenes[i], narration_audio_url: url };
         succeeded = true;
@@ -96,12 +99,15 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
         if (attempt < 2) {
           await new Promise(r => setTimeout(r, 1500));
         } else {
-          console.error(`[hydrateBookAudio] gemini failed twice for ${s.scene_id}:`, err instanceof Error ? err.message : err);
+          // Both Sarvam and Gemini refused. Don't crash the whole
+          // hydration — the live reader will catch this scene later
+          // via /api/livebook/tts on demand (same chain, same cache).
+          console.error(`[hydrateBookAudio] both providers failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
         }
       }
     }
-    // Small gap between scenes to stay under Gemini's RPM cap.
-    await new Promise(r => setTimeout(r, 1500));
+    // Brief gap so a Gemini-fallback wave doesn't blow the per-key RPM.
+    await new Promise(r => setTimeout(r, 800));
   }
   return { ...book, scenes };
 }
