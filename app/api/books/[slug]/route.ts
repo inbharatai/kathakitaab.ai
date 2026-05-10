@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getBook as getSeedBook, getScenesByBookId, getCharactersByBookId } from '@/lib/data/ramayanaSeed';
 import { getBook as getRegistryBook, deleteBook } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { hydrateAndPersist } from '@/lib/video/manifestRegistry';
 
 /** Returns true when the requester may read this AI-generated book.
  *  Public books are always readable. Private books are readable only
@@ -41,6 +42,26 @@ export async function GET(
       // else = doesn't exist.
       return NextResponse.json({ error: 'Book not found' }, { status: 404 });
     }
+    // Self-heal: if any scene is still missing pre-rendered audio,
+    // kick off hydration in after() so the response stays fast but
+    // the lambda finishes the job. Idempotent (filters to scenes
+    // without URLs) and checkpointed (each rendered scene saves
+    // back to Redis as it lands), so concurrent live-reader visits
+    // don't stomp on each other and a cut-short run resumes on the
+    // next visit. Closes the "user opens reader before manifest
+    // route ever runs" gap.
+    const needsHydration = generated.scenes.some(s => !s.narration_audio_url);
+    if (needsHydration) {
+      after(async () => {
+        try {
+          await hydrateAndPersist(slug);
+        } catch (err) {
+          console.warn(`[books/${slug}] background hydration failed:`,
+            err instanceof Error ? err.message : err);
+        }
+      });
+    }
+
     return NextResponse.json({
       book: {
         id: generated.id,
