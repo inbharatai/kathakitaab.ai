@@ -31,6 +31,7 @@ import './_loadEnv';
 
 import { generateBook } from '../lib/openai/bookGeneratorAgent';
 import { saveGeneratedBook, deleteBook, getBook } from '../lib/data/bookRegistry';
+import { hydrateBookAudio } from '../lib/video/manifestSynthesizer';
 
 interface Args {
   slug: string;
@@ -105,27 +106,40 @@ async function main() {
     process.exit(1);
   }
 
-  // The generator saves to Redis on success, but be defensive — if we
-  // ever change the lifecycle, we still want this script to leave a
-  // valid record on Redis so the books page picks up the new shape.
+  // Save the gen output first so the book is recoverable even if the
+  // audio pass fails. Subsequent retries can resume from this snapshot.
   await saveGeneratedBook(book);
 
-  const beatScenes = book.scenes.filter(s => Array.isArray(s.beats) && s.beats.length >= 2).length;
-  const totalImages = book.scenes.reduce(
+  // Hydrate per-scene narration audio. Without this, the live reader's
+  // FIRST visit hits /api/livebook/tts for every scene — a 3-5s wait
+  // per scene change. Doing it now (we're not on Vercel's 300s budget)
+  // means every showcase regen lands with `narration_audio_url` set,
+  // and the live reader plays straight from the Supabase CDN.
+  console.log(`[regen] hydrating narration audio (${book.scenes.length} scenes, serial Gemini)…`);
+  const hydrateStart = Date.now();
+  const hydrated = await hydrateBookAudio(book);
+  await saveGeneratedBook(hydrated);
+  const hydrateElapsed = ((Date.now() - hydrateStart) / 1000).toFixed(1);
+  const audioOk = hydrated.scenes.filter(s => s.narration_audio_url).length;
+  console.log(`[regen] audio hydrated ${audioOk}/${hydrated.scenes.length} in ${hydrateElapsed}s`);
+
+  const beatScenes = hydrated.scenes.filter(s => Array.isArray(s.beats) && s.beats.length >= 2).length;
+  const totalImages = hydrated.scenes.reduce(
     (sum, s) => sum + (Array.isArray(s.beats) && s.beats.length > 0 ? s.beats.length : 1),
     0,
   );
 
   console.log('');
-  console.log(`[regen] done in ${elapsed}s`);
-  console.log(`         slug: ${book.slug}`);
-  console.log(`         title: ${book.title}`);
-  console.log(`         scenes: ${book.scenes.length}`);
-  console.log(`         multi-beat scenes: ${beatScenes}/${book.scenes.length}`);
+  console.log(`[regen] done in ${elapsed}s gen + ${hydrateElapsed}s audio`);
+  console.log(`         slug: ${hydrated.slug}`);
+  console.log(`         title: ${hydrated.title}`);
+  console.log(`         scenes: ${hydrated.scenes.length}`);
+  console.log(`         multi-beat scenes: ${beatScenes}/${hydrated.scenes.length}`);
   console.log(`         total painted images: ${totalImages}`);
+  console.log(`         narrated scenes: ${audioOk}/${hydrated.scenes.length}`);
   console.log('');
-  console.log(`Open: http://localhost:5009/books/${book.slug}`);
-  console.log(`Movie: http://localhost:5009/books/${book.slug}/movie`);
+  console.log(`Open: http://localhost:5009/books/${hydrated.slug}`);
+  console.log(`Movie: http://localhost:5009/books/${hydrated.slug}/movie`);
 }
 
 main().catch(err => {

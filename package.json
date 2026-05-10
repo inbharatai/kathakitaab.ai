@@ -21,7 +21,8 @@
     "sync:vercel": "npx tsx scripts/sync-vercel-env.ts",
     "flush:stale": "npx tsx scripts/flush-stale-redis.ts",
     "regenerate:book": "npx tsx scripts/regenerate-book.ts",
-    "verify:book": "npx tsx scripts/verify-book.ts"
+    "verify:book": "npx tsx scripts/verify-book.ts",
+    "hydrate:book": "npx tsx scripts/hydrate-book-audio.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

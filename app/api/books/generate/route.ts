@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { generateBook, type GeneratedBook, type GenerationMode, type BookMetadata } from '@/lib/openai/bookGeneratorAgent';
 import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
+import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
 import { isGeminiConfigured } from '@/lib/openai/client';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit, checkOwnerDailyLimit } from '@/lib/middleware/rateLimit';
@@ -237,6 +238,26 @@ export async function POST(request: Request) {
       };
 
       await saveGeneratedBook(finalBook);
+
+      // Pre-render narration audio so the live reader's first visit
+      // doesn't have to wait on /api/livebook/tts at every scene
+      // change. Serial Gemini at ~1.5s/scene gap; 8 scenes ≈ 70s.
+      // Budget-safe: text+images run ~250s, audio adds ~70s, total
+      // stays under the 300s ceiling on a typical book. If this
+      // step fails or the lambda hits its budget, the book is
+      // still usable — the live reader falls back to /api/livebook/tts
+      // (slower first scene, identical content).
+      try {
+        await setProgress(slug, 'Recording narration...', 95);
+        const hydrated = await hydrateBookAudio(finalBook);
+        await saveGeneratedBook(hydrated);
+      } catch (audioErr) {
+        // Don't fail the whole generation on audio hydration error —
+        // /api/livebook/tts will pick up the slack on first read.
+        console.warn('[generate] audio hydration failed (live reader will use lazy TTS):',
+          audioErr instanceof Error ? audioErr.message : audioErr);
+      }
+
       await setProgress(slug, 'Complete!', 100, true);
     } catch (err: unknown) {
       // Scrub the error message before logging so any PII (child
