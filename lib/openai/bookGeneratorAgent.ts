@@ -130,6 +130,39 @@ export interface GeneratedQuiz {
   explanation: string;
 }
 
+/** Generation mode. World stories are public-by-default; classroom
+ *  and personalized stories are private-by-default and tied to an
+ *  ownerId. personalized_photo is reserved for a future ship —
+ *  shipping it requires the full child-photo safety stack. */
+export type GenerationMode = 'world' | 'classroom' | 'personalized_text' | 'personalized_photo';
+
+/** Per-mode metadata stored alongside the book. Each mode populates
+ *  exactly one optional field. World mode leaves metadata empty. */
+export interface BookMetadata {
+  classroom?: {
+    gradeBand: string;        // free-form for now: "Class 6", "Grade 4-5"
+    subject?: string;         // optional — Akbar/Birbal isn't really a subject
+    chapter?: string;         // optional
+    learningGoal?: string;
+    language?: string;
+    tone?: string;
+  };
+  personalized?: {
+    /** Child's first name only. Stored so re-generation can keep the
+     *  name consistent without the parent re-typing it. Never
+     *  surfaced in slugs or public URLs. */
+    childFirstName: string;
+    age: number;
+    language?: string;
+    interests?: string;
+    moral?: string;
+    tone?: string;
+    /** ISO timestamp the parent ticked the consent box. Audit trail
+     *  in case we need to demonstrate consent later. */
+    consentTimestamp: string;
+  };
+}
+
 export interface GeneratedBook {
   id: string;
   slug: string;
@@ -140,6 +173,30 @@ export interface GeneratedBook {
   scenes: GeneratedScene[];
   characters: GeneratedCharacter[];
   generatedAt: number;
+
+  // ── Ownership & visibility (added for V1 mode-aware shipping) ──
+  // All four are optional so existing books in Redis (mode=world,
+  // visibility=public, no ownerId) keep working without migration.
+  /** Generation mode this book was created under. Older entries
+   *  (created before V1 shipped) are read as 'world' implicitly via
+   *  bookRegistry.getBook(). */
+  mode?: GenerationMode;
+  /** Anonymous owner cookie ID. Required for private books;
+   *  undefined for public world books. */
+  ownerId?: string;
+  /** Default rule:
+   *    world         → 'public'
+   *    classroom     → 'private'
+   *    personalized_*→ 'private'
+   *  Set explicitly at create time so the read path doesn't have to
+   *  re-derive it. */
+  visibility?: 'public' | 'private';
+  /** Per-mode metadata. Empty / absent for world. */
+  metadata?: BookMetadata;
+  /** Last-modified timestamp. `generatedAt` records initial creation;
+   *  this advances on rename / re-generation. Optional so old books
+   *  read fine. */
+  updatedAt?: number;
 }
 
 // ---- Main Generator (OpenAI primary, Gemini fallback) ----
