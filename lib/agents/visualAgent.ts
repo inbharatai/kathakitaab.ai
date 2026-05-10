@@ -13,8 +13,6 @@
 
 import { createHash } from 'node:crypto';
 import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai/openaiClient';
-import { getGeminiClient } from '@/lib/openai/client';
-import { isGeminiConfigured } from '@/lib/openai/client';
 import { buildVisualPrompt } from './visualPromptBuilder';
 import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
 import { getCanonEntry } from '@/lib/data/canonLookup';
@@ -214,45 +212,18 @@ export async function generateSceneImage(
         return result;
       }
     } catch (err) {
-      console.error('[VisualAgent] OpenAI image generation failed, trying Gemini fallback:', err);
+      // Surface the failure loudly. Gemini Imagen fallback was retired
+      // per project directive (OpenAI + Sarvam only) — and Imagen 3 is
+      // 404'd anyway. If OpenAI returns a billing_hard_limit_reached,
+      // the only fix is bumping the cap on the OpenAI dashboard; no
+      // amount of retrying will help.
+      console.error('[VisualAgent] OpenAI image generation failed:',
+        err instanceof Error ? err.message : err);
     }
   }
 
-  // Fallback to Gemini Imagen
-  if (isGeminiConfigured()) {
-    try {
-      const ai = getGeminiClient();
-      const response = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
-        prompt: built.prompt,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: '16:9',
-          outputMimeType: 'image/jpeg',
-        },
-      });
-
-      const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-      if (imageBytes) {
-        const imageUrl = await uploadGeneratedImage(`data:image/jpeg;base64,${imageBytes}`, {
-          mimeType: 'image/jpeg',
-          pathHint: ctx.bookSlug,
-        });
-        const result: VisualGenerationResult = {
-          imageUrl,
-          source: 'gemini',
-          promptUsed: built.prompt,
-          charactersLocked: built.charactersInjected,
-        };
-        await setCachedResponse(cacheKey, result, 'imagen-3.0', IMAGE_CACHE_TTL_MS);
-        return result;
-      }
-    } catch (err) {
-      console.error('[VisualAgent] Gemini image generation failed:', err);
-    }
-  }
-
-  // No image generation available
+  // No image generation available — return the empty-URL marker so
+  // the caller can render a placeholder instead of crashing the book.
   return { imageUrl: '', source: 'fallback', promptUsed: built.prompt, charactersLocked: built.charactersInjected };
 }
 

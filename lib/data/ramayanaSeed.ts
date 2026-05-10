@@ -39,13 +39,20 @@ export const ramayanaSources: SourceReference[] = [
 ];
 
 // ---- Accessor Functions ----
-export function getBook(slug: string): Book | undefined {
-  if (slug === 'ramayana') return ramayanaBook;
+//
+// Seed Ramayana is retired in favour of an AI-generated version under
+// the same slug. Returning undefined here makes every seed-first
+// lookup across the app fall through to the Redis-backed registry,
+// which now holds the new pipeline's output (chunked Sarvam, multi-
+// beat images, checkpointed hydration). The hand-curated data above
+// is kept in the file for reference and easy revert — nothing reads
+// it through getBook anymore.
+export function getBook(_slug: string): Book | undefined {
   return undefined;
 }
 
 export function getAllBooks(): Book[] {
-  return [ramayanaBook];
+  return [];
 }
 
 export function getSceneWithHotspots(sceneId: string): SceneWithHotspots | undefined {
