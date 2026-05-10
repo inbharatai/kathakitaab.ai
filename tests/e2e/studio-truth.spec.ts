@@ -29,11 +29,13 @@ const BANNED_STUDIO_PHRASES = [
 ];
 
 // Phrases that MUST appear so a regression doesn't accidentally
-// remove the honest copy too.
+// remove the honest copy too. Updated for V1: Classroom and
+// text-only Personalized Story are now LIVE flows (with their own
+// mode tabs), so the things still in the Coming Soon strip are
+// child photo upload, MP4 video export, and classroom analytics.
 const REQUIRED_STUDIO_PHRASES = [
   /Coming soon/i,
-  /Personalized Stories/i,
-  /Classroom mode/i,
+  /Child photo upload/i,
   /Video export/i,
   /How KathaKitaab builds your book/i,
 ];

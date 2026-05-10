@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import BookGenerator from '@/components/library/BookGenerator';
+import StudioModeSelector from '@/components/library/StudioModeSelector';
 
 // Theme starting points the universal generator handles cleanly.
 // Each chip pre-fills the title input — clicking it doesn't bypass
@@ -70,9 +70,12 @@ export default function EducatorPage() {
           </p>
         </motion.div>
 
-        {/* Generation form — the only real interactive control on this page */}
+        {/* Generation forms — three modes, one selector. World mode
+            is the default (it's what most visitors want); Classroom
+            and Personalized Story are real flows now and surface the
+            same generation pipeline. */}
         <div style={{ marginTop: 32 }}>
-          <BookGenerator />
+          <StudioModeSelector />
         </div>
 
         {/* Starting points — chips fill the input above instead of routing
@@ -113,9 +116,9 @@ export default function EducatorPage() {
           ))}
         </div>
 
-        {/* Coming-soon strip — explicit, single-source-of-truth list of
-            what this Studio does NOT yet do. Better than scattered
-            "Coming soon" labels across the rest of the UI. */}
+        {/* Coming-soon strip — only items that genuinely don't exist
+            yet. Classroom Story and text-only Personalized Story
+            shipped in V1; the photo-upload variant is still ahead. */}
         <div style={{
           marginTop: 36, padding: '18px 22px',
           borderRadius: 14,
@@ -127,16 +130,16 @@ export default function EducatorPage() {
           </div>
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
             <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
-              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Personalized Stories</strong>
-              {' — your child as the hero. In safety review; will ship with parental consent and private-by-default storage.'}
-            </li>
-            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
-              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Classroom mode</strong>
-              {' — grade-band tuned vocabulary plus discussion questions for teachers. The current title input already handles classroom themes (Akbar–Birbal, Jataka Tales, Indian History) — the dedicated form comes later.'}
+              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Child photo upload</strong>
+              {' — illustrate the hero with your child’s likeness. In safety review; will ship with private-by-default photo storage and a clear retention + delete policy. The text-only version above is live today.'}
             </li>
             <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
               <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Video export</strong>
               {' — a downloadable MP4 of the cinematic cut. The in-browser cinematic player is already live on every book’s movie page.'}
+            </li>
+            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
+              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Classroom analytics</strong>
+              {' — assignment, comprehension tracking, multi-student dashboards. Today’s Classroom mode generates a single playable book; the analytics layer is planned, not built.'}
             </li>
           </ul>
         </div>
