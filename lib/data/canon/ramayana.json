@@ -108,7 +108,8 @@
         "Do not portray as disloyal to Rama.",
         "Do not depict in any romantic relationship during the exile."
       ],
-      "source_note": "Valmiki Ramayana, Ayodhya through Yuddha Kandas."
+      "source_note": "Valmiki Ramayana, Ayodhya through Yuddha Kandas.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-lakshmana.png"
     },
     {
       "id": "hanuman",
@@ -168,7 +169,8 @@
         "Do not portray as one-dimensionally evil — he is also a scholar, devotee, and skilled ruler.",
         "Do not depict as having forced himself on Sita; canon is clear he did not."
       ],
-      "source_note": "Valmiki Ramayana, Aranya through Yuddha Kandas."
+      "source_note": "Valmiki Ramayana, Aranya through Yuddha Kandas.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-ravana.png"
     },
     {
       "id": "dasharatha",
@@ -192,7 +194,8 @@
       "forbidden_changes": [
         "Do not portray as malicious — his exile of Rama is forced by the boon, not by ill-will."
       ],
-      "source_note": "Valmiki Ramayana, Bala and Ayodhya Kandas."
+      "source_note": "Valmiki Ramayana, Bala and Ayodhya Kandas.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-dasharatha.png"
     },
     {
       "id": "bharata",
@@ -216,7 +219,8 @@
       "forbidden_changes": [
         "Do not portray as ambitious or willing to take Rama's throne — he is the embodiment of brotherly devotion."
       ],
-      "source_note": "Valmiki Ramayana, Ayodhya Kanda."
+      "source_note": "Valmiki Ramayana, Ayodhya Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-bharata.png"
     },
     {
       "id": "kausalya",
@@ -233,7 +237,8 @@
       "kanda": "Bala, Ayodhya",
       "summary": "Senior queen of Dasharatha and mother of Rama. Pious, gentle, and dignified; her grief at Rama's exile is among the most poignant passages of the Ayodhya Kanda.",
       "appearance": "Aged senior queen in her early fifties. Honey-gold complexion. Dark hair streaked heavily with silver, parted at centre and worn pulled back; small red-and-gold sindoor mark in the parting. Gentle wide eyes, soft sad mouth. Wears a cream-white sari with rich gold-zari border (the senior-queen palette), heavy gold queen-mother jewellery (long necklaces, broad earrings, bangles, anklets), modest in cut, dignified in drape. Posture upright, hands often at the heart in worry or worship.",
-      "source_note": "Valmiki Ramayana, Ayodhya Kanda."
+      "source_note": "Valmiki Ramayana, Ayodhya Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-kausalya.png"
     },
     {
       "id": "kaikeyi",
@@ -257,7 +262,8 @@
       "forbidden_changes": [
         "Do not portray as evil from the start — she is corrupted by Manthara, and she repents canonically."
       ],
-      "source_note": "Valmiki Ramayana, Ayodhya Kanda."
+      "source_note": "Valmiki Ramayana, Ayodhya Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-kaikeyi.png"
     },
     {
       "id": "sugriva",
@@ -274,7 +280,8 @@
       "kanda": "Kishkindha onwards",
       "summary": "Vanara king of Kishkindha after Rama slays his elder brother Vali. Allies with Rama in exchange for help reclaiming his throne. Commands the vanara army that builds the Ram Setu and crosses to Lanka.",
       "appearance": "Vanara king with golden-brown fur, broader and more grizzled than Hanuman, mature middle-aged. Long-tailed humanoid build, scarred shoulder visible from his fight with Vali. Wears a vanara-king crown of woven gold and forest leaves, gold armbands, a long red-and-saffron loincloth, golden mace at the side. Eyes sharp and kingly, set under a heavy brow.",
-      "source_note": "Valmiki Ramayana, Kishkindha and Yuddha Kandas."
+      "source_note": "Valmiki Ramayana, Kishkindha and Yuddha Kandas.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-sugriva.png"
     },
     {
       "id": "vibhishana",
@@ -291,7 +298,8 @@
       "kanda": "Yuddha",
       "summary": "Younger brother of Ravana, righteous and devoted to dharma. Counsels Ravana to return Sita peacefully; when refused, defects to Rama's side. After Ravana's death, Rama crowns him king of Lanka.",
       "appearance": "Tall rakshasa with a softer pale-jade green complexion (lighter than Ravana's bronze). Calm, wise face — high forehead, kind dark eyes, neatly trimmed black beard, hair pulled back in a single knot. Wears white-and-saffron silk robes uncommon among rakshasas (signalling his dharmic nature), a simple gold sun pendant, slim gold armbands, no fearsome weapons in repose. Posture quiet, hands often joined in respect.",
-      "source_note": "Valmiki Ramayana, Yuddha Kanda."
+      "source_note": "Valmiki Ramayana, Yuddha Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-vibhishana.png"
     },
     {
       "id": "jatayu",
@@ -305,7 +313,8 @@
       "kanda": "Aranya",
       "summary": "Aged demigod-eagle, friend of Dasharatha. Witnesses Ravana abducting Sita and attacks his chariot in defense; mortally wounded, he survives just long enough to tell Rama what he saw before dying in Rama's arms.",
       "appearance": "Massive aged eagle-vulture demigod, wingspan wider than a man is tall. Plumage golden-brown along the body, deeper red-bronze on the wings, white at the throat. Aged, dignified raptor face with humanlike intelligent dark eyes; sharp curved gold beak; powerful talons. Often shown wounded with one wing torn, blood streaking the chest in his final scene.",
-      "source_note": "Valmiki Ramayana, Aranya Kanda."
+      "source_note": "Valmiki Ramayana, Aranya Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-jatayu.png"
     },
     {
       "id": "kumbhakarna",
@@ -319,7 +328,8 @@
       "kanda": "Yuddha",
       "summary": "Younger brother of Ravana, immense rakshasa cursed by Brahma to sleep for six months at a time. Awakened during the war at Lanka, he reluctantly fights for his brother and is slain by Rama.",
       "appearance": "Towering rakshasa, twice the height of an ordinary man, gigantic muscular build. Bronze-copper skin like Ravana's but coarser, weathered. Wild long black hair and unkempt beard streaked with grey, drowsy half-shut eyes (the sleep curse), broad blunt features. Wears simple banded armour over a crimson loincloth, a giant club or bone-staff, no fine ornaments. Posture lumbering, half-roused.",
-      "source_note": "Valmiki Ramayana, Yuddha Kanda."
+      "source_note": "Valmiki Ramayana, Yuddha Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-kumbhakarna.png"
     },
     {
       "id": "indrajit",
@@ -337,7 +347,8 @@
       "kanda": "Yuddha",
       "summary": "Eldest son of Ravana and Mandodari; named Indrajit (\"conqueror of Indra\") for once defeating the king of the gods. A master of celestial weapons and illusion. Slain by Lakshmana at Nikumbhila yajna.",
       "appearance": "Rakshasa prince in his mid-twenties, fairer skin than his father — pale bronze. Sharp elegant features, intelligent piercing dark eyes, dark hair tied back in a high warrior's knot, neatly trimmed dark moustache. Wears ornate prince's armour: black-and-gold cuirass etched with celestial weapon glyphs, layered crimson cape, gold gauntlets, a tall jewelled circlet. Always armed with a great bow and a quiver of celestial astras (arrows sometimes shown trailing serpent-coil illusions).",
-      "source_note": "Valmiki Ramayana, Yuddha Kanda."
+      "source_note": "Valmiki Ramayana, Yuddha Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-indrajit.png"
     },
     {
       "id": "maricha",
@@ -351,7 +362,8 @@
       "kanda": "Aranya",
       "summary": "Rakshasa, uncle of Ravana. At Ravana's command, takes the form of a beautiful golden deer to lure Rama and Lakshmana away from Sita's hut, enabling Sita's abduction. Slain by Rama's arrow as he reverts to his rakshasa form.",
       "appearance": "Shapeshifter — primarily depicted in his deer form: a magnificent stag with shimmering metallic-gold coat, silver-white spots, long jewel-eyed face, antlers tipped with gold and small sapphires, an unnatural inner glow that hints at illusion. In his true rakshasa form (final scene only) he reverts to a tall bronze-skinned rakshasa with wild dark hair, fanged grin, and torn ascetic robes.",
-      "source_note": "Valmiki Ramayana, Aranya Kanda 42."
+      "source_note": "Valmiki Ramayana, Aranya Kanda 42.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-maricha.png"
     },
     {
       "id": "surpanakha",
@@ -365,7 +377,8 @@
       "kanda": "Aranya",
       "summary": "Sister of Ravana. Sees Rama in the forest of Panchavati and demands he marry her; when rebuffed and after attacking Sita, she is humiliated by Lakshmana, who cuts off her nose. Her revenge-seeking complaint to Ravana sets the abduction of Sita in motion.",
       "appearance": "Rakshasi shapeshifter — often appears in a glamoured human form (dusky-bronze skin, raven-black wild hair, sharp beautiful face with kohl-rimmed dark eyes, heavy dark-red robes with jangling gold). When her glamour breaks she reveals fanged teeth, claw-like nails, fierce inhuman features. After Lakshmana's blade her nose is shorn — a small but unmistakable detail in any post-incident scene.",
-      "source_note": "Valmiki Ramayana, Aranya Kanda."
+      "source_note": "Valmiki Ramayana, Aranya Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-surpanakha.png"
     },
     {
       "id": "vishvamitra",
@@ -379,7 +392,8 @@
       "kanda": "Bala",
       "summary": "Once-warrior-now-sage who takes the young Rama and Lakshmana from Ayodhya into the forest to protect his yajna from rakshasas. Teaches Rama divine astras and brings him to Mithila for Sita's swayamvara.",
       "appearance": "Aged sage-warrior in his seventies, lean and tall. Wheat complexion bronzed by sun. Long flowing white hair and a long white beard reaching the chest, both untrimmed. Bright, fierce dark eyes that hint at his warrior past. Wears simple saffron-orange ascetic robes wrapped over one shoulder, deer-skin shawl, simple rudraksha bead necklace, sacred thread across the chest. Carries a tall wooden danda (staff) and a small kamandalu (water pot). Posture upright and powerful despite age.",
-      "source_note": "Valmiki Ramayana, Bala Kanda."
+      "source_note": "Valmiki Ramayana, Bala Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-vishvamitra.png"
     },
     {
       "id": "janaka",
@@ -397,7 +411,8 @@
       "kanda": "Bala",
       "summary": "Philosopher-king of Mithila, father of Sita. Holds her swayamvara with the condition that whoever can string the Bow of Shiva (Pinaka) shall marry her. Renowned for his detachment and wisdom.",
       "appearance": "Mature king in his mid-fifties, dignified philosopher-bearing. Wheat complexion, salt-and-pepper hair pulled back, neat short greying beard. Calm contemplative eyes. Wears simpler royal robes than Dasharatha — soft cream-white silk dhoti and uttariya with deep gold trim, modest gold crown with a single sapphire, fewer jewels. Often holds a small scroll or rosary.",
-      "source_note": "Valmiki Ramayana, Bala Kanda."
+      "source_note": "Valmiki Ramayana, Bala Kanda.",
+      "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/anchors/character-janaka.png"
     },
     {
       "id": "ayodhya",
