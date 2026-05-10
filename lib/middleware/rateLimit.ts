@@ -182,3 +182,96 @@ export async function runInBatches<T, R>(
 }
 
 export const MAX_PARALLEL_BRANCHES = numEnv('MAX_PARALLEL_BRANCHES', 2);
+
+// ============================================================
+// Owner-cookie daily limits for child-related modes
+//
+// These run AFTER the per-IP `checkRateLimit` so an attacker who
+// rotates IPs is still capped by their cookie. The cookie is
+// trivially clearable by a determined adversary, but combined
+// with the per-IP limit it raises the cost of accidental abuse
+// (a sibling spamming the form, or one parent generating 50
+// stories in an afternoon).
+//
+// Limits:
+//   personalized_text : 3 books per ownerId per 24h
+//   classroom         : 8 books per ownerId per 24h
+//
+// Tunable via env: KATHA_PERSONALIZED_DAILY, KATHA_CLASSROOM_DAILY.
+// ============================================================
+
+const DAILY_PERSONALIZED = numEnv('KATHA_PERSONALIZED_DAILY', 3);
+const DAILY_CLASSROOM = numEnv('KATHA_CLASSROOM_DAILY', 8);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const ownerBuckets = new Map<string, number[]>();
+
+const RL_OWNER_CACHE: Partial<Record<'personalized' | 'classroom', Ratelimit>> = {};
+
+function getOwnerLimiter(kind: 'personalized' | 'classroom'): Ratelimit | null {
+  const redis = getRedis();
+  if (!redis) return null;
+  if (RL_OWNER_CACHE[kind]) return RL_OWNER_CACHE[kind]!;
+  const limit = kind === 'personalized' ? DAILY_PERSONALIZED : DAILY_CLASSROOM;
+  RL_OWNER_CACHE[kind] = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(limit, '24 h'),
+    prefix: `kk:rl:owner:${kind}`,
+    analytics: false,
+  });
+  return RL_OWNER_CACHE[kind]!;
+}
+
+/** Per-owner daily rate limit. Pass the cookie owner ID and the
+ *  mode being requested. Returns a 429 NextResponse if the limit
+ *  is hit, null otherwise. World mode is NOT limited here (it
+ *  uses the per-IP `checkRateLimit` exclusively).
+ */
+export async function checkOwnerDailyLimit(
+  ownerId: string,
+  kind: 'personalized' | 'classroom',
+): Promise<NextResponse | null> {
+  if (!ownerId) return null;
+
+  const upstash = getOwnerLimiter(kind);
+  if (upstash) {
+    const result = await upstash.limit(ownerId);
+    if (!result.success) {
+      const retryAfter = Math.max(60, Math.ceil((result.reset - Date.now()) / 1000));
+      return NextResponse.json({
+        error: 'rate_limited',
+        message: kind === 'personalized'
+          ? 'You\'ve created the daily maximum of personalized stories. Please try again tomorrow.'
+          : 'You\'ve created the daily maximum of classroom stories. Please try again tomorrow.',
+        retryAfter,
+      }, {
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfter),
+          'X-RateLimit-Limit': String(result.limit),
+          'X-RateLimit-Remaining': String(result.remaining),
+        },
+      });
+    }
+    return null;
+  }
+
+  // In-memory fallback (local dev). Same shape as the per-IP path.
+  const limit = kind === 'personalized' ? DAILY_PERSONALIZED : DAILY_CLASSROOM;
+  const key = `${kind}:${ownerId}`;
+  const now = Date.now();
+  const hits = (ownerBuckets.get(key) ?? []).filter(t => now - t < DAY_MS);
+  if (hits.length >= limit) {
+    const retryAfter = Math.max(60, Math.ceil((DAY_MS - (now - hits[0])) / 1000));
+    return NextResponse.json({
+      error: 'rate_limited',
+      message: kind === 'personalized'
+        ? 'You\'ve created the daily maximum of personalized stories. Please try again tomorrow.'
+        : 'You\'ve created the daily maximum of classroom stories. Please try again tomorrow.',
+      retryAfter,
+    }, { status: 429, headers: { 'Retry-After': String(retryAfter) } });
+  }
+  hits.push(now);
+  ownerBuckets.set(key, hits);
+  return null;
+}

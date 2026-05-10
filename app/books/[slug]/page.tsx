@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import SceneViewer from '@/components/livebook/SceneViewer';
+import DeleteBookButton from '@/components/library/DeleteBookButton';
 
 function toTitleCase(slug: string): string {
   return slug
@@ -112,9 +113,15 @@ export default function BookPage({ params }: { params: Promise<{ slug: string }>
               ▶ Watch as Movie
             </Link>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.68rem', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 2 }}>Read Mode</div>
-            <div className="font-serif" style={{ fontSize: '1.15rem', color: 'var(--color-gold-light)' }}>{title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {/* Delete affordance — self-hides for public/seed books
+                and for non-owners. The component fetches the book's
+                metadata to decide visibility. */}
+            <DeleteBookButton bookSlug={resolvedParams.slug} />
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.68rem', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 2 }}>Read Mode</div>
+              <div className="font-serif" style={{ fontSize: '1.15rem', color: 'var(--color-gold-light)' }}>{title}</div>
+            </div>
           </div>
         </div>
 

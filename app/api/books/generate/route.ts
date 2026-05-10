@@ -3,7 +3,7 @@ import { generateBook, type GeneratedBook, type GenerationMode, type BookMetadat
 import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
 import { isGeminiConfigured } from '@/lib/openai/client';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
-import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { checkRateLimit, checkOwnerDailyLimit } from '@/lib/middleware/rateLimit';
 import { moderatePrompt } from '@/lib/safety/moderation';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import {
@@ -131,6 +131,16 @@ export async function POST(request: Request) {
     return NextResponse.json({
       error: 'Could not establish ownership. Please reload and try again.',
     }, { status: 400 });
+  }
+
+  // Daily per-cookie cap on child-mode generation. Runs AFTER the
+  // per-IP rate limit so a determined attacker rotating IPs still
+  // hits the cookie ceiling. World mode keeps only the per-IP cap
+  // (anonymous public usage is fine to allow generously).
+  if (isPrivateMode && ownerId) {
+    const kind = body.mode === 'personalized_text' ? 'personalized' : 'classroom';
+    const ownerLimited = await checkOwnerDailyLimit(ownerId, kind);
+    if (ownerLimited) return ownerLimited;
   }
 
   // Pre-generation moderation. World mode keeps the V0 fail-OPEN
