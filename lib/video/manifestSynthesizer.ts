@@ -148,11 +148,20 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
           height: h.height,
         }));
 
+      // Multi-beat visual track. When the generator painted 2+ beats
+      // for this scene, forward them so BookMovie cross-fades through
+      // them across `durationSeconds`. Single-beat (or legacy) scenes
+      // omit the field and the renderer holds on `imagePath`.
+      const beats = s.beats && s.beats.length >= 2
+        ? s.beats.map(b => ({ imagePath: b.imageUrl }))
+        : undefined;
+
       return {
         sceneId: s.scene_id,
         title: s.title,
         narration: s.narration,
         imagePath: s.background_asset_url || '',
+        beats,
         audioPath,
         narrationAudioUrl: audioPath || undefined,
         durationSeconds,

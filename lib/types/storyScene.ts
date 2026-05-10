@@ -64,6 +64,13 @@ export interface SceneBackground {
   prompt: string;
   /** Fallback CSS gradient if image is not available */
   fallback_gradient?: string;
+  /** Optional multi-beat visual track. When present, the live reader
+   *  cross-fades between these images during narration instead of
+   *  holding on `image_url` for the whole scene. The first beat
+   *  matches `image_url` (the establishing shot); subsequent beats
+   *  fade in at evenly-spaced intervals across the narration window.
+   *  Backwards-compat: when missing, the reader behaves as before. */
+  beats?: { image_url: string; prompt: string }[];
 }
 
 // ── Character Layer ──────────────────────────────────────────

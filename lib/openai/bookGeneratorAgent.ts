@@ -89,6 +89,34 @@ export interface GeneratedScene {
    *  procedural music. The live reader still resolves through
    *  /api/livebook/tts (which hits the same TTS cache). */
   narration_audio_url?: string;
+  /** Multi-beat visual track. When present, the scene cross-fades
+   *  through these images during narration instead of holding on a
+   *  single still. Backwards-compat: if `beats` is missing, the
+   *  reader falls back to `background_asset_url` for the entire
+   *  scene duration (existing books in Redis keep working).
+   *
+   *  The first beat's `imageUrl` is also written to
+   *  `background_asset_url` so any downstream code that only knows
+   *  about the legacy single-image field gets a sensible default. */
+  beats?: SceneBeat[];
+}
+
+/** A single visual moment within a scene. Each beat gets its own
+ *  image painted by the image phase; the live reader and movie
+ *  cross-fade between them at sentence boundaries.
+ *
+ *  Timing is computed at manifest-synthesis time from the subtitle
+ *  cues — the LLM doesn't pick ms values. Beats are equal-weighted
+ *  across the scene's narration duration unless we add an explicit
+ *  weight later. */
+export interface SceneBeat {
+  /** Public CDN URL of the painted beat image. Same Supabase bucket
+   *  as the legacy single-image path; cached by content hash. */
+  imageUrl: string;
+  /** What the image model paints. Distinct from the scene's overall
+   *  visual_description (which describes the whole scene); each
+   *  beat describes a specific visual moment. */
+  visualDescription: string;
 }
 
 export interface GeneratedCharacter {
@@ -261,6 +289,11 @@ async function generateBookOpenAI(
     title: string;
     short_summary: string;
     visual_description: string;
+    /** Additional visual moments inside the scene the camera cuts to
+     *  during narration. Optional: older prompts and Gemini-fallback
+     *  paths might return undefined. We treat absence as "single beat,
+     *  use visual_description only". */
+    visual_beats?: string[];
     mood?: SceneMood;
     theme?: string;
   }> = outline.scenes || [];
@@ -324,28 +357,74 @@ motion guide:
   });
 
   // STEP 3: Image generation (parallel, the slow phase).
-  // gpt-image-1 dominates the time budget — ~45s/call median, with
-  // long tail. Cap at 3 in flight: high enough to fit in Vercel's
-  // 300s budget, low enough that one stuck call doesn't deadlock the
-  // others by holding all the slots.
+  // Each scene now wants 1-3 visual beats: the establishing shot
+  // (visual_description) plus 0-2 follow-up beats (visual_beats[]).
+  // We flatten { sceneIndex, prompt } pairs and paint them with one
+  // shared concurrency cap, so a 7-scene book with 3 beats each runs
+  // 21 image jobs through the same gpt-image-1 throttle without
+  // serializing per scene.
+  //
+  // gpt-image-1 dominates the time budget — ~45s/call median.
+  // Cap at 3 in flight: high enough to fit in Vercel's 300s budget,
+  // low enough that one stuck call doesn't deadlock the others by
+  // holding all the slots.
+  type BeatJob = { sceneIndex: number; beatIndex: number; prompt: string };
+  const beatJobs: BeatJob[] = sceneOutlines.flatMap((scene, sIdx) => {
+    const prompts: string[] = [scene.visual_description];
+    for (const extra of scene.visual_beats ?? []) {
+      // Drop empties / accidental duplicates so the LLM saying
+      // visual_beats=[""] doesn't cost us a $0.04 image of nothing.
+      const trimmed = (extra ?? '').trim();
+      if (trimmed.length > 8 && trimmed !== scene.visual_description.trim()) {
+        prompts.push(trimmed);
+      }
+    }
+    return prompts.map((prompt, bIdx) => ({ sceneIndex: sIdx, beatIndex: bIdx, prompt }));
+  });
+
   onProgress?.('Illustrating scenes...', 42);
   let completedImages = 0;
-  const imageUrls = await pMapLimit(sceneOutlines, 3, async (scene) => {
+  const beatResults = await pMapLimit(beatJobs, 3, async (job) => {
     try {
-      const imageResult = await generateSceneImage(scene.visual_description, {
+      const imageResult = await generateSceneImage(job.prompt, {
         bookSlug: slug,
         characters: characters.map(c => c.name),
-        mood: scene.mood ?? 'serene',
+        mood: sceneOutlines[job.sceneIndex].mood ?? 'serene',
       });
       completedImages++;
-      onProgress?.(`Illustrated ${completedImages}/${sceneOutlines.length} scenes`, 42 + (completedImages / sceneOutlines.length) * 38);
-      return imageResult.imageUrl;
+      onProgress?.(
+        `Illustrated ${completedImages}/${beatJobs.length} beats`,
+        42 + (completedImages / beatJobs.length) * 38,
+      );
+      return { ...job, imageUrl: imageResult.imageUrl };
     } catch (err) {
-      console.error(`[BookGenerator] Image failed for scene ${scene.scene_id}:`, err);
+      console.error(`[BookGenerator] Image failed for scene ${sceneOutlines[job.sceneIndex].scene_id} beat ${job.beatIndex}:`, err);
       completedImages++;
-      return '';
+      return { ...job, imageUrl: '' };
     }
   });
+
+  // Collect beats back per scene, preserving order. Each entry in
+  // sceneBeats[i] is { imageUrl, visualDescription } for the beats
+  // that successfully rendered. The legacy `imageUrls` array (one
+  // url per scene) keeps the existing scene-stitching code path
+  // working — it points at the first beat (the establishing shot).
+  const sceneBeats: SceneBeat[][] = sceneOutlines.map(() => []);
+  for (const r of beatResults) {
+    if (r.imageUrl) {
+      sceneBeats[r.sceneIndex][r.beatIndex] = {
+        imageUrl: r.imageUrl,
+        visualDescription: r.prompt,
+      };
+    }
+  }
+  // Compact (drop empty slots from any failed beats so the array is
+  // dense). Also fall back to a single-beat array when all beats for
+  // a scene failed — better to render no image than crash the reader.
+  for (let i = 0; i < sceneBeats.length; i++) {
+    sceneBeats[i] = sceneBeats[i].filter(Boolean);
+  }
+  const imageUrls = sceneBeats.map(beats => beats[0]?.imageUrl ?? '');
 
   // STEP 4: Stitch the book.
   // Note: scene narration audio is NOT pre-rendered here. The live
@@ -361,6 +440,7 @@ motion guide:
     const narration = (detail.narration || scene.short_summary) as string;
     const prev = i > 0 ? sceneOutlines[i - 1].scene_id : null;
     const next = i < sceneOutlines.length - 1 ? sceneOutlines[i + 1].scene_id : null;
+    const beats = sceneBeats[i] ?? [];
     return {
       scene_id: scene.scene_id,
       title: scene.title,
@@ -388,6 +468,11 @@ motion guide:
       duration_seconds: estimateNarrationSeconds(narration),
       // narration_audio_url left unset — see comment above. Filled in
       // by manifestSynthesizer when the movie is requested.
+      // Multi-beat track: only set when at least 2 beats actually
+      // rendered. A 1-beat result is identical to the legacy single-
+      // image scene, so leaving `beats` undefined lets the reader
+      // take its existing fast path.
+      beats: beats.length >= 2 ? beats : undefined,
     };
   });
 

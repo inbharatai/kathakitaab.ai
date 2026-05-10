@@ -57,6 +57,11 @@ export interface BookMovieScene {
   subtitles?: SubtitleCue[];
   /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
   imagePath: string;
+  /** Optional multi-beat visual track. When present, the cinematic
+   *  cut cross-fades through these images across the scene's
+   *  durationSeconds; backwards-compatible with single-image scenes
+   *  (older manifests omit this and keep playing imagePath). */
+  beats?: { imagePath: string }[];
   /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
   audioPath: string;
   /** Per Phase 10 spec — alias of audioPath but explicit. Either is fine. */
@@ -317,18 +322,55 @@ const SceneShot: React.FC<{
       ? staticFile(`audio/mood/${scene.mood}.wav`)
       : null;
 
+  // Multi-beat track: when the manifest carries beats[], we paint
+  // each one as its own <Img> and fade between them at evenly-
+  // spaced intervals across the scene's frame range. The camera
+  // transform applies to every beat identically so the cinematic
+  // motion stays consistent. Single-beat scenes fall through to
+  // the legacy single <Img> path.
+  const beatImages = scene.beats && scene.beats.length >= 2
+    ? scene.beats.map(b => b.imagePath)
+    : [scene.imagePath];
+  const beatLengthFrames = Math.max(1, Math.floor(durationInFrames / beatImages.length));
+  const fadeFrames = Math.min(20, Math.floor(beatLengthFrames * 0.18));
+
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806', opacity }}>
-      {/* ── Background image with motion-driven camera ── */}
+      {/* ── Background image(s) with motion-driven camera ── */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-        <Img
-          src={resolveAsset(scene.imagePath)}
-          style={{
-            width: '100%', height: '100%', objectFit: 'cover',
-            transform: `scale(${scale}) translate(${tx + shakeX}px, ${ty + shakeY}px)`,
-            filter: 'brightness(0.86) saturate(1.15)',
-          }}
-        />
+        {beatImages.map((src, i) => {
+          // Cross-fade window for this beat. The first beat starts
+          // visible; subsequent beats fade in over fadeFrames. After
+          // their slot, beats fade out unless this is the last one
+          // (final beat holds to the end of the scene).
+          const startF = i * beatLengthFrames;
+          const endF = i === beatImages.length - 1 ? durationInFrames : (i + 1) * beatLengthFrames;
+          let beatOpacity = 1;
+          if (beatImages.length > 1) {
+            if (frame < startF - fadeFrames) {
+              beatOpacity = 0;
+            } else if (frame < startF) {
+              beatOpacity = (frame - (startF - fadeFrames)) / fadeFrames;
+            } else if (frame < endF) {
+              beatOpacity = 1;
+            } else {
+              beatOpacity = 0;
+            }
+          }
+          return (
+            <Img
+              key={i}
+              src={resolveAsset(src)}
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%', objectFit: 'cover',
+                transform: `scale(${scale}) translate(${tx + shakeX}px, ${ty + shakeY}px)`,
+                filter: 'brightness(0.86) saturate(1.15)',
+                opacity: beatOpacity,
+              }}
+            />
+          );
+        })}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(12,8,6,0.55) 0%, transparent 22%, transparent 50%, rgba(12,8,6,0.96) 100%)' }} />
       </div>
 

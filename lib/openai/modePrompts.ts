@@ -54,7 +54,11 @@ const OUTLINE_JSON_SHAPE = `Return JSON with this structure:
       "scene_id": "snake_case_id",
       "title": "string",
       "short_summary": "string (1-2 sentences, factually grounded)",
-      "visual_description": "string (detailed for image generation)",
+      "visual_description": "string (detailed for image generation — used as the establishing first beat)",
+      "visual_beats": [
+        "string (a SECOND distinct visual moment within this scene — different camera angle / different action / a new character entering / an object close-up. Detailed enough to paint as its own illustration.)",
+        "string (a THIRD optional visual moment — only include when the scene's narration is long enough to support three pictures. Skip when the scene is short.)"
+      ],
       "mood": "serene|dramatic|somber|joyful|sacred|mysterious|tense",
       "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection"
     }
@@ -91,6 +95,8 @@ export function worldOutlinePrompt(title: string): string {
   return `Create a 10-12 scene outline for an interactive educational LiveBook about: "${title}".
 
 Walk the story chronologically — establish the world, introduce the main characters, raise the central conflict, follow it through rising action and a clear turn, and close on the resolution. Each scene should advance the timeline; don't repeat beats.
+
+For each scene, include 2 to 3 distinct VISUAL BEATS — different moments within the same scene that the camera moves through. The first beat is the establishing shot in visual_description; visual_beats[0] and visual_beats[1] are subsequent moments the picture cuts to mid-narration. Children get bored when one image holds for 30 seconds; multiple beats fix that. Each beat must paint as its own illustration — vary the camera angle, the focal character, or what's happening on screen.
 
 ${OUTLINE_JSON_SHAPE}
 
@@ -133,7 +139,9 @@ Constraints — non-negotiable for a classroom audience:
 - Each scene must advance both the story and the learning. No filler.
 - Final scene's narration should briefly recap the lesson in one paragraph.
 
-Generate scenes that are concrete and visual — characters, places, events. Avoid abstract diagrams. The image model paints what's described in visual_description.
+Generate scenes that are concrete and visual — characters, places, events. Avoid abstract diagrams. The image model paints what's described in visual_description AND each visual_beats entry.
+
+For each scene, include 2 to 3 distinct visual beats: the establishing shot (visual_description) plus 1-2 follow-up moments in visual_beats. Vary the camera, the focal character, or the action between beats. Children at this grade band get bored when one image holds for 30 seconds — multiple beats keep their attention.
 
 ${OUTLINE_JSON_SHAPE}
 
@@ -188,6 +196,7 @@ Reading level: ${readingLevel}.
 CRITICAL constraints — these are non-negotiable for a children's product:
 - The hero is referred to by name (${meta.childName}) throughout the narration.
 - Visual descriptions must describe a GENERIC age-appropriate child of about ${meta.age} years old. NEVER describe specific facial features, exact hair length, exact skin tone — KathaKitaab does NOT have a photo of this child. The image model is going to paint a generic child; the prompt must reflect that. Phrases like "a child with bright eyes" are fine; phrases like "a girl with shoulder-length black hair, brown eyes, and a red kurti" are NOT.
+- Each scene MUST include 2-3 visual beats (visual_description + visual_beats[]). Children at age ${meta.age} need a new picture every ~10 seconds; one held image bores them. Vary the camera, the action, or the focal character between beats.
 - Age-appropriate content: no graphic violence, no scary monsters that aren't resolved, no death of named characters, no romantic content.
 - The story should embody the moral through what the hero does — never lecture.
 - Avoid stereotyping by name or age. The hero's gender / cultural background is not specified beyond what the parent provided.

@@ -179,6 +179,14 @@ export function sceneToStoryScene(
       image_url: scene.background_asset_url || null,
       prompt: scene.visual_description,
       fallback_gradient: SCENE_GRADIENTS[scene.scene_id] ?? 'linear-gradient(135deg, #1A0E0A 0%, #2A1810 100%)',
+      // Multi-beat track is forwarded from the AI-generated scene
+      // shape. Seed scenes (Ramayana) have no beats — they keep
+      // their hand-tuned single-image rendering. Cast through unknown
+      // because the seed type doesn't carry the field.
+      beats: (scene as unknown as { beats?: { imageUrl: string; visualDescription: string }[] }).beats?.map(b => ({
+        image_url: b.imageUrl,
+        prompt: b.visualDescription,
+      })),
     },
 
     characters: sceneCharacters,

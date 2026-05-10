@@ -37,6 +37,7 @@ import { SceneLayers, type CharacterMotion } from './SceneLayers';
 import { motionForVerb } from '@/lib/video/verbCharacterMotion';
 import { useSceneCutouts } from '@/lib/hooks/useSceneCutouts';
 import { useCharacterStates } from '@/lib/hooks/useCharacterStates';
+import BeatCrossFade from './BeatCrossFade';
 
 // ── Glow filter for glow animations ──────────────────────────
 
@@ -611,18 +612,45 @@ export default function SceneCanvas({
               filter: 'brightness(0.82) saturate(1.15)',
             }}
           >
-            <SceneLayers
-              bgImageUrl={scene.background.image_url}
-              bgPlateUrl={sceneCutouts.bgPlateUrl}
-              cutouts={sceneCutouts.cutouts}
-              hotspots={scene.hotspots}
-              motions={
-                burst
-                  ? { [burst.hotspot.target_id]: motionForVerb(burst.verb) } as Record<string, CharacterMotion>
-                  : undefined
-              }
-              reducedMotion={prefersReducedMotion}
-            />
+            {scene.background.beats && scene.background.beats.length >= 2 ? (
+              // Multi-beat scene — cross-fade through painted beats
+              // during narration. The motion-overlay ref still gets
+              // the verb burst so character motion plays on top of
+              // whichever beat is visible. Duration estimate from
+              // word count: ~150 wpm + 2.5s tail (mirrors the
+              // bookGeneratorAgent's estimateNarrationSeconds heuristic).
+              <BeatCrossFade
+                beats={scene.background.beats}
+                durationSeconds={Math.max(8, Math.round((scene.story_text.split(/\s+/).filter(Boolean).length / 150) * 60 + 2.5))}
+                renderBeat={(beat) => (
+                  <SceneLayers
+                    bgImageUrl={beat.image_url}
+                    bgPlateUrl={sceneCutouts.bgPlateUrl}
+                    cutouts={sceneCutouts.cutouts}
+                    hotspots={scene.hotspots}
+                    motions={
+                      burst
+                        ? { [burst.hotspot.target_id]: motionForVerb(burst.verb) } as Record<string, CharacterMotion>
+                        : undefined
+                    }
+                    reducedMotion={prefersReducedMotion}
+                  />
+                )}
+              />
+            ) : (
+              <SceneLayers
+                bgImageUrl={scene.background.image_url}
+                bgPlateUrl={sceneCutouts.bgPlateUrl}
+                cutouts={sceneCutouts.cutouts}
+                hotspots={scene.hotspots}
+                motions={
+                  burst
+                    ? { [burst.hotspot.target_id]: motionForVerb(burst.verb) } as Record<string, CharacterMotion>
+                    : undefined
+                }
+                reducedMotion={prefersReducedMotion}
+              />
+            )}
           </motion.div>
         ) : (
           <div style={{ position: 'absolute', inset: 0, background: scene.background.fallback_gradient }}>
