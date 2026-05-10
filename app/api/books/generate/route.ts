@@ -4,6 +4,7 @@ import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress 
 import { isGeminiConfigured } from '@/lib/openai/client';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { moderatePrompt } from '@/lib/safety/moderation';
 
 // Generation runs ~60–180s for a 10–12 scene book (one OpenAI
 // chat per scene plus image generation). Default Vercel hobby
@@ -27,6 +28,17 @@ export async function POST(request: Request) {
   const { title } = await request.json();
   if (!title || title.trim().length < 2) {
     return NextResponse.json({ error: 'Book title is required (minimum 2 characters).' }, { status: 400 });
+  }
+
+  // Pre-generation moderation gate. Fails open on infra errors so a
+  // moderation outage doesn't break legitimate creation, but blocks
+  // anything that hits hard-stop categories (sexual/minors etc.) or
+  // the model's overall flag. Logging the categories — never the
+  // user's text — preserves user privacy in our logs.
+  const moderation = await moderatePrompt(title);
+  if (moderation.flagged) {
+    console.warn('[generate] moderation blocked title; categories:', moderation.categories.join(', '));
+    return NextResponse.json({ error: moderation.reason }, { status: 400 });
   }
 
   const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

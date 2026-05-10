@@ -44,44 +44,6 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
     return () => { cancelled = true; };
   }, [slug]);
 
-  // ── MP4 export state ──
-  // Tracks both export modes independently so the UI can show
-  // "Trailer ready" while a Full Movie render is still in flight.
-  type RenderState = { status: 'idle' | 'rendering' | 'done' | 'failed'; url: string | null; error: string | null };
-  const initialState: RenderState = { status: 'idle', url: null, error: null };
-  const [movieState, setMovieState] = useState<RenderState>(initialState);
-  const [trailerState, setTrailerState] = useState<RenderState>(initialState);
-
-  const handleExport = async (mode: 'movie' | 'trailer') => {
-    const setter = mode === 'movie' ? setMovieState : setTrailerState;
-    setter({ status: 'rendering', url: null, error: null });
-    try {
-      const res = await fetch('/api/livebook/render-movie', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookSlug: slug, mode }),
-      });
-      // Order matters: a 5xx may serve an HTML error page that fails
-      // res.json() with an opaque parse error, masking the real
-      // status. Check ok first; fall back to text() when JSON parsing
-      // fails so we always surface a useful message.
-      if (!res.ok) {
-        let msg = '';
-        try {
-          const j = await res.json();
-          msg = j.error || j.detail || '';
-        } catch {
-          try { msg = (await res.text()).slice(0, 200); } catch { /* */ }
-        }
-        throw new Error(msg || `Render failed (${res.status})`);
-      }
-      const data = await res.json();
-      setter({ status: 'done', url: data.url, error: null });
-    } catch (err) {
-      setter({ status: 'failed', url: null, error: err instanceof Error ? err.message : 'Unknown error' });
-    }
-  };
-
   return (
     <main style={{ minHeight: '100vh', padding: '20px 18px 52px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -127,47 +89,30 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
               />
             </div>
 
-            {/* MP4 export UI — renders the same composition server-side
-                via Remotion + FFmpeg, uploads to Supabase, returns a
-                public download URL. Cached by manifest hash so a second
-                click on an unchanged book is instant. Two modes: full
-                movie (~6-7 min) and a 45s cinematic trailer. */}
+            {/* MP4 export — disabled in the public UI because the
+                server-side renderer needs Chromium + FFmpeg, which
+                Vercel's standard serverless functions don't ship.
+                The cinematic player above is the canonical experience.
+                Local builds can still render via `npm run movie:render`
+                or the CLI (documented in the README). */}
             <div
-              data-testid="mp4-export"
+              data-testid="mp4-export-coming-soon"
               style={{
-                marginTop: 18, padding: '16px 20px',
-                background: 'rgba(43,27,21,0.55)',
-                border: '1px solid rgba(255,215,0,0.12)',
+                marginTop: 18, padding: '14px 18px',
+                background: 'rgba(43,27,21,0.45)',
+                border: '1px dashed rgba(255,215,0,0.18)',
                 borderRadius: 12,
-                display: 'flex', flexDirection: 'column', gap: 14,
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 240 }}>
-                  <div style={{ fontSize: '0.95rem', color: 'var(--color-gold-light)', fontWeight: 600 }}>
-                    Export {manifest.scenes.length}-scene book as MP4
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', marginTop: 4 }}>
-                    Renders the full Remotion composition with sentence cues, ducked mood music, and per-scene camera motion. Cached by manifest hash.
-                  </div>
+              <span aria-hidden style={{ fontSize: '1.1rem' }}>🎬</span>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontSize: '0.88rem', color: 'var(--color-gold-light)', fontWeight: 600 }}>
+                  Video export — coming soon
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <ExportButton
-                  testId="mp4-export-button"
-                  label="Full Movie"
-                  hint={`${manifest.scenes.length} scenes · ~6 min`}
-                  state={movieState}
-                  onClick={() => handleExport('movie')}
-                />
-                <ExportButton
-                  testId="trailer-export-button"
-                  label="Cinematic Trailer"
-                  hint="6 dramatic scenes · ~45s"
-                  state={trailerState}
-                  onClick={() => handleExport('trailer')}
-                />
+                <div style={{ fontSize: '0.74rem', color: 'var(--color-text-dim)', marginTop: 2, lineHeight: 1.5 }}>
+                  The cinematic cut plays here in the browser at full quality. A downloadable MP4 will arrive once the renderer is hosted somewhere with Chromium support.
+                </div>
               </div>
             </div>
           </>
@@ -193,55 +138,3 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
   );
 }
 
-// ── Export button ────────────────────────────────────────────
-// Three states: idle (label), rendering (spinner-like text +
-// disabled), done (becomes a link with the download URL). Failed
-// state shows an inline error under the button.
-
-interface ExportButtonProps {
-  testId: string;
-  label: string;
-  hint: string;
-  state: { status: 'idle' | 'rendering' | 'done' | 'failed'; url: string | null; error: string | null };
-  onClick: () => void;
-}
-
-function ExportButton({ testId, label, hint, state, onClick }: ExportButtonProps) {
-  const wrapStyle: React.CSSProperties = { display: 'inline-flex', flexDirection: 'column', gap: 4 };
-  if (state.status === 'done' && state.url) {
-    return (
-      <div style={wrapStyle}>
-        <a
-          data-testid={testId === 'mp4-export-button' ? 'mp4-download-link' : `${testId}-link`}
-          href={state.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-primary"
-          style={{ textDecoration: 'none', minWidth: 200 }}
-        >
-          Download {label} ↓
-        </a>
-        <span style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)', paddingLeft: 8 }}>{hint}</span>
-      </div>
-    );
-  }
-  return (
-    <div style={wrapStyle}>
-      <button
-        data-testid={testId}
-        onClick={onClick}
-        disabled={state.status === 'rendering'}
-        className="btn-primary"
-        style={{ minWidth: 200, opacity: state.status === 'rendering' ? 0.7 : 1 }}
-      >
-        {state.status === 'rendering' ? `Rendering ${label}…` : `Export ${label}`}
-      </button>
-      <span style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)', paddingLeft: 8 }}>{hint}</span>
-      {state.status === 'failed' && state.error && (
-        <span data-testid={`${testId}-error`} style={{ fontSize: '0.72rem', color: '#FF8888', paddingLeft: 8 }}>
-          {state.error}
-        </span>
-      )}
-    </div>
-  );
-}

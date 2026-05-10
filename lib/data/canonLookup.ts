@@ -7,9 +7,9 @@
 // file gracefully degrade — the system returns null and the
 // caller falls back to research grounding.
 //
-// Used by entity-interact, ask-character, and generate-info to
-// inject verified source material into LLM prompts, dramatically
-// reducing hallucination for canonical entities.
+// Used by entity-interact and ask-character to inject verified
+// source material into LLM prompts, dramatically reducing
+// hallucination for canonical entities.
 // ============================================================
 
 import type { CanonEntry, CanonFile } from '@/lib/types/canon';

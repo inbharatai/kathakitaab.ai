@@ -2,28 +2,35 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import BookGenerator from '@/components/library/BookGenerator';
 
-const CURRICULUM_PRESETS = [
-  { label: 'NCERT History – Ancient India (Grade 6)', slug: 'ncert-history-ancient-india-grade-6' },
-  { label: 'Panchatantra Stories', slug: 'panchatantra' },
-  { label: 'Akbar and Birbal', slug: 'akbar-and-birbal' },
-  { label: 'Tenali Raman', slug: 'tenali-raman' },
-  { label: 'Jataka Tales', slug: 'jataka-tales' },
-  { label: 'Mahabharata – Key Moments', slug: 'mahabharata-key-moments' },
+// Theme starting points the universal generator handles cleanly.
+// Each chip pre-fills the title input — clicking it doesn't bypass
+// the form, so the user still sees the generation pipeline run.
+const STARTING_POINTS: { label: string; example: string }[] = [
+  { label: 'Mahabharata',          example: 'Mahabharata — Key Moments' },
+  { label: 'Panchatantra',         example: 'Panchatantra Stories' },
+  { label: 'Akbar and Birbal',     example: 'Akbar and Birbal Stories' },
+  { label: 'Tenali Raman',         example: 'Tenali Raman' },
+  { label: 'Jataka Tales',         example: 'Jataka Tales' },
+  { label: 'Vikram and Betaal',    example: 'Vikram and Betaal' },
+  { label: 'Indian History',       example: 'Indian History — Ancient Kingdoms' },
+  { label: 'Buddha Stories',       example: 'Stories from the Life of Buddha' },
 ];
 
-const STATS = [
-  { icon: '📖', label: 'Books Available', value: '1 Live + ∞ Generatable' },
-  { icon: '🎓', label: 'Total Scenes', value: '12 Ramayana + AI' },
-  { icon: '🧩', label: 'Quiz Questions', value: '12+' },
-  { icon: '💬', label: 'Characters', value: '10 interactive' },
+// Real pipeline phases — these match what bookGeneratorAgent.ts
+// actually does, and what the README describes. The earlier
+// "Agent Swarm" copy implied OpenAI Agents SDK with 6+ named
+// agents; the engine doesn't use that framework. These four are
+// the real concurrent phases the user's title goes through.
+const PIPELINE_PHASES = [
+  { num: '1', title: 'Outline + characters', desc: 'gpt-4o-mini drafts a 9–12 scene arc and assigns each character a voice archetype.' },
+  { num: '2', title: 'Scene details',         desc: 'Per-scene narration, hotspot positions, quiz questions, and camera motion. Concurrency 4.' },
+  { num: '3', title: 'Scene images',          desc: 'gpt-image-1 paints each scene at 1536×1024. Concurrency 3.' },
+  { num: '4', title: 'Scene narration',       desc: 'Sarvam Bulbul records each scene shaped to its mood. Concurrency 6.' },
 ];
 
 export default function EducatorPage() {
-  const router = useRouter();
-
   return (
     <main style={{ minHeight: '100vh', padding: '80px 24px 60px' }}>
       {/* Nav */}
@@ -40,7 +47,7 @@ export default function EducatorPage() {
             KathaKitaab.ai
           </span>
         </Link>
-        <span style={{ color: 'var(--color-text-dim)', fontSize: '0.9rem' }}>/ KathaKitaab Studio</span>
+        <span style={{ color: 'var(--color-text-dim)', fontSize: '0.9rem' }}>/ Studio</span>
         <div style={{ marginLeft: 'auto' }}>
           <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 16px', fontSize: '0.85rem' }}>
             View Library
@@ -49,93 +56,124 @@ export default function EducatorPage() {
       </nav>
 
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        {/* Header */}
+        {/* Header — honest, narrow, no fake stats */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
-            <span style={{ fontSize: '2.5rem' }}>👩‍🏫</span>
-            <div>
-              <h1 className="font-serif" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.5rem)', fontWeight: 800, color: 'var(--color-gold-light)', margin: 0 }}>
-                KathaKitaab Studio
-              </h1>
-              <p style={{ color: 'var(--color-saffron)', fontSize: '0.9rem', margin: 0, marginTop: 4 }}>
-                Generate any book · Assign to students · Track comprehension
-              </p>
-            </div>
-          </div>
+          <h1 className="font-serif" style={{
+            fontSize: 'clamp(1.8rem, 3.5vw, 2.5rem)', fontWeight: 800,
+            color: 'var(--color-gold-light)', margin: 0,
+          }}>
+            KathaKitaab Studio
+          </h1>
+          <p style={{ color: 'var(--color-text-dim)', fontSize: '1rem', margin: '8px 0 0', maxWidth: 640, lineHeight: 1.6 }}>
+            Create playable AI storybooks from Indian epics, folktales, and story worlds. Type a title — the engine
+            writes the scenes, paints the art, and records the narration. About three minutes end to end.
+          </p>
         </motion.div>
 
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, margin: '32px 0' }}>
-          {STATS.map((stat, i) => (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-              className="glass-card" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <span style={{ fontSize: '1.8rem' }}>{stat.icon}</span>
-              <div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 1 }}>{stat.label}</div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-gold-light)', marginTop: 2 }}>{stat.value}</div>
-              </div>
-            </motion.div>
-          ))}
+        {/* Generation form — the only real interactive control on this page */}
+        <div style={{ marginTop: 32 }}>
+          <BookGenerator />
         </div>
 
-        {/* Generate a curriculum book */}
-        <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
-          📝 Generate a Curriculum Book
+        {/* Starting points — chips fill the input above instead of routing
+            elsewhere, so the user still sees the generation flow. */}
+        <h2 style={{
+          fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text-dim)',
+          textTransform: 'uppercase', letterSpacing: 2, margin: '32px 0 14px',
+        }}>
+          Starting points
         </h2>
-        <BookGenerator />
-
-        {/* Curriculum Presets */}
-        <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 2, margin: '32px 0 16px' }}>
-          ⚡ Quick-Start Curriculum Presets
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-          {CURRICULUM_PRESETS.map((preset, i) => (
-            <motion.button
-              key={preset.slug}
-              initial={{ opacity: 0, y: 16 }}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {STARTING_POINTS.map((p, i) => (
+            <motion.a
+              key={p.label}
+              href={`#create-story?prefill=${encodeURIComponent(p.example)}`}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + i * 0.06 }}
-              whileHover={{ scale: 1.02, x: 4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => router.push(`/books?generate=${encodeURIComponent(preset.label)}`)}
+              transition={{ delay: 0.04 * i }}
+              onClick={(e) => {
+                // Pre-fill the BookGenerator input by dispatching a custom
+                // event the form listens for. Falls back to the URL hash
+                // so deep-linking still works.
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('katha:prefill-title', { detail: p.example }));
+                document.getElementById('create-story')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
               style={{
-                textAlign: 'left', padding: '16px 20px', borderRadius: 12,
-                background: 'rgba(58,36,24,0.5)', border: '1px solid rgba(212,168,71,0.15)',
-                color: 'var(--color-gold-light)', cursor: 'pointer', fontSize: '0.9rem',
-                display: 'flex', alignItems: 'center', gap: 12,
+                textDecoration: 'none',
+                padding: '7px 14px', borderRadius: 999,
+                background: 'rgba(212,168,71,0.08)',
+                border: '1px solid rgba(212,168,71,0.22)',
+                color: 'var(--color-gold-light)', fontSize: '0.82rem',
+                cursor: 'pointer',
               }}
             >
-              <span style={{ fontSize: '1.2rem' }}>📗</span>
-              {preset.label}
-            </motion.button>
+              {p.label}
+            </motion.a>
           ))}
         </div>
 
-        {/* How it works */}
+        {/* Coming-soon strip — explicit, single-source-of-truth list of
+            what this Studio does NOT yet do. Better than scattered
+            "Coming soon" labels across the rest of the UI. */}
+        <div style={{
+          marginTop: 36, padding: '18px 22px',
+          borderRadius: 14,
+          background: 'rgba(43,27,21,0.45)',
+          border: '1px solid rgba(255,215,0,0.08)',
+        }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>
+            Coming soon
+          </div>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
+            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
+              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Personalized Stories</strong>
+              {' — your child as the hero. In safety review; will ship with parental consent and private-by-default storage.'}
+            </li>
+            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
+              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Classroom mode</strong>
+              {' — grade-band tuned vocabulary plus discussion questions for teachers. The current title input already handles classroom themes (Akbar–Birbal, Jataka Tales, Indian History) — the dedicated form comes later.'}
+            </li>
+            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
+              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Video export</strong>
+              {' — a downloadable MP4 of the cinematic cut. The in-browser cinematic player is already live on every book’s movie page.'}
+            </li>
+          </ul>
+        </div>
+
+        {/* How the engine actually builds your book — replaces the old
+            "Agent Swarm" diagram. Names match the real concurrent
+            phases in lib/openai/bookGeneratorAgent.ts and the README. */}
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
           className="glass-card" style={{ marginTop: 40, padding: 32, borderTop: '2px solid rgba(212,168,71,0.2)' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-gold-light)', marginBottom: 24 }}>
-            🤖 How the Agent Swarm Works
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-gold-light)', marginBottom: 6 }}>
+            How KathaKitaab builds your book
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
-            {[
-              { step: '1', icon: '✍️', title: 'You Type a Title', desc: 'Any book, subject, or chapter name' },
-              { step: '2', icon: '🏗️', title: 'Architect Agent', desc: 'Generates 10-12 scene outline' },
-              { step: '3', icon: '👤', title: 'Character Agent', desc: 'Creates full character bibles' },
-              { step: '4', icon: '🎨', title: 'Narration Agent', desc: 'Writes scene-by-scene narration' },
-              { step: '5', icon: '🎯', title: 'Hotspot Agent', desc: 'Places interactive click zones' },
-              { step: '6', icon: '🧩', title: 'Quiz Agent', desc: 'Generates learning assessments' },
-            ].map(s => (
-              <div key={s.step} style={{ textAlign: 'center' }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(232,131,42,0.15)', border: '1px solid rgba(232,131,42,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', fontSize: '1.2rem' }}>
-                  {s.icon}
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-dim)', marginBottom: 22, lineHeight: 1.55, maxWidth: 600 }}>
+            Four concurrent phases inside one Vercel function. About 25 seconds for the outline, two to three minutes for the art, ten seconds for the narration — running in parallel.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+            {PIPELINE_PHASES.map(p => (
+              <div key={p.num} style={{
+                padding: '14px 16px', borderRadius: 12,
+                background: 'rgba(12,8,6,0.55)',
+                border: '1px solid rgba(255,215,0,0.08)',
+              }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--color-saffron)', marginBottom: 6 }}>
+                  Phase {p.num}
                 </div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-saffron)', marginBottom: 4 }}>Step {s.step}</div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-gold-light)', marginBottom: 4 }}>{s.title}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)' }}>{s.desc}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gold-light)', marginBottom: 4 }}>
+                  {p.title}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-dim)', lineHeight: 1.55 }}>
+                  {p.desc}
+                </div>
               </div>
             ))}
           </div>
+          <p style={{ fontSize: '0.74rem', color: 'var(--color-text-dim)', marginTop: 18, fontStyle: 'italic' }}>
+            These are concurrent functions, not OpenAI Agents SDK instances — the README documents this honestly.
+          </p>
         </motion.div>
       </div>
     </main>

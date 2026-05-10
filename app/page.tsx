@@ -302,7 +302,7 @@ export default function HomePage() {
             from the same scenes — per-scene motion, sentence cues, and a procedural mood bed ducked under
             Sarvam&apos;s emotional narration. The same effects DSL — particles, dust shafts, drifting fog,
             divine glow — and the same per-character puppet states play in the live reader and the
-            exported MP4.
+            in-browser cinematic cut. Downloadable MP4 export is coming soon.
           </p>
           <ul style={{
             display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
@@ -318,7 +318,7 @@ export default function HomePage() {
               ['✨', 'Universal effects DSL — particles, dust shafts, fog, rim light'],
               ['👁', 'Audio-driven mouth pulse + geometric gaze toward the addressee'],
               ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
-              ['📥', 'Full-quality MP4 export from the movie page'],
+              ['📥', 'Downloadable MP4 export — coming soon (browser playback live today)'],
             ].map(([icon, text]) => (
               <li key={text} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
