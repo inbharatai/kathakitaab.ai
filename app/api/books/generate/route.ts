@@ -5,6 +5,7 @@ import { isGeminiConfigured } from '@/lib/openai/client';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit, checkOwnerDailyLimit } from '@/lib/middleware/rateLimit';
 import { moderatePrompt } from '@/lib/safety/moderation';
+import { scrubError } from '@/lib/safety/scrub';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import {
   worldOutlinePrompt,
@@ -150,6 +151,9 @@ export async function POST(request: Request) {
   const moderationText = moderationInputFor(body);
   const moderation = await moderatePrompt(moderationText, { failClosed: isPrivateMode });
   if (moderation.flagged) {
+    // Log only the mode + category labels. The user's text NEVER
+    // appears in this log line — keys/values are pre-scrubbed to
+    // category names ('sexual/minors' etc.) which are safe.
     console.warn('[generate] moderation blocked; mode=%s categories=%s', body.mode || 'world', moderation.categories.join(','));
     return NextResponse.json({ error: moderation.reason }, { status: 400 });
   }
@@ -215,7 +219,7 @@ export async function POST(request: Request) {
     try {
       const book = await generateBook(bookTitle, (step, percent) => {
         void setProgress(slug, step, percent).catch(err => {
-          console.error('[generate] progress write failed:', err);
+          console.error('[generate] progress write failed:', scrubError(err).message);
         });
       }, { outlinePrompt });
 
@@ -235,9 +239,14 @@ export async function POST(request: Request) {
       await saveGeneratedBook(finalBook);
       await setProgress(slug, 'Complete!', 100, true);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Generation failed';
-      console.error('[generate] failed for', slug, ':', msg);
-      await setProgress(slug, 'Error', 0, true, msg);
+      // Scrub the error message before logging so any PII (child
+      // name, prompt, slug) that landed in the thrown value is
+      // redacted. The user-facing setProgress message keeps the
+      // original text — that one only goes back to the cookie owner.
+      const safe = scrubError(err);
+      console.error('[generate] failed for', safe.name, ':', safe.message);
+      const userMsg = err instanceof Error ? err.message : 'Generation failed';
+      await setProgress(slug, 'Error', 0, true, userMsg);
     }
   });
 

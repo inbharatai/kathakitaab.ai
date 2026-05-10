@@ -29,6 +29,7 @@
 // ============================================================
 
 import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai/openaiClient';
+import { scrubError } from '@/lib/safety/scrub';
 
 export interface ModerationResult {
   /** True when the content should be blocked. */
@@ -137,8 +138,10 @@ async function callOpenAIModeration(text: string, opts: ModerateOptions): Promis
     };
   } catch (err) {
     // Network / key / rate-limit failure. Behaviour depends on the
-    // caller's policy — see docstring above.
-    console.warn('[moderation] OpenAI moderation failed:', err instanceof Error ? err.message : err);
+    // caller's policy — see docstring above. We log only the scrubbed
+    // error message because the moderation input may contain a child
+    // name or prompt that an upstream provider echoed in their error.
+    console.warn('[moderation] OpenAI moderation failed:', scrubError(err).message);
     if (failClosed) {
       return failClosedResult();
     }
