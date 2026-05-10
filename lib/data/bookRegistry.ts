@@ -67,6 +67,19 @@ export async function saveGeneratedBook(book: GeneratedBook): Promise<void> {
   if (r) await r.set(bookKey(book.slug), book, { ex: BOOK_TTL_SEC });
 }
 
+/** Owner-driven deletion of an AI-generated book. Removes both the
+ *  in-memory hot copy and the Redis entry. The route handler is
+ *  responsible for verifying that the caller owns the book before
+ *  invoking this — this function does not check ownership itself. */
+export async function deleteBook(slug: string): Promise<void> {
+  memBooks.delete(slug);
+  const r = getRedis();
+  if (r) await r.del(bookKey(slug));
+  // Progress entry shouldn't outlive the book either.
+  memProgress.delete(slug);
+  if (r) await r.del(progressKey(slug));
+}
+
 export async function setProgress(
   slug: string,
   step: string,

@@ -150,11 +150,13 @@ export interface BookMetadata {
   personalized?: {
     /** Child's first name only. Stored so re-generation can keep the
      *  name consistent without the parent re-typing it. Never
-     *  surfaced in slugs or public URLs. */
-    childFirstName: string;
+     *  surfaced in slugs or public URLs. The UI rejects multi-word
+     *  inputs to enforce first-name-only. */
+    childName: string;
     age: number;
     language?: string;
     interests?: string;
+    prompt?: string;
     moral?: string;
     tone?: string;
     /** ISO timestamp the parent ticked the consent box. Audit trail
@@ -199,16 +201,27 @@ export interface GeneratedBook {
   updatedAt?: number;
 }
 
+/** Optional knobs for non-world generation modes. The pipeline is
+ *  identical (outline → details → images → narration); only the
+ *  outline prompt and the synthesised title differ. Each non-world
+ *  mode supplies its own pre-built prompt via `outlinePrompt`. */
+export interface GenerateBookOptions {
+  /** Complete user-content for the outline LLM call. When omitted,
+   *  the world-mode prompt is used (existing behaviour). */
+  outlinePrompt?: string;
+}
+
 // ---- Main Generator (OpenAI primary, Gemini fallback) ----
 export async function generateBook(
   bookTitle: string,
-  onProgress?: (step: string, percent: number) => void
+  onProgress?: (step: string, percent: number) => void,
+  options: GenerateBookOptions = {},
 ): Promise<GeneratedBook> {
   if (isOpenAIConfigured()) {
-    return generateBookOpenAI(bookTitle, onProgress);
+    return generateBookOpenAI(bookTitle, onProgress, options);
   }
   if (isGeminiConfigured()) {
-    return generateBookGemini(bookTitle, onProgress);
+    return generateBookGemini(bookTitle, onProgress, options);
   }
   throw new Error('No AI API configured. Set OPENAI_API_KEY or GEMINI_API_KEY.');
 }
@@ -218,62 +231,24 @@ export async function generateBook(
 // ============================================================
 async function generateBookOpenAI(
   bookTitle: string,
-  onProgress?: (step: string, percent: number) => void
+  onProgress?: (step: string, percent: number) => void,
+  options: GenerateBookOptions = {},
 ): Promise<GeneratedBook> {
   const client = getOpenAIClient();
   const model = getOpenAIModel();
   const slug = bookTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
   // STEP 1: Scene outline + characters
+  // Default to the world-mode prompt (extracted into modePrompts.ts)
+  // when the route hasn't supplied a mode-specific override.
+  const { worldOutlinePrompt } = await import('./modePrompts');
+  const outlineUserContent = options.outlinePrompt ?? worldOutlinePrompt(bookTitle);
   onProgress?.('Planning the story...', 10);
   const outlineRes = await client.chat.completions.create({
     model,
     messages: [
       { role: 'system', content: 'You are an expert educational book architect. Create engaging, accurate, age-appropriate interactive books. Respond with valid JSON.' },
-      { role: 'user', content: `Create a 10-12 scene outline for an interactive educational LiveBook about: "${bookTitle}".
-
-Walk the story chronologically — establish the world, introduce the main characters, raise the central conflict, follow it through rising action and a clear turn, and close on the resolution. Each scene should advance the timeline; don't repeat beats.
-
-Return JSON with this structure:
-{
-  "book_subtitle": "string",
-  "book_description": "string",
-  "source_tradition": "string (e.g., Valmiki Ramayana, Mughal court chronicles, Aesop's Fables, Indian history textbook)",
-  "scenes": [
-    {
-      "scene_id": "snake_case_id",
-      "title": "string",
-      "short_summary": "string (1-2 sentences, factually grounded)",
-      "visual_description": "string (detailed for image generation)",
-      "mood": "serene|dramatic|somber|joyful|sacred|mysterious|tense",
-      "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection"
-    }
-  ],
-  "characters": [
-    {
-      "slug": "lowercase-slug",
-      "name": "string",
-      "role": "string (e.g., emperor, witty courtier, sage, princess, warrior, antagonist)",
-      "short_summary": "string",
-      "traits": ["string"],
-      "speech_tone": "string (e.g., warm and steady, witty and quick, commanding, gentle)",
-      "talk_examples": ["string", "string"],
-      "source_notes": "string",
-      "voice_archetype": "one of: noble-male, young-male, wise-male, commanding-male, bright-male, noble-female, young-female, aged-female, narrator"
-    }
-  ]
-}
-
-voice_archetype guide — pick the closest fit:
-- noble-male: heroic male leads, warrior princes, dignified protagonists
-- young-male: younger brothers, adolescent heroes, lighter male voices
-- wise-male: sages, ministers, elders, scholarly characters
-- commanding-male: antagonists, kings with authority, deep-voiced villains
-- bright-male: witty/playful male characters, tricksters, energetic
-- noble-female: queens, princesses, dignified female leads
-- young-female: girls, younger female characters
-- aged-female: queen mothers, elder female characters
-- narrator: when no character voice fits` },
+      { role: 'user', content: outlineUserContent },
     ],
     response_format: { type: 'json_object' },
     temperature: 0.7,
@@ -530,17 +505,21 @@ const CHARACTER_BIBLE_SCHEMA: Schema = {
 
 async function generateBookGemini(
   bookTitle: string,
-  onProgress?: (step: string, percent: number) => void
+  onProgress?: (step: string, percent: number) => void,
+  // Gemini fallback path takes the same options shape so the route
+  // doesn't have to know which provider answers. The outlinePrompt
+  // override is honoured below.
+  _options: GenerateBookOptions = {},
 ): Promise<GeneratedBook> {
   const ai = getGeminiClient();
   const model = getTextModel();
   const slug = bookTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-  // STEP 1: Scene outline
+  // STEP 1: Scene outline. Honour the same outlinePrompt override
+  // the OpenAI path uses so classroom/personalized modes work in
+  // the Gemini fallback too.
   onProgress?.('Generating scene outline...', 10);
-  const outlineRes = await ai.models.generateContent({
-    model,
-    contents: [{ role: 'user', parts: [{ text: `You are an expert educational book architect.
+  const geminiOutlinePrompt = _options.outlinePrompt ?? `You are an expert educational book architect.
 Create a 10-12 scene outline for an interactive educational LiveBook about: "${bookTitle}".
 Walk the story chronologically — establish, raise conflict, follow rising action, turn, resolve. No repeated beats.
 Rules:
@@ -549,7 +528,10 @@ Rules:
 - visual_description: detailed 2D painting description
 - mood: one of serene, dramatic, somber, joyful, sacred, mysterious, tense (drives TTS prosody + music + effects)
 - theme: one-word noun for the beat (duty, wit, sacrifice, trick, courage, loss, devotion, reflection)
-Generate now for: ${bookTitle}` }] }],
+Generate now for: ${bookTitle}`;
+  const outlineRes = await ai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: geminiOutlinePrompt }] }],
     config: {
       systemInstruction: 'You are an expert educational book architect.',
       temperature: 0.7, maxOutputTokens: 3000,
