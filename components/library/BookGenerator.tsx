@@ -57,16 +57,17 @@ function readResume(): { slug: string; title: string; startedAt: number } | null
 
 export default function BookGenerator({ existingBooks = [] }: Props) {
   const router = useRouter();
-  // Initialize state from sessionStorage so a refresh during generation
-  // re-mounts straight into the polling state — no setState-in-effect
-  // cascade. Lazy initializers run once per mount; on SSR we get null
-  // from typeof check, on the client we hit the resume entry if any.
-  const initialResume = typeof window !== 'undefined' ? readResume() : null;
-  const [bookTitle, setBookTitle] = useState(initialResume?.title ?? '');
-  const [status, setStatus] = useState<Status>(initialResume ? 'polling' : 'idle');
-  const [progress, setProgress] = useState<{ step: string; percent: number }>(
-    initialResume ? { step: 'Reattaching to your story…', percent: 0 } : { step: '', percent: 0 },
-  );
+  // Note on SSR: Next.js pre-renders this component on the server even
+  // though it's marked 'use client'. The useState lazy initializer
+  // captures the SERVER's value (window undefined → null) and the
+  // client reuses that during hydration; the initializer does NOT
+  // re-run client-side. So we initialize plain and pick up any saved
+  // resume entry inside an effect below — a Playwright spec
+  // (studio-truth.spec.ts) pins the resume behaviour so this stays
+  // correct across refactors.
+  const [bookTitle, setBookTitle] = useState('');
+  const [status, setStatus] = useState<Status>('idle');
+  const [progress, setProgress] = useState<{ step: string; percent: number }>({ step: '', percent: 0 });
   const [error, setError] = useState('');
 
   // Tracks whether a generation request is in flight at THIS moment.
@@ -203,16 +204,27 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
     poll();
   }
 
-  // Kick off the resume poll AFTER state is already initialized from
-  // sessionStorage (see the lazy useState initializers above). This
-  // effect only fires the network call — it doesn't touch state — so
-  // it stays clear of the set-state-in-effect lint rule.
+  // Initialize from sessionStorage on the client. Has to happen in an
+  // effect because Next.js pre-renders this component on the server
+  // (where sessionStorage doesn't exist), and the useState lazy
+  // initializer captures the SSR value — the client reuses the
+  // SSR-rendered initial state during hydration. The set-state-in-
+  // effect lint rule fires here because we're seeding state from an
+  // external store; that's the textbook exception the rule allows
+  // ("Subscribe for updates from some external system, calling
+  // setState in a callback function when external state changes").
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!initialResume) return;
+    const saved = readResume();
+    if (!saved) return;
+    setBookTitle(saved.title);
+    setStatus('polling');
+    setProgress({ step: 'Reattaching to your story…', percent: 0 });
     inFlightRef.current = true;
-    pollProgress(initialResume.slug);
+    pollProgress(saved.slug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Best-effort error message extraction. Tries JSON first, falls back
   // to text, falls back to an HTTP-status string. Never throws.

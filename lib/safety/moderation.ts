@@ -6,10 +6,13 @@
 // moderateOutput() for AI-generated narration.
 //
 // Design principles:
-//   • Fail-OPEN by default. If the moderation API is unreachable
-//     or the OpenAI key is missing, we don't block legitimate
-//     creation. The risk is letting through one bad request, not
-//     bricking the whole generator.
+//   • Fail-policy is per-call.
+//      - World mode: fail-OPEN. A moderation outage shouldn't break
+//        legitimate adult-facing creation; the risk is letting through
+//        one bad request, not bricking the whole generator.
+//      - Personalized / Classroom / any child-related mode: fail-CLOSED.
+//        If the safety check can't run, we cannot honestly call the
+//        result safe. Block and surface a retry message to the user.
 //   • Single network call per check. No chaining of multiple
 //     classifiers — that's a separate, paid-tier feature.
 //   • Model-agnostic shape. The caller gets a stable
@@ -20,9 +23,9 @@
 // 'self-harm/instructions', 'harassment', 'harassment/threatening',
 // 'violence', 'violence/graphic', 'illicit', 'illicit/violent'.
 //
-// We treat 'sexual/minors' and 'self-harm/intent' as auto-block
-// even if the overall flag is false — those categories are not
-// negotiable for a children's product.
+// We treat 'sexual/minors', 'self-harm/intent', and
+// 'self-harm/instructions' as auto-block even if the overall flag is
+// false — those categories are not negotiable for a children's product.
 // ============================================================
 
 import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai/openaiClient';
@@ -38,9 +41,20 @@ export interface ModerationResult {
    *  on purpose — we don't echo back the user's prompt. */
   reason: string;
   /** True when moderation could not run (no API key, network error,
-   *  etc). Caller should treat as "passed" to avoid blocking real
-   *  users on transient failures, but may want to log the bypass. */
+   *  etc). For fail-CLOSED callers this is paired with flagged=true.
+   *  For fail-OPEN callers it's paired with flagged=false. Always
+   *  inspect both fields. */
   bypassed: boolean;
+}
+
+export interface ModerateOptions {
+  /** When true, an infrastructure failure (no API key, network error,
+   *  unexpected response shape) returns flagged=true with a retry
+   *  message — i.e. fail-CLOSED. Use for ANY flow that touches a
+   *  child profile, child photo, or classroom mode. Default is
+   *  fail-OPEN, which is appropriate only for adult-facing world
+   *  generation. */
+  failClosed?: boolean;
 }
 
 const ALWAYS_BLOCK = new Set<string>([
@@ -51,10 +65,29 @@ const ALWAYS_BLOCK = new Set<string>([
 
 const PASS: ModerationResult = { flagged: false, categories: [], reason: '', bypassed: false };
 
-async function callOpenAIModeration(text: string): Promise<ModerationResult> {
+/** Returned when fail-CLOSED moderation can't reach the upstream
+ *  service. The user-facing message is the literal copy decided in
+ *  the V0 honesty pass — short, retryable, no detail leakage. */
+function failClosedResult(): ModerationResult {
+  return {
+    flagged: true,
+    categories: ['__safety_check_unavailable'],
+    reason: 'Safety check could not complete. Please try again.',
+    bypassed: true,
+  };
+}
+
+async function callOpenAIModeration(text: string, opts: ModerateOptions): Promise<ModerationResult> {
+  const failClosed = opts.failClosed === true;
+
   if (!isOpenAIConfigured()) {
+    if (failClosed) {
+      console.warn('[moderation] OpenAI not configured — fail-CLOSED block on child-mode request');
+      return failClosedResult();
+    }
     return { ...PASS, bypassed: true };
   }
+
   try {
     const client = getOpenAIClient();
     // omni-moderation-latest accepts up to ~32k tokens of text. We
@@ -66,7 +99,16 @@ async function callOpenAIModeration(text: string): Promise<ModerationResult> {
       input: text.slice(0, 4000),
     });
     const r = res.results?.[0];
-    if (!r) return PASS;
+    // Unexpected response shape. Fail-closed treats this as an
+    // infrastructure failure (we cannot affirm "safe"). Fail-open
+    // treats it as a non-event.
+    if (!r) {
+      if (failClosed) {
+        console.warn('[moderation] empty response from OpenAI — fail-CLOSED block on child-mode request');
+        return failClosedResult();
+      }
+      return PASS;
+    }
 
     // Hard-block list overrides the overall `flagged` boolean for
     // categories that are non-negotiable on a children's product.
@@ -94,25 +136,36 @@ async function callOpenAIModeration(text: string): Promise<ModerationResult> {
       bypassed: false,
     };
   } catch (err) {
-    // Network / key / rate-limit failure: log and bypass. The audit
-    // log captures this so a sustained outage is visible, but a
-    // transient blip never blocks legitimate users.
-    console.warn('[moderation] OpenAI moderation failed, bypassing:', err instanceof Error ? err.message : err);
+    // Network / key / rate-limit failure. Behaviour depends on the
+    // caller's policy — see docstring above.
+    console.warn('[moderation] OpenAI moderation failed:', err instanceof Error ? err.message : err);
+    if (failClosed) {
+      return failClosedResult();
+    }
     return { ...PASS, bypassed: true };
   }
 }
 
 /** Pre-generation check on user-supplied input (story title, prompt,
  *  child name, etc). Returns flagged=true to short-circuit generation
- *  with a 400 response. */
-export async function moderatePrompt(text: string): Promise<ModerationResult> {
+ *  with a 400 response.
+ *
+ *  Pass `{ failClosed: true }` for any flow that involves a child
+ *  profile, classroom mode, or photo upload. Default is fail-OPEN,
+ *  appropriate only for adult-facing world story creation.
+ */
+export async function moderatePrompt(text: string, opts: ModerateOptions = {}): Promise<ModerationResult> {
   if (!text || text.trim().length === 0) return PASS;
-  return callOpenAIModeration(text);
+  return callOpenAIModeration(text, opts);
 }
 
 /** Post-generation check on AI-produced narration / dialogue. Use
- *  before persisting to Redis or surfacing to the client. */
-export async function moderateOutput(text: string): Promise<ModerationResult> {
+ *  before persisting to Redis or surfacing to the client.
+ *
+ *  Pass `{ failClosed: true }` for any output that will be shown to
+ *  a child or that was generated from a child-mode prompt.
+ */
+export async function moderateOutput(text: string, opts: ModerateOptions = {}): Promise<ModerationResult> {
   if (!text || text.trim().length === 0) return PASS;
-  return callOpenAIModeration(text);
+  return callOpenAIModeration(text, opts);
 }

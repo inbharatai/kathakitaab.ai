@@ -56,9 +56,33 @@ interface RenderRequest {
   mode?: 'movie' | 'trailer';
 }
 
+/** Returns true when this process is explicitly authorized to run
+ *  @remotion/renderer. Headless Chromium + FFmpeg are required, and
+ *  Vercel's standard serverless functions don't ship Chromium —
+ *  trying anyway results in a Lambda timeout and an ugly stack trace.
+ *
+ *  Default is HARD-DISABLED. Operators on a Chromium-bearing host
+ *  (Render / Railway / Fly / their own laptop) explicitly opt in via
+ *  KATHA_MP4_EXPORT_ENABLED=1. The CLI path (scripts/render-movie.ts)
+ *  is completely separate — it runs `npx remotion render` directly
+ *  and isn't gated by this route.
+ */
+function canRenderMp4(): boolean {
+  return process.env.KATHA_MP4_EXPORT_ENABLED === '1';
+}
+
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
+
+  // Gate before doing any work. Vercel deploys hit this path 100% of
+  // the time; bailing here saves a rate-limit slot on the next user.
+  if (!canRenderMp4()) {
+    return NextResponse.json({
+      error: 'Downloadable MP4 export is not available in this environment.',
+      detail: 'The cinematic cut plays in your browser at full quality. Hosted MP4 export is coming soon — see PERSONALIZED_STORY_PLAN.md / project roadmap.',
+    }, { status: 501 });
+  }
 
   let body: RenderRequest;
   try {
