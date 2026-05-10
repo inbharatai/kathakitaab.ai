@@ -16,6 +16,15 @@ const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech';
 // this anyway, so widening here doesn't slow that path.
 const SARVAM_TIMEOUT_MS = 40_000;
 
+// Sarvam Bulbul v3 caps each `inputs[i]` element at 500 characters.
+// Anything over that returns 400 "String should have at most 500
+// characters" — which is what was silently bouncing every long
+// narration into the Gemini fallback. We split on sentence boundaries
+// and pass the chunks as separate `inputs` elements; Sarvam stitches
+// them server-side and returns a single combined WAV. Margin of 20
+// covers the ", " join we may insert when packing partials.
+const SARVAM_INPUT_CAP = 480;
+
 export type SarvamLanguage = 'hi' | 'en';
 
 export interface SarvamTTSRequest {
@@ -46,10 +55,11 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
   if (!apiKey) throw new Error('SARVAM_API_KEY not set');
 
   const langCode = req.language === 'hi' ? 'hi-IN' : 'en-IN';
-  // Sarvam single-request length cap is generous (~1500 chars in v3); we
-  // trim defensively to avoid 400s on edge cases.
-  const text = req.text.trim().slice(0, 1500);
+  const text = req.text.trim();
   if (text.length < 5) throw new Error('Sarvam: text too short');
+  // Bulbul v3 enforces ≤500 chars per input element; we chunk on
+  // sentence boundaries and let Sarvam concatenate server-side.
+  const inputs = chunkForSarvam(text);
 
   // v2 accepts pace + pitch + loudness; v3 only accepts pace. Detect
   // the model and gate the prosody fields. Default model is v2 so
@@ -78,7 +88,7 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
           'api-subscription-key': apiKey,
         },
         body: JSON.stringify({
-          inputs: [text],
+          inputs,
           target_language_code: langCode,
           speaker: req.speaker,
           model: getSarvamModel(),
@@ -127,4 +137,59 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
     }
   }
   throw lastErr;
+}
+
+/**
+ * Split a long narration into chunks that satisfy Sarvam's 500-char
+ * per-input cap. Greedy pack on sentence boundaries; falls back to
+ * comma boundaries inside oversized sentences, and finally to a hard
+ * slice if a single clause is somehow still too long. Returns at
+ * least one chunk even when the input is empty (caller already
+ * guards on length, but better safe than 0-input 400).
+ *
+ * Why sentence-aware: Sarvam concatenates the chunks back-to-back in
+ * the returned WAV. Cutting mid-word produces an audible click and
+ * unnatural prosody at every boundary; cutting at sentence ends
+ * lets the model end one phrase cleanly and start the next with
+ * fresh intonation, indistinguishable from a single render.
+ */
+export function chunkForSarvam(text: string, max = SARVAM_INPUT_CAP): string[] {
+  if (text.length <= max) return [text];
+
+  // First pass: split into sentences (Devanagari danda + Latin
+  // punctuation). Keep the trailing punctuation attached so the
+  // prosody stays right.
+  const sentences = text
+    .split(/(?<=[।.!?])\s+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const chunks: string[] = [];
+  let buf = '';
+  const flush = () => { if (buf) { chunks.push(buf); buf = ''; } };
+  const pushSafe = (piece: string) => {
+    // If even this piece is over the cap, recurse on commas, then
+    // hard-slice as a last resort.
+    if (piece.length <= max) {
+      if (!buf) buf = piece;
+      else if (buf.length + 1 + piece.length <= max) buf += ' ' + piece;
+      else { flush(); buf = piece; }
+      return;
+    }
+    flush();
+    const commaParts = piece.split(/(?<=,)\s+/).map(s => s.trim()).filter(Boolean);
+    if (commaParts.length > 1) {
+      for (const p of commaParts) pushSafe(p);
+      return;
+    }
+    // Hard slice — last-resort guard so we never emit a >max chunk.
+    for (let i = 0; i < piece.length; i += max) {
+      chunks.push(piece.slice(i, i + max));
+    }
+  };
+
+  for (const s of sentences) pushSafe(s);
+  flush();
+
+  return chunks.length > 0 ? chunks : [text.slice(0, max)];
 }
