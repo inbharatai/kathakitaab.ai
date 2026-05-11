@@ -51,8 +51,10 @@ async function main() {
         ...book,
         scenes: book.scenes.map((s, i) => {
           if (probes[i].status !== 'ok' && probes[i].status !== 'no-url') {
-            const { narration_audio_url: _drop, ...rest } = s;
-            return rest;
+            // Strip the broken URL so hydrateBookAudio re-renders the scene.
+            const next = { ...s };
+            delete next.narration_audio_url;
+            return next;
           }
           return s;
         }),

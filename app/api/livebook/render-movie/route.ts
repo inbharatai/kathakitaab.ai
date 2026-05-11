@@ -27,7 +27,7 @@
 // cannot run the bundled Chromium (e.g. constrained CI sandboxes).
 // ============================================================
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -111,15 +111,19 @@ export async function POST(request: Request) {
   // appear. Character consistency is supposed to be guaranteed by
   // the anchor-portrait + canon-appearance system at image generation
   // time; this is the belt-and-suspenders check that catches drift
-  // before we spend 5+ minutes rendering an MP4. We log warnings only
-  // — render proceeds regardless. Same OpenAI key, same cost ceiling
-  // (~$0.05 for a 12-scene book).
+  // before / while we render the MP4.
   //
-  // Skipped for cached renders so we don't pay for QA on a manifest
-  // we've already shipped.
-  void runVisionQA(bookSlug, manifest).catch(err => {
-    console.warn('[render-movie] vision QA pass failed:',
-      err instanceof Error ? err.message : err);
+  // Wrapped in after() so the lambda keeps it alive even when the
+  // render path is a cache hit and returns instantly — a plain
+  // `void runVisionQA()` would be killed when the response flushes.
+  // Cost: ~$0.05 for a 12-scene book.
+  after(async () => {
+    try {
+      await runVisionQA(bookSlug, manifest);
+    } catch (err) {
+      console.warn('[render-movie] vision QA pass failed:',
+        err instanceof Error ? err.message : err);
+    }
   });
 
   // Cache key includes mode so movie + trailer don't collide.
@@ -314,42 +318,54 @@ async function runVisionQA(
   const book = await getBook(bookSlug);
   if (!book?.characters?.length) return;
 
-  // Pull each scene's expected characters from the book record.
-  // Manifest only carries hotspots[] of varying types, so we cross-
-  // reference the scene title to find the matching narrative scene.
-  for (const mScene of manifest.scenes) {
-    const sceneId = mScene.sceneId;
-    const bScene = book.scenes.find(s => s.scene_id === sceneId);
-    if (!bScene) continue;
+  // Run per-scene probes in parallel with a small concurrency cap.
+  // Serial 12 × ~5s = 60s — right at Vercel's after() budget on Pro.
+  // Concurrency 4 brings a 12-scene book in under 20s with headroom
+  // for retries / cold starts; small enough not to thunder the
+  // OpenAI rate limit.
+  const QA_CONCURRENCY = 4;
+  const jobs = manifest.scenes
+    .map(mScene => ({ mScene, sceneId: mScene.sceneId }))
+    .filter(j => !!j.sceneId);
 
-    const expectedCharacters = (bScene.hotspots ?? [])
-      .filter(h => h.hotspot_type === 'character')
-      .map(h => h.label);
-    if (expectedCharacters.length === 0) continue;
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(QA_CONCURRENCY, jobs.length) }, async () => {
+    while (cursor < jobs.length) {
+      const i = cursor++;
+      const { mScene, sceneId } = jobs[i];
+      const bScene = book.scenes.find(s => s.scene_id === sceneId);
+      if (!bScene) continue;
 
-    const imageUrl = mScene.imagePath;
-    if (!imageUrl) continue;
+      const expectedCharacters = (bScene.hotspots ?? [])
+        .filter(h => h.hotspot_type === 'character')
+        .map(h => h.label);
+      if (expectedCharacters.length === 0) continue;
 
-    try {
-      const imageRes = await fetch(imageUrl.startsWith('http')
-        ? imageUrl
-        : `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5009'}${imageUrl}`);
-      if (!imageRes.ok) continue;
-      const buf = Buffer.from(await imageRes.arrayBuffer());
-      const dataUri = `data:image/png;base64,${buf.toString('base64')}`;
-      const found = await analyzeImageForTargets(dataUri, expectedCharacters);
-      const missing = found.filter(r => !r.found).map(r => r.label);
-      if (missing.length > 0) {
-        console.warn(
-          `[vision-qa] ${bookSlug}/${sceneId}: expected ` +
-          `${expectedCharacters.join(', ')} — missing: ${missing.join(', ')}`,
-        );
+      const imageUrl = mScene.imagePath;
+      if (!imageUrl) continue;
+
+      try {
+        const imageRes = await fetch(imageUrl.startsWith('http')
+          ? imageUrl
+          : `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5009'}${imageUrl}`);
+        if (!imageRes.ok) continue;
+        const buf = Buffer.from(await imageRes.arrayBuffer());
+        const dataUri = `data:image/png;base64,${buf.toString('base64')}`;
+        const found = await analyzeImageForTargets(dataUri, expectedCharacters);
+        const missing = found.filter(r => !r.found).map(r => r.label);
+        if (missing.length > 0) {
+          console.warn(
+            `[vision-qa] ${bookSlug}/${sceneId}: expected ` +
+            `${expectedCharacters.join(', ')} — missing: ${missing.join(', ')}`,
+          );
+        }
+      } catch (err) {
+        console.warn(`[vision-qa] ${bookSlug}/${sceneId} probe failed:`,
+          err instanceof Error ? err.message : err);
       }
-    } catch (err) {
-      console.warn(`[vision-qa] ${bookSlug}/${sceneId} probe failed:`,
-        err instanceof Error ? err.message : err);
     }
-  }
+  });
+  await Promise.all(workers);
 }
 
 async function getPublicUrlIfExists(
