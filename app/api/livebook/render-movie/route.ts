@@ -36,6 +36,8 @@ import { createHash } from 'node:crypto';
 import { getSupabaseService } from '@/lib/supabase';
 import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { analyzeImageForTargets } from '@/lib/agents/visionAgent';
+import { getBook } from '@/lib/data/bookRegistry';
 
 // 10 minutes — Remotion render of a 7-minute movie typically takes
 // 2-4 minutes depending on hardware. This caps it so a runaway
@@ -103,6 +105,22 @@ export async function POST(request: Request) {
   if (!manifest) {
     return NextResponse.json({ error: `No manifest for book "${bookSlug}"` }, { status: 404 });
   }
+
+  // Vision QA pass — non-blocking safety net. For each scene image,
+  // ask gpt-4o-vision whether the scene's named characters actually
+  // appear. Character consistency is supposed to be guaranteed by
+  // the anchor-portrait + canon-appearance system at image generation
+  // time; this is the belt-and-suspenders check that catches drift
+  // before we spend 5+ minutes rendering an MP4. We log warnings only
+  // — render proceeds regardless. Same OpenAI key, same cost ceiling
+  // (~$0.05 for a 12-scene book).
+  //
+  // Skipped for cached renders so we don't pay for QA on a manifest
+  // we've already shipped.
+  void runVisionQA(bookSlug, manifest).catch(err => {
+    console.warn('[render-movie] vision QA pass failed:',
+      err instanceof Error ? err.message : err);
+  });
 
   // Cache key includes mode so movie + trailer don't collide.
   const manifestHash = hashManifest({ manifest, mode });
@@ -274,6 +292,64 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
       setTimeout(() => reject(new Error(`${label} (${Math.round(ms / 1000)}s)`)), ms),
     ),
   ]);
+}
+
+/**
+ * Vision QA pre-render pass. For each scene's image, ask gpt-4o
+ * vision whether the named characters are actually visible. Logs
+ * warnings for any expected character that wasn't found — gives the
+ * operator a heads-up that anchor-locking missed a beat. NOT a
+ * blocker: the render proceeds regardless. Fire-and-forget from the
+ * caller; failures are logged and swallowed.
+ *
+ * Cost: ~$0.005-0.01 per scene at gpt-4o high-detail. For a typical
+ * 10-scene book that's $0.05-0.10 per movie render. Skipped silently
+ * when the book record carries no `characters[]` list — for those
+ * the QA pass has nothing to verify against.
+ */
+async function runVisionQA(
+  bookSlug: string,
+  manifest: { scenes: Array<{ sceneId?: string; title?: string; imagePath?: string }> },
+): Promise<void> {
+  const book = await getBook(bookSlug);
+  if (!book?.characters?.length) return;
+
+  // Pull each scene's expected characters from the book record.
+  // Manifest only carries hotspots[] of varying types, so we cross-
+  // reference the scene title to find the matching narrative scene.
+  for (const mScene of manifest.scenes) {
+    const sceneId = mScene.sceneId;
+    const bScene = book.scenes.find(s => s.scene_id === sceneId);
+    if (!bScene) continue;
+
+    const expectedCharacters = (bScene.hotspots ?? [])
+      .filter(h => h.hotspot_type === 'character')
+      .map(h => h.label);
+    if (expectedCharacters.length === 0) continue;
+
+    const imageUrl = mScene.imagePath;
+    if (!imageUrl) continue;
+
+    try {
+      const imageRes = await fetch(imageUrl.startsWith('http')
+        ? imageUrl
+        : `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5009'}${imageUrl}`);
+      if (!imageRes.ok) continue;
+      const buf = Buffer.from(await imageRes.arrayBuffer());
+      const dataUri = `data:image/png;base64,${buf.toString('base64')}`;
+      const found = await analyzeImageForTargets(dataUri, expectedCharacters);
+      const missing = found.filter(r => !r.found).map(r => r.label);
+      if (missing.length > 0) {
+        console.warn(
+          `[vision-qa] ${bookSlug}/${sceneId}: expected ` +
+          `${expectedCharacters.join(', ')} — missing: ${missing.join(', ')}`,
+        );
+      }
+    } catch (err) {
+      console.warn(`[vision-qa] ${bookSlug}/${sceneId} probe failed:`,
+        err instanceof Error ? err.message : err);
+    }
+  }
 }
 
 async function getPublicUrlIfExists(

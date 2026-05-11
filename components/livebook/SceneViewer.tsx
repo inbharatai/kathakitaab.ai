@@ -1212,6 +1212,7 @@ export default function SceneViewer({
                     nextSceneId={storyScene.next_scene_id}
                     onNavigate={(id, dir) => loadScene(id, dir ?? 1)}
                     onContinueBeyond={() => generateNewScene('continue')}
+                    bookSlug={bookSlug}
                   />
                 )}
               </div>

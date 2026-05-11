@@ -4,7 +4,6 @@ import type { StylePreset } from '@/lib/types/style';
 import { defaultPresetForBook, STYLE_PRESETS } from '@/lib/types/style';
 import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
-import { isGeminiConfigured } from '@/lib/openai/client';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit, checkOwnerDailyLimit } from '@/lib/middleware/rateLimit';
 import { moderatePrompt } from '@/lib/safety/moderation';
@@ -123,8 +122,8 @@ export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
-  if (!isGeminiConfigured() && !isOpenAIConfigured()) {
-    return NextResponse.json({ error: 'No AI API configured. Set OPENAI_API_KEY or GEMINI_API_KEY.' }, { status: 503 });
+  if (!isOpenAIConfigured()) {
+    return NextResponse.json({ error: 'OPENAI_API_KEY is not set. The book generator is OpenAI-only.' }, { status: 503 });
   }
 
   let body: GenerateBody;

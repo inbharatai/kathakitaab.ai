@@ -13,14 +13,12 @@
 // ============================================================
 
 import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from './openaiClient';
-import { isGeminiConfigured, getGeminiClient, getTextModel } from './client';
 import { generateSceneImage, generateCharacterPortrait } from '@/lib/agents/visualAgent';
 import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
 import { registerRuntimeCanon } from '@/lib/data/canonLookup';
 import type { CanonEntry } from '@/lib/types/canon';
 import { inferArchetypeFromRole, type CharacterArchetype } from '@/lib/audio/characterVoices';
 import type { StylePreset } from '@/lib/types/style';
-import { Type, Schema } from '@google/genai';
 
 // Universal moods + themes that downstream modules already consume.
 // Keep these in sync with lib/video/manifestSchema.ts and the
@@ -304,13 +302,10 @@ export async function generateBook(
   onProgress?: (step: string, percent: number) => void,
   options: GenerateBookOptions = {},
 ): Promise<GeneratedBook> {
-  if (isOpenAIConfigured()) {
-    return generateBookOpenAI(bookTitle, onProgress, options);
+  if (!isOpenAIConfigured()) {
+    throw new Error('OPENAI_API_KEY is not set. The book generator runs on OpenAI only — no Gemini fallback.');
   }
-  if (isGeminiConfigured()) {
-    return generateBookGemini(bookTitle, onProgress, options);
-  }
-  throw new Error('No AI API configured. Set OPENAI_API_KEY or GEMINI_API_KEY.');
+  return generateBookOpenAI(bookTitle, onProgress, options);
 }
 
 // ============================================================
@@ -611,233 +606,3 @@ motion guide:
   };
 }
 
-// ============================================================
-// Gemini-powered generation (fallback)
-// ============================================================
-
-// Gemini schemas (kept for fallback)
-const SCENE_OUTLINE_SCHEMA: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    scenes: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          scene_id: { type: Type.STRING },
-          title: { type: Type.STRING },
-          short_summary: { type: Type.STRING },
-          visual_description: { type: Type.STRING },
-          mood: { type: Type.STRING },
-          theme: { type: Type.STRING },
-        },
-        required: ['scene_id', 'title', 'short_summary', 'visual_description'],
-      },
-    },
-    book_subtitle: { type: Type.STRING },
-    book_description: { type: Type.STRING },
-    source_tradition: { type: Type.STRING },
-  },
-  required: ['scenes', 'book_subtitle', 'book_description', 'source_tradition'],
-};
-
-const SCENE_DETAIL_SCHEMA: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    narration: { type: Type.STRING },
-    learning_points: { type: Type.ARRAY, items: { type: Type.STRING } },
-    source_notes: { type: Type.STRING },
-    motion: { type: Type.STRING },
-    hotspots: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          label: { type: Type.STRING },
-          hotspot_type: { type: Type.STRING },
-          target_type: { type: Type.STRING },
-          target_id: { type: Type.STRING },
-          x: { type: Type.NUMBER },
-          y: { type: Type.NUMBER },
-          width: { type: Type.NUMBER },
-          height: { type: Type.NUMBER },
-          tooltip: { type: Type.STRING },
-        },
-        required: ['label', 'hotspot_type', 'target_type', 'target_id', 'x', 'y', 'width', 'height', 'tooltip'],
-      },
-    },
-    quiz_questions: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          question: { type: Type.STRING },
-          options: { type: Type.ARRAY, items: { type: Type.STRING } },
-          correct_answer: { type: Type.NUMBER },
-          explanation: { type: Type.STRING },
-        },
-        required: ['question', 'options', 'correct_answer', 'explanation'],
-      },
-    },
-  },
-  required: ['narration', 'learning_points', 'source_notes', 'hotspots', 'quiz_questions'],
-};
-
-const CHARACTER_BIBLE_SCHEMA: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    characters: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          slug: { type: Type.STRING },
-          name: { type: Type.STRING },
-          role: { type: Type.STRING },
-          short_summary: { type: Type.STRING },
-          traits: { type: Type.ARRAY, items: { type: Type.STRING } },
-          speech_tone: { type: Type.STRING },
-          talk_examples: { type: Type.ARRAY, items: { type: Type.STRING } },
-          source_notes: { type: Type.STRING },
-          voice_archetype: { type: Type.STRING },
-        },
-        required: ['slug', 'name', 'role', 'short_summary', 'traits', 'speech_tone', 'talk_examples', 'source_notes'],
-      },
-    },
-  },
-  required: ['characters'],
-};
-
-async function generateBookGemini(
-  bookTitle: string,
-  onProgress?: (step: string, percent: number) => void,
-  // Gemini fallback path takes the same options shape so the route
-  // doesn't have to know which provider answers. The outlinePrompt
-  // override is honoured below.
-  _options: GenerateBookOptions = {},
-): Promise<GeneratedBook> {
-  const ai = getGeminiClient();
-  const model = getTextModel();
-  const slug = bookTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
-  // STEP 1: Scene outline. Honour the same outlinePrompt override
-  // the OpenAI path uses so classroom/personalized modes work in
-  // the Gemini fallback too.
-  onProgress?.('Generating scene outline...', 10);
-  const geminiOutlinePrompt = _options.outlinePrompt ?? `You are an expert educational book architect.
-Create a 10-12 scene outline for an interactive educational LiveBook about: "${bookTitle}".
-Walk the story chronologically — establish, raise conflict, follow rising action, turn, resolve. No repeated beats.
-Rules:
-- Base all content on accurate, public-domain source material
-- scene_id: short snake_case identifier
-- visual_description: detailed 2D painting description
-- mood: one of serene, dramatic, somber, joyful, sacred, mysterious, tense (drives TTS prosody + music + effects)
-- theme: one-word noun for the beat (duty, wit, sacrifice, trick, courage, loss, devotion, reflection)
-Generate now for: ${bookTitle}`;
-  const outlineRes = await ai.models.generateContent({
-    model,
-    contents: [{ role: 'user', parts: [{ text: geminiOutlinePrompt }] }],
-    config: {
-      systemInstruction: 'You are an expert educational book architect.',
-      temperature: 0.7, maxOutputTokens: 3000,
-      responseMimeType: 'application/json', responseSchema: SCENE_OUTLINE_SCHEMA,
-    },
-  });
-  const outline = JSON.parse(outlineRes.text!);
-  const sceneOutlines = outline.scenes as Array<{
-    scene_id: string;
-    title: string;
-    short_summary: string;
-    visual_description: string;
-    mood?: SceneMood;
-    theme?: string;
-  }>;
-
-  // STEP 2: Characters
-  onProgress?.('Creating character bibles...', 30);
-  const charRes = await ai.models.generateContent({
-    model,
-    contents: [{ role: 'user', parts: [{ text: `Book: "${bookTitle}"
-Scenes: ${sceneOutlines.map((s) => s.short_summary).join(' | ')}
-Generate complete character profiles for all main characters.
-
-For voice_archetype, pick one of these — match the character's role and demeanour:
-- noble-male: heroic male leads, warrior princes
-- young-male: younger brothers, adolescent heroes
-- wise-male: sages, ministers, scholars, elders
-- commanding-male: antagonists, deep-voiced kings, villains
-- bright-male: witty/playful male characters, tricksters
-- noble-female: queens, princesses, dignified leads
-- young-female: girls, younger female characters
-- aged-female: queen mothers, elder female characters
-- narrator: when no character voice fits` }] }],
-    config: { temperature: 0.6, maxOutputTokens: 3000, responseMimeType: 'application/json', responseSchema: CHARACTER_BIBLE_SCHEMA },
-  });
-  const charactersRaw: GeneratedCharacter[] = JSON.parse(charRes.text!).characters;
-  // Backstop the LLM's archetype with a role-based inference, same as
-  // the OpenAI path. The TTS router reads voice_archetype directly.
-  const characters: GeneratedCharacter[] = charactersRaw.map(c => ({
-    ...c,
-    voice_archetype: c.voice_archetype ?? inferArchetypeFromRole(c.role, c.speech_tone),
-  }));
-
-  // STEP 3: Scene details + images
-  onProgress?.('Writing scenes...', 50);
-  const scenesWithDetails: GeneratedScene[] = [];
-
-  for (let i = 0; i < sceneOutlines.length; i++) {
-    const s = sceneOutlines[i];
-    onProgress?.(`Detailing scene ${i + 1}/${sceneOutlines.length}: ${s.title}`, 50 + (i / sceneOutlines.length) * 40);
-
-    const detailRes = await ai.models.generateContent({
-      model,
-      contents: [{ role: 'user', parts: [{ text: `Book: "${bookTitle}" Scene: "${s.title}" Summary: ${s.short_summary} Visual: ${s.visual_description} Characters: ${characters.map((c: GeneratedCharacter) => c.name).join(', ')}
-Generate narration, learning_points, source_notes, hotspots, quiz_questions.` }] }],
-      config: { temperature: 0.65, maxOutputTokens: 2000, responseMimeType: 'application/json', responseSchema: SCENE_DETAIL_SCHEMA },
-    });
-
-    const detail = JSON.parse(detailRes.text!);
-    const prev = i > 0 ? sceneOutlines[i - 1].scene_id : null;
-    const next = i < sceneOutlines.length - 1 ? sceneOutlines[i + 1].scene_id : null;
-
-    // Try to generate image — with canon context for consistency.
-    let backgroundUrl = '';
-    try {
-      const slug = bookTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      const imageResult = await generateSceneImage(s.visual_description, {
-        bookSlug: slug,
-        characters: characters.map((c: GeneratedCharacter) => c.name),
-        mood: s.mood ?? 'serene',
-      });
-      backgroundUrl = imageResult.imageUrl;
-    } catch { /* fallback to gradient */ }
-
-    const narration = detail.narration as string;
-
-    scenesWithDetails.push({
-      scene_id: s.scene_id, title: s.title, order_index: i + 1,
-      short_summary: s.short_summary, visual_description: s.visual_description,
-      background_asset_url: backgroundUrl,
-      narration, learning_points: detail.learning_points,
-      source_notes: detail.source_notes,
-      hotspots: detail.hotspots.map((h: GeneratedHotspot, idx: number) => ({ ...h, id: `hs-${s.scene_id}-${idx}` })),
-      quiz_questions: detail.quiz_questions.map((q: GeneratedQuiz, idx: number) => ({ ...q, id: `quiz-${s.scene_id}-${idx}`, scene_id: s.scene_id })),
-      previous_scene_id: prev, next_scene_id: next,
-      mood: s.mood, theme: s.theme,
-      motion: detail.motion as SceneMotion | undefined,
-      duration_seconds: estimateNarrationSeconds(narration),
-      // narration_audio_url is hydrated by manifestSynthesizer when
-      // the movie is requested — keeps gen-time fast and reliable.
-    });
-  }
-
-  onProgress?.('Book complete!', 100);
-
-  return {
-    id: `book-${slug}`, slug, title: bookTitle,
-    subtitle: outline.book_subtitle, description: outline.book_description,
-    source_tradition: outline.source_tradition,
-    scenes: scenesWithDetails, characters, generatedAt: Date.now(),
-    stylePreset: _options.stylePreset,
-  };
-}

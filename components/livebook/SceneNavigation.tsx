@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 interface Props {
   previousSceneId: string | null;
@@ -9,9 +10,15 @@ interface Props {
   /** Triggered when there is no next static scene — produces a fresh
    *  generated scene that continues the story past the canon end. */
   onContinueBeyond?: () => void;
+  /** Slug used to construct the movie CTA at the end of the book.
+   *  When omitted, the end-of-book state falls back to the plain
+   *  "Journey Complete" pill (kept for the editor / preview cases
+   *  that have no movie route). */
+  bookSlug?: string;
 }
 
-export default function SceneNavigation({ previousSceneId, nextSceneId, onNavigate, onContinueBeyond }: Props) {
+export default function SceneNavigation({ previousSceneId, nextSceneId, onNavigate, onContinueBeyond, bookSlug }: Props) {
+  const movieHref = bookSlug ? `/books/${bookSlug}/movie` : null;
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 40, paddingBottom: 60 }}>
       {previousSceneId ? (
@@ -55,6 +62,24 @@ export default function SceneNavigation({ previousSceneId, nextSceneId, onNaviga
           >✨</motion.span>
           Continue the Journey
         </motion.button>
+      ) : movieHref ? (
+        // End of book. Surface the cinematic cut as the natural next
+        // action — the reader's intent at this point is "what now?",
+        // and the movie is the canonical answer (no extra render
+        // cost; the Player streams it from the same assets).
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}
+        >
+          <div style={{ fontSize: '0.8rem', color: '#5CDB95', fontWeight: 600 }}>
+            🌟 Journey complete — watch it play out:
+          </div>
+          <Link href={movieHref} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '1.05rem' }}>▶</span>
+            Watch the movie
+          </Link>
+        </motion.div>
       ) : (
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
