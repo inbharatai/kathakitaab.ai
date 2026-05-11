@@ -50,6 +50,25 @@ export interface Scene {
    *  narration. When present, the live reader streams it directly
    *  instead of round-tripping through /api/livebook/tts. */
   narration_audio_url?: string;
+  /** Cinematic multi-beat track. Each beat is a distinct shot the
+   *  movie engine cross-fades through with its own camera motion.
+   *  When present the live reader + movie play this sequence; when
+   *  absent both fall back to background_asset_url as a single beat. */
+  beats?: SceneBeat[];
+}
+
+// ---- Scene beat ----
+export interface SceneBeat {
+  /** Local /-prefixed path or absolute CDN URL — same rules as
+   *  background_asset_url so the renderer's resolver doesn't need
+   *  to know the source. */
+  imageUrl: string;
+  /** What gpt-image-1 painted for this beat (prompt fragment). Kept
+   *  for traceability + future regen runs. */
+  visualDescription: string;
+  /** Per-beat camera motion. Optional — manifestSynthesizer fills in
+   *  a mood-rotated default when omitted. */
+  motion?: 'slow_zoom_in' | 'slow_zoom_out' | 'pan_left' | 'pan_right' | 'divine_glow' | 'battle_push' | 'fade_only';
 }
 
 // ---- Hotspot ----
