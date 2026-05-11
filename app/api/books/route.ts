@@ -43,6 +43,12 @@ export async function GET(request: Request) {
       source_tradition: 'public-domain',
       mode: 'world' as const,
       coverImage: scenes[0]?.background_asset_url || '',
+      // First-beat of the first 4 scenes — drives the Ken-Burns
+      // background cycle on the landing-page cards. Falls back to
+      // background_asset_url for any scene without beats.
+      previewImages: scenes.slice(0, 4)
+        .map(s => s.beats?.[0]?.imageUrl || s.background_asset_url)
+        .filter((u): u is string => Boolean(u)),
     };
   });
 
@@ -61,6 +67,7 @@ export async function GET(request: Request) {
         firstScene?.beats?.[0]?.imageUrl
         || firstScene?.background_asset_url
         || '';
+      const orderedScenes = [...b.scenes].sort((a, b) => a.order_index - b.order_index);
       return {
         id: b.id,
         slug: b.slug,
@@ -73,6 +80,9 @@ export async function GET(request: Request) {
         // mode read as world implicitly.
         mode: b.mode ?? 'world',
         coverImage,
+        previewImages: orderedScenes.slice(0, 4)
+          .map(s => s.beats?.[0]?.imageUrl || s.background_asset_url)
+          .filter((u): u is string => Boolean(u)),
       };
     });
 

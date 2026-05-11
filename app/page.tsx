@@ -3,7 +3,7 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
 import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames } from '@/remotion/BookMovie';
 import { BookTrailer, TRAILER_FPS, computeTrailerFrames } from '@/remotion/BookTrailer';
@@ -12,6 +12,7 @@ import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
 import { AuthNavButton } from '@/components/auth/AuthNavButton';
 import { CinematicHeroBackground } from '@/components/landing/CinematicHeroBackground';
 import { DriftingMotes } from '@/components/landing/DriftingMotes';
+import { BookCardBackground } from '@/components/landing/BookCardBackground';
 
 const LANDING_MANIFEST = getManifestForSlug('ramayana')!;
 const LANDING_MOVIE_FRAMES = computeBookMovieFrames(LANDING_MANIFEST);
@@ -87,6 +88,17 @@ const MAKE_YOUR_OWN_STEPS = [
 
 // Books currently shippable end-to-end. Ramayana is the curated,
 // hand-tuned reference; the rest are real KathaKitaab generations —
+// Hand-picked Ramayana beat images for the curated card's background
+// cycle. Drawn from the local /public/images set so the card animates
+// on first paint without waiting on /api/books. Ordered for emotional
+// pacing — establish, drama, resolution.
+const RAMAYANA_PREVIEW_IMAGES = [
+  '/images/scene_ayodhya_intro_beat_1.png',
+  '/images/scene_mithila_bow_beat_1.png',
+  '/images/scene_battle_lanka_beat_3.png',
+  '/images/scene_return_ayodhya_beat_1.png',
+];
+
 // LLM-written narration, gpt-image-1 art, Sarvam-recorded narration,
 // stored on Supabase. All play in the live reader and the in-browser
 // <Player> on their movie page.
@@ -175,6 +187,35 @@ export default function HomePage() {
   // (~6:46) without leaving the section. Same composition vocabulary,
   // different pacing — built on the same manifest.
   const [moviePreview, setMoviePreview] = useState<'trailer' | 'movie'>('trailer');
+
+  // Per-card moving backgrounds for the featured-books section.
+  // Ramayana ships with known local beat paths so its cards animate
+  // on the first paint without an API round-trip. The other three
+  // generated books load their first-beat images from /api/books
+  // (which now returns previewImages per book). Falls back silently
+  // when the fetch fails or a slug has no images yet.
+  const [bookPreviews, setBookPreviews] = useState<Record<string, string[]>>({
+    ramayana: RAMAYANA_PREVIEW_IMAGES,
+  });
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/books')
+      .then(r => (r.ok ? r.json() : null))
+      .then((body: { books?: Array<{ slug: string; previewImages?: string[] }> } | null) => {
+        if (!body || cancelled) return;
+        const map: Record<string, string[]> = {};
+        for (const b of body.books ?? []) {
+          if (b.previewImages && b.previewImages.length > 0) {
+            map[b.slug] = b.previewImages;
+          }
+        }
+        setBookPreviews(prev => ({ ...prev, ...map }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="lp">
@@ -550,45 +591,62 @@ export default function HomePage() {
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: 22, maxWidth: 1100, margin: '32px auto 0',
         }}>
-          {FEATURED_BOOKS.map((b, i) => (
-            <motion.div
-              key={b.slug}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08, duration: 0.5 }}
-              style={{
-                padding: 24, borderRadius: 16,
-                background: 'rgba(43,27,21,0.55)',
-                border: `1px solid ${b.accent}`,
-                boxShadow: `0 18px 60px rgba(0,0,0,0.45), 0 0 0 1px ${b.accent} inset`,
-                display: 'flex', flexDirection: 'column', gap: 14,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{
-                  fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: 2,
-                  padding: '4px 10px', borderRadius: 999,
-                  background: b.accent.replace('0.5', '0.18'), color: 'var(--color-gold-light)',
-                }}>{b.badge}</span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)' }}>{b.subtitle}</span>
-              </div>
-              <h3 className="font-serif" style={{ fontSize: '1.6rem', color: 'var(--color-gold-light)', margin: 0 }}>
-                {b.title}
-              </h3>
-              <p style={{ color: 'var(--color-text-dim)', margin: 0, fontSize: '0.92rem', lineHeight: 1.6 }}>
-                {b.blurb}
-              </p>
-              <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
-                <Link href={b.href} className="lp-btn-primary" style={{ textDecoration: 'none', flex: '1 1 140px' }}>
-                  <span>Read</span><span className="lp-btn-arrow">{'→'}</span>
-                </Link>
-                <Link href={b.movieHref} className="lp-btn-outline" style={{ textDecoration: 'none', flex: '1 1 140px' }}>
-                  Watch
-                </Link>
-              </div>
-            </motion.div>
-          ))}
+          {FEATURED_BOOKS.map((b, i) => {
+            const previews = bookPreviews[b.slug] ?? [];
+            return (
+              <motion.div
+                key={b.slug}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08, duration: 0.5 }}
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  padding: 24, borderRadius: 16,
+                  background: 'rgba(43,27,21,0.55)',
+                  border: `1px solid ${b.accent}`,
+                  boxShadow: `0 18px 60px rgba(0,0,0,0.45), 0 0 0 1px ${b.accent} inset`,
+                  display: 'flex', flexDirection: 'column', gap: 14,
+                  minHeight: 320,
+                }}
+              >
+                <BookCardBackground images={previews} accent={b.accent} />
+                {/* Lift card content above the moving background. */}
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{
+                      fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: 2,
+                      padding: '4px 10px', borderRadius: 999,
+                      background: b.accent.replace('0.5', '0.28'), color: 'var(--color-gold-light)',
+                      backdropFilter: 'blur(6px)',
+                    }}>{b.badge}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)' }}>{b.subtitle}</span>
+                  </div>
+                  <h3 className="font-serif" style={{
+                    fontSize: '1.6rem', color: 'var(--color-gold-light)', margin: 0,
+                    textShadow: '0 2px 12px rgba(0,0,0,0.85)',
+                  }}>
+                    {b.title}
+                  </h3>
+                  <p style={{
+                    color: 'rgba(232,219,196,0.92)', margin: 0, fontSize: '0.92rem', lineHeight: 1.6,
+                    textShadow: '0 1px 8px rgba(0,0,0,0.85)',
+                  }}>
+                    {b.blurb}
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 'auto', paddingTop: 6, flexWrap: 'wrap' }}>
+                    <Link href={b.href} className="lp-btn-primary" style={{ textDecoration: 'none', flex: '1 1 140px' }}>
+                      <span>Read</span><span className="lp-btn-arrow">{'→'}</span>
+                    </Link>
+                    <Link href={b.movieHref} className="lp-btn-outline" style={{ textDecoration: 'none', flex: '1 1 140px' }}>
+                      Watch
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
