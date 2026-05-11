@@ -1032,22 +1032,25 @@ interface MouthPulseProps {
 }
 
 function MouthPulse({ hotspot, intensity, gazeOffsetX, gazeOffsetY, phaseOffset, isLead }: MouthPulseProps) {
-  // Derive a head region from the bbox aspect ratio so the mouth
-  // always lands on the face regardless of whether the hotspot is
-  // a tight head shot (squarish) or a full-body bbox (tall narrow).
-  // Vision-agent-derived hotspots are full-body; the previous
-  // bbox-relative math placed the mouth at 22% of the WHOLE body,
-  // which is the upper chest — looked like nipples.
+  // Two distinct bbox shapes in the wild:
+  //   - head-only (h ≤ 1.8×w, hand-authored): mouth mid-face, ~55%
+  //     down the bbox, normal size.
+  //   - full-body (h > 1.8×w, vision-agent-derived): the head sits
+  //     in the top ~10-15% of the bbox; the mouth lands at ~8% from
+  //     the top of the bbox, on the face. Size scales down too.
   //
-  // Heads are ~1.4× as tall as wide, so headHeight clipped to
-  // width*1.4 gives the right anchor for both bbox shapes.
+  // Earlier "Math.min(h, w*1.4)" head-height hack put the mouth on
+  // the upper chest for full-body bboxes — the "nipples" complaint.
+  const isFullBody = hotspot.height > hotspot.width * 1.8;
   const widthFrac = isLead ? 0.22 : 0.18;
   const heightFrac = isLead ? 0.10 : 0.085;
-  const headHeight = Math.min(hotspot.height, hotspot.width * 1.4);
-  // Mouth at 65% down the head — natural anatomical position.
-  const mouthY = headHeight * 0.65;
-  const mouthW = hotspot.width * widthFrac;
-  const mouthH = headHeight * heightFrac;
+  const mouthY = isFullBody
+    ? hotspot.height * 0.08
+    : Math.min(hotspot.height, hotspot.width * 1.4) * 0.55;
+  const mouthW = hotspot.width * (isFullBody ? widthFrac * 0.55 : widthFrac);
+  const mouthH = isFullBody
+    ? hotspot.width * 0.06
+    : Math.min(hotspot.height, hotspot.width * 1.4) * heightFrac;
   // Open-amount: 30% baseline (lips parted) → 100% at peak. The
   // sin(phaseOffset) varies which moment of the cycle each chorus
   // mouth is at, so they don't all open at the same instant.

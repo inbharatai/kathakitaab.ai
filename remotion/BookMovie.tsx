@@ -501,21 +501,24 @@ const AmbientFiguresLayer: React.FC<{
         const mouthOpen = isCharacter
           ? (cueActive ? 0.30 + speechMix * 0.70 : 0.22)
           : 0;
-        // Derive a head region from the bbox aspect ratio. Hand-
-        // authored hotspots are roughly head-only (squarish), but
-        // the vision-agent-derived hotspots are full-body bounding
-        // boxes (tall and narrow). Assuming a head is ~1.4× as tall
-        // as wide, headHeight = min(bbox-height, width*1.4) gives a
-        // unified anchor that works for both: it equals the bbox
-        // height for tight head shots and clips to width*1.4 for
-        // full-body figures, so the mouth always lands on the face
-        // and never on the chest.
-        const headHeight = Math.min(h.height, h.width * 1.4);
-        const mouthW = h.width * 0.20;
-        // Mouth is 10% of head height (smaller than the old
-        // bbox-relative 8.5% because heads are smaller than the
-        // full-body bbox they sit in).
-        const mouthH = headHeight * 0.10;
+        // Derive mouth position + size based on bbox shape. There are
+        // two distinct hotspot shapes in the wild:
+        //   - head-only (squarish, h ≤ 1.8 × w): hand-authored boxes.
+        //     Mouth lives mid-face at ~55% down the bbox.
+        //   - full-body (tall, h > 1.8 × w): vision-agent-derived
+        //     boxes covering the whole figure. The head sits in the
+        //     top ~10-15% of the bbox; the mouth at ~8% from the top
+        //     of the bbox puts it on the face. Mouth size also scales
+        //     down because the head occupies a smaller fraction of
+        //     image area.
+        //
+        // Previous attempt used Math.min(h.height, h.width * 1.4) as
+        // a unified head-height — that put the mouth on the upper
+        // chest for full-body bboxes (the "nipples" complaint).
+        const isFullBody = h.height > h.width * 1.8;
+        const mouthYFrac = isFullBody ? 0.08 : 0.55;
+        const mouthW = isFullBody ? h.width * 0.10 : h.width * 0.20;
+        const mouthH = isFullBody ? h.width * 0.06 : Math.min(h.height, h.width * 1.4) * 0.10;
         const ellipseRy = mouthH * mouthOpen;
         const ellipseRx = mouthW * 0.5 * (0.85 + speechMix * 0.15);
 
@@ -542,17 +545,16 @@ const AmbientFiguresLayer: React.FC<{
             />
             {/* Mouth — only on character hotspots. Opens/closes with
                 cueActive so the bg figures appear to be speaking the
-                narration. Subtle horizontal pucker on the closed
-                pose for natural lip shape. Position: 65% down the
-                head (where mouths sit anatomically). Using headHeight
-                (clipped to width*1.4) means full-body bboxes still
-                put the mouth on the face, not the chest. */}
+                narration. Position math lives above this block — for
+                full-body bboxes mouthYFrac is 0.08 (right under the
+                top edge of the bbox, on the face); for head-only
+                bboxes it's 0.55 (mid-face). */}
             {isCharacter && (
               <div
                 style={{
                   position: 'absolute',
                   left: `${h.x + (h.width - mouthW) / 2}%`,
-                  top: `${h.y + headHeight * 0.65}%`,
+                  top: `${h.y + h.height * mouthYFrac}%`,
                   width: `${mouthW}%`,
                   height: `${mouthH}%`,
                   pointerEvents: 'none',

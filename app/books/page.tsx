@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import BookGenerator from '@/components/library/BookGenerator';
+import { AuthNavButton } from '@/components/auth/AuthNavButton';
 
 interface LibraryBook {
   id?: string;
@@ -91,7 +92,10 @@ export default function BooksPage() {
             KathaKitaab.ai
           </span>
         </Link>
-        <span style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem' }}>Story Worlds</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem' }}>Story Worlds</span>
+          <AuthNavButton next="/books#create-story" compact />
+        </div>
       </nav>
 
       <div style={{ maxWidth: 960, margin: '0 auto' }}>

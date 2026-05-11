@@ -9,6 +9,7 @@ import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames } from '@/remotion/Bo
 import { BookTrailer, TRAILER_FPS, computeTrailerFrames } from '@/remotion/BookTrailer';
 import { getManifestForSlug } from '@/lib/video/manifestRegistry';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
+import { AuthNavButton } from '@/components/auth/AuthNavButton';
 
 const LANDING_MANIFEST = getManifestForSlug('ramayana')!;
 const LANDING_MOVIE_FRAMES = computeBookMovieFrames(LANDING_MANIFEST);
@@ -189,6 +190,7 @@ export default function HomePage() {
         <div className="lp-nav-links">
           <Link href="/books" className="lp-nav-link">Stories</Link>
           <Link href="/educator" className="lp-nav-link">Studio</Link>
+          <AuthNavButton next="/books#create-story" compact />
           <Link href="/books/ramayana" className="lp-btn-glow">Enter Ramayana</Link>
         </div>
       </nav>
