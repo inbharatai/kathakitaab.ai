@@ -60,21 +60,29 @@ export const STYLE_PRESETS: Record<StylePreset, StylePresetMeta> = {
 };
 
 /**
- * Slug suffix appended to a world-mode book's slug when the chosen
- * preset isn't the default photoreal cinematic. Lets a user generate
- * the same title (e.g. "Ramayana") in multiple styles without
- * colliding on the dedupe cache. The default preset keeps the bare
- * slug for backwards compatibility with the seed Ramayana and every
- * book generated before the preset shipped.
+ * Slug suffix appended to a world-mode book's slug. Lets a user
+ * generate the same title (e.g. "Ramayana") in multiple styles
+ * without colliding on the dedupe cache.
  *
- *   ramayana                    → photoreal_cinematic (default)
+ *   ramayana                    → photoreal_cinematic (DEFAULT auto-pick)
+ *   ramayana-photoreal          → photoreal_cinematic (explicit pick)
  *   ramayana-watercolour        → storybook_watercolor
  *   ramayana-animation          → cinematic_animation
+ *
+ * `explicit=true` means the caller passed stylePreset in the request
+ * body. In that case photoreal also gets a suffix so the resulting
+ * book never collides with a legacy book at the bare slug (those
+ * pre-date the preset system and may be rendered in a different
+ * style than the explicit photoreal pick promises).
+ *
+ * `explicit=false` (default) preserves the bare slug for photoreal
+ * so legacy callers (CLI scripts, direct API calls without a preset)
+ * keep deduping against existing books.
  */
-export function slugSuffixForPreset(preset: StylePreset | undefined): string {
-  if (!preset || preset === 'photoreal_cinematic') return '';
+export function slugSuffixForPreset(preset: StylePreset | undefined, explicit = false): string {
   if (preset === 'storybook_watercolor') return '-watercolour';
   if (preset === 'cinematic_animation') return '-animation';
+  if (explicit && (!preset || preset === 'photoreal_cinematic')) return '-photoreal';
   return '';
 }
 

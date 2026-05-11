@@ -184,17 +184,23 @@ export async function POST(request: Request) {
 
   if (mode === 'world') {
     bookTitle = (body as WorldBody).title.trim();
-    // Slug includes a preset suffix when the user picked a non-default
-    // style, so generating "Ramayana" as storybook lands at a separate
-    // slug from the curated photoreal Ramayana and doesn't trigger
-    // the world-mode cache hit below. Default preset keeps the bare
-    // slug so existing books (and the seed Ramayana) continue to
-    // resolve unchanged.
+    // Slug includes a preset suffix so the same title in different
+    // styles lands at different slugs and dedupe respects the style
+    // choice.
+    //
+    // Key distinction: when the caller EXPLICITLY picks a preset
+    // (the UI selector always does), photoreal also gets the
+    // "-photoreal" suffix. That prevents a fresh photoreal Generate
+    // from cache-hitting a legacy book at the bare slug (legacy
+    // books pre-date the preset and may be rendered in a different
+    // style than photoreal). Implicit/default callers (CLI scripts
+    // without a preset) still hit the bare slug for backwards compat.
     const baseSlug = bookTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const presetForSlug: StylePreset = body.stylePreset && body.stylePreset in STYLE_PRESETS
-      ? body.stylePreset
+    const userExplicit = !!body.stylePreset && body.stylePreset in STYLE_PRESETS;
+    const presetForSlug: StylePreset = userExplicit
+      ? body.stylePreset!
       : defaultPresetForBook({ title: bookTitle });
-    slug = `${baseSlug}${slugSuffixForPreset(presetForSlug)}`;
+    slug = `${baseSlug}${slugSuffixForPreset(presetForSlug, userExplicit)}`;
     outlinePrompt = worldOutlinePrompt(bookTitle);
     visibility = 'public';
   } else if (mode === 'classroom') {
