@@ -115,6 +115,13 @@ export interface GeneratedScene {
    *  procedural music. The live reader still resolves through
    *  /api/livebook/tts (which hits the same TTS cache). */
   narration_audio_url?: string;
+  /** Which TTS provider actually rendered the audio at narration_audio_url.
+   *  Set by hydrateBookAudio after each successful render. Used by
+   *  the global self-heal: any scene tagged non-Sarvam (or untagged
+   *  with a URL that pre-dates the chunker fix) gets stripped and
+   *  re-rendered on next manifest fetch so the listener never hears
+   *  a Gemini-voiced legacy file when Sarvam is now reliable. */
+  audio_provider?: 'sarvam' | 'gemini';
   /** Multi-beat visual track. When present, the scene cross-fades
    *  through these images during narration instead of holding on a
    *  single still. Backwards-compat: if `beats` is missing, the

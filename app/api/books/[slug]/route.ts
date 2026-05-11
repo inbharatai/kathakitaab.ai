@@ -42,15 +42,15 @@ export async function GET(
       // else = doesn't exist.
       return NextResponse.json({ error: 'Book not found' }, { status: 404 });
     }
-    // Self-heal: if any scene is still missing pre-rendered audio,
-    // kick off hydration in after() so the response stays fast but
-    // the lambda finishes the job. Idempotent (filters to scenes
-    // without URLs) and checkpointed (each rendered scene saves
-    // back to Redis as it lands), so concurrent live-reader visits
-    // don't stomp on each other and a cut-short run resumes on the
-    // next visit. Closes the "user opens reader before manifest
-    // route ever runs" gap.
-    const needsHydration = generated.scenes.some(s => !s.narration_audio_url);
+    // Self-heal: trigger hydration in after() when any scene either
+    // lacks audio OR isn't explicitly tagged as Sarvam-rendered. The
+    // provider tag is the global signal — legacy books rendered
+    // before the Sarvam chunker fix have Gemini WAVs on Supabase and
+    // no provider tag, so they auto-heal the first time the live
+    // reader opens them. After re-render every scene is tagged
+    // 'sarvam' and subsequent visits short-circuit.
+    const needsHydration = generated.scenes.some(s =>
+      !s.narration_audio_url || s.audio_provider !== 'sarvam');
     if (needsHydration) {
       after(async () => {
         try {

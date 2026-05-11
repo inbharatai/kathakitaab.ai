@@ -104,7 +104,14 @@ export async function getManifestForSlugAsync(slug: string): Promise<BookMovieMa
 export async function hydrateAndPersist(slug: string): Promise<void> {
   const generated = await getBook(slug);
   if (!generated) return;
-  const needsAudio = generated.scenes.some(s => !s.narration_audio_url);
+  // Trigger re-render when any scene either lacks audio or isn't
+  // explicitly tagged Sarvam. The provider tag is the global
+  // self-heal signal: any legacy book whose scenes are untagged
+  // (rendered before the chunker fix) or tagged Gemini gets
+  // re-rendered the first time anyone opens its manifest. After
+  // that, all scenes are tagged 'sarvam' and this short-circuits.
+  const needsAudio = generated.scenes.some(s =>
+    !s.narration_audio_url || s.audio_provider !== 'sarvam');
   if (!needsAudio) return;
   const hydrated = await hydrateBookAudio(generated);
   await saveGeneratedBook(hydrated);

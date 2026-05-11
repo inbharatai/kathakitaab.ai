@@ -68,12 +68,21 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
   const slug = book.slug;
   const scenes = book.scenes.slice();
 
-  // Find the indices of scenes that still need audio. We only render
-  // those, so partial hydration (e.g. 2 of 10 scenes failed and a
-  // later request retries them) is cheap.
+  // Find the indices of scenes that need audio. We re-render any
+  // scene that doesn't have a URL OR isn't explicitly tagged as
+  // Sarvam-rendered. Untagged URLs are treated as legacy / unknown
+  // provenance — almost certainly Gemini-voiced because the broken
+  // 500-char Sarvam path drove every long narration into the
+  // fallback before the chunker fix shipped. Hitting them all once
+  // on the first manifest fetch is the global self-heal, no
+  // operator-named slug needed.
+  //
+  // Cost: ~$0.10 one-time per legacy book. Re-renders use upsert on
+  // the same Supabase path, so old URLs keep working through the
+  // transition and tagged scenes don't re-render on subsequent reads.
   const missing = scenes
     .map((s, i) => ({ s, i }))
-    .filter(({ s }) => !s.narration_audio_url);
+    .filter(({ s }) => !s.narration_audio_url || s.audio_provider !== 'sarvam');
   if (missing.length === 0) return book;
 
   // Persist after EACH successful scene so partial progress survives
@@ -100,7 +109,14 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
           mimeType: result.mimeType,
           path: `${slug}/narration/${s.scene_id}.${ext}`,
         });
-        scenes[i] = { ...scenes[i], narration_audio_url: url };
+        scenes[i] = {
+          ...scenes[i],
+          narration_audio_url: url,
+          // Tag the provider so the self-heal in hydrateAndPersist
+          // (and force-reaudio) can detect mis-rendered audio
+          // automatically next time without anyone naming the book.
+          audio_provider: result.provider,
+        };
         succeeded = true;
         // Checkpoint: write the partially-hydrated book back to Redis
         // so this URL is durable even if the next scene blows up.
