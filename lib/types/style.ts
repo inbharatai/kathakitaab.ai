@@ -44,18 +44,18 @@ export const STYLE_PRESETS: Record<StylePreset, StylePresetMeta> = {
   storybook_watercolor: {
     label: 'Storybook watercolour',
     description:
-      'Soft watercolour and ink on cream paper, visible brush textures. Best for fables (Panchatantra, Jataka), Akbar-Birbal, children\'s stories with talking animals.',
+      'Soft watercolour and ink on cream paper, visible brush textures. Best for fables (Panchatantra, Jataka, Aesop), children\'s stories, and any tale with talking animals.',
     promptClause:
-      'Style: watercolour-and-ink storybook illustration on warm cream paper. Visible brush textures, soft saturated wash, hand-drawn linework in dark sepia, characters expressive and slightly stylised, gentle pastoral or interior backgrounds. Charming, warm, story-time register. Think Anant Pai Amar Chitra Katha meets early Studio Ghibli watercolour backgrounds.',
+      'Style: watercolour-and-ink storybook illustration on warm cream paper. Visible brush textures, soft saturated wash, hand-drawn linework in dark sepia, characters expressive and slightly stylised, gentle pastoral or interior backgrounds. Charming, warm, story-time register — Anant Pai Amar Chitra Katha visual register.',
     negative: ['photorealism', 'photographic faces', 'CGI', 'hyperrealistic detail'],
   },
   cinematic_animation: {
     label: 'Cinematic animation',
     description:
-      'Pixar / Studio Ghibli middle ground. Stylised but rendered with depth and warmth. Best for biographies, adventure tales, anything where photoreal feels heavy but storybook feels too soft.',
+      'Pixar-style 3D animation — stylised, volumetric, warm. Best for adventure tales, modern reimaginings, fantasy quests, anything between epic mythology and gentle fable.',
     promptClause:
-      'Style: cinematic 3D animation still — Pixar / Studio Ghibli register, stylised but volumetric, soft global illumination, warm character lighting, painterly textures, expressive character faces, depth of field. Not photoreal, not flat — the warm-rendered animation feel of a high-budget feature.',
-    negative: ['photorealism', 'photographic film grain', 'flat 2D outline cartoon', 'anime cel-shading'],
+      'Style: cinematic 3D animation still in the Pixar / Dreamworks register — stylised volumetric characters with expressive faces, soft global illumination, warm rim-light, painterly textures, shallow depth of field, polished feature-film rendering. Stylised but high-fidelity, the look of a modern 3D animated theatrical release.',
+    negative: ['photorealism', 'photographic film grain', 'flat 2D outline cartoon', 'anime cel-shading', '2D hand-drawn animation'],
   },
 };
 
