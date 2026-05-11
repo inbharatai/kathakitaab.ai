@@ -501,8 +501,21 @@ const AmbientFiguresLayer: React.FC<{
         const mouthOpen = isCharacter
           ? (cueActive ? 0.30 + speechMix * 0.70 : 0.22)
           : 0;
+        // Derive a head region from the bbox aspect ratio. Hand-
+        // authored hotspots are roughly head-only (squarish), but
+        // the vision-agent-derived hotspots are full-body bounding
+        // boxes (tall and narrow). Assuming a head is ~1.4× as tall
+        // as wide, headHeight = min(bbox-height, width*1.4) gives a
+        // unified anchor that works for both: it equals the bbox
+        // height for tight head shots and clips to width*1.4 for
+        // full-body figures, so the mouth always lands on the face
+        // and never on the chest.
+        const headHeight = Math.min(h.height, h.width * 1.4);
         const mouthW = h.width * 0.20;
-        const mouthH = h.height * 0.085;
+        // Mouth is 10% of head height (smaller than the old
+        // bbox-relative 8.5% because heads are smaller than the
+        // full-body bbox they sit in).
+        const mouthH = headHeight * 0.10;
         const ellipseRy = mouthH * mouthOpen;
         const ellipseRx = mouthW * 0.5 * (0.85 + speechMix * 0.15);
 
@@ -530,13 +543,16 @@ const AmbientFiguresLayer: React.FC<{
             {/* Mouth — only on character hotspots. Opens/closes with
                 cueActive so the bg figures appear to be speaking the
                 narration. Subtle horizontal pucker on the closed
-                pose for natural lip shape. */}
+                pose for natural lip shape. Position: 65% down the
+                head (where mouths sit anatomically). Using headHeight
+                (clipped to width*1.4) means full-body bboxes still
+                put the mouth on the face, not the chest. */}
             {isCharacter && (
               <div
                 style={{
                   position: 'absolute',
                   left: `${h.x + (h.width - mouthW) / 2}%`,
-                  top: `${h.y + h.height * 0.22}%`,
+                  top: `${h.y + headHeight * 0.65}%`,
                   width: `${mouthW}%`,
                   height: `${mouthH}%`,
                   pointerEvents: 'none',

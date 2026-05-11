@@ -1032,15 +1032,22 @@ interface MouthPulseProps {
 }
 
 function MouthPulse({ hotspot, intensity, gazeOffsetX, gazeOffsetY, phaseOffset, isLead }: MouthPulseProps) {
-  // Mouth lives at ~26% from the top of a portrait bbox. Sized to
-  // ~22% wide so it stays plausibly mouth-sized regardless of
-  // figure scale. Lead speakers get a 5% width boost so the focal
-  // mouth reads slightly larger than chorus mouths.
+  // Derive a head region from the bbox aspect ratio so the mouth
+  // always lands on the face regardless of whether the hotspot is
+  // a tight head shot (squarish) or a full-body bbox (tall narrow).
+  // Vision-agent-derived hotspots are full-body; the previous
+  // bbox-relative math placed the mouth at 22% of the WHOLE body,
+  // which is the upper chest — looked like nipples.
+  //
+  // Heads are ~1.4× as tall as wide, so headHeight clipped to
+  // width*1.4 gives the right anchor for both bbox shapes.
   const widthFrac = isLead ? 0.22 : 0.18;
   const heightFrac = isLead ? 0.10 : 0.085;
-  const mouthY = hotspot.height * 0.22;
+  const headHeight = Math.min(hotspot.height, hotspot.width * 1.4);
+  // Mouth at 65% down the head — natural anatomical position.
+  const mouthY = headHeight * 0.65;
   const mouthW = hotspot.width * widthFrac;
-  const mouthH = hotspot.height * heightFrac;
+  const mouthH = headHeight * heightFrac;
   // Open-amount: 30% baseline (lips parted) → 100% at peak. The
   // sin(phaseOffset) varies which moment of the cycle each chorus
   // mouth is at, so they don't all open at the same instant.
