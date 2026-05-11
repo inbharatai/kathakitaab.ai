@@ -92,7 +92,34 @@ function SignInForm() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: 24 }}>
+      {/* Top bar — brand link doubles as "back" so a visitor who
+          changed their mind can return to the landing page with one
+          click. Without this the /signin page felt like a dead end. */}
+      <nav style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '4px 4px 24px', maxWidth: 1100, margin: '0 auto', width: '100%',
+      }}>
+        <Link href="/" style={{
+          textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: '1.5rem' }} aria-hidden>←</span>
+          <span style={{
+            fontWeight: 800, fontSize: '1.05rem',
+            background: 'linear-gradient(135deg, #E8832A, #D4A847)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          }}>
+            KathaKitaab.ai
+          </span>
+        </Link>
+        <Link href="/books" style={{
+          color: 'var(--color-text-dim)', textDecoration: 'none', fontSize: '0.86rem',
+        }}>
+          Browse the library →
+        </Link>
+      </nav>
+
+      <div style={{ flex: 1, display: 'grid', placeItems: 'center' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -211,6 +238,7 @@ function SignInForm() {
           </>
         )}
       </motion.div>
+      </div>
     </main>
   );
 }
