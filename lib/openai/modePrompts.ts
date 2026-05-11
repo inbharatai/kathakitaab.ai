@@ -54,10 +54,24 @@ const OUTLINE_JSON_SHAPE = `Return JSON with this structure:
       "scene_id": "snake_case_id",
       "title": "string",
       "short_summary": "string (1-2 sentences, factually grounded)",
-      "visual_description": "string (detailed for image generation — used as the establishing first beat)",
+      "visual_description": "string (detailed for image generation — used as the establishing FIRST beat. Wide-ish framing that sets the location and key characters.)",
       "visual_beats": [
-        "string (a SECOND distinct visual moment within this scene — different camera angle / different action / a new character entering / an object close-up. Detailed enough to paint as its own illustration.)",
-        "string (a THIRD optional visual moment — only include when the scene's narration is long enough to support three pictures. Skip when the scene is short.)"
+        {
+          "description": "string — the SECOND beat. A different shot from beat 1: a character close-up, a key object detail, a reaction face, an action moment, or a reveal. Detailed enough to paint as its own illustration. Specify WHO is in frame and what they're doing.",
+          "camera_action": "one of: slow_zoom_in | slow_zoom_out | pan_left | pan_right | divine_glow | battle_push | fade_only — pick what suits this shot. Close-ups want slow_zoom_in or fade_only; reveals want slow_zoom_out; action wants battle_push; sacred moments want divine_glow."
+        },
+        {
+          "description": "string — the THIRD beat. Another distinct shot. Vary the framing again: if beat 2 was a close-up, beat 3 might be a wide reaction or detail shot.",
+          "camera_action": "same vocabulary as beat 2 — different value when possible so the camera personality varies"
+        },
+        {
+          "description": "string — OPTIONAL fourth beat. Only include when the narration is long enough (>20s) to support 4 painted moments. Skip for short scenes.",
+          "camera_action": "same vocabulary"
+        },
+        {
+          "description": "string — OPTIONAL fifth beat. Only for the longest, most action-heavy scenes. Skip otherwise.",
+          "camera_action": "same vocabulary"
+        }
       ],
       "mood": "serene|dramatic|somber|joyful|sacred|mysterious|tense",
       "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection"

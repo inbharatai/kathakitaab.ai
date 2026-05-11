@@ -44,6 +44,19 @@ export interface BookMovieHotspot {
   height: number;
 }
 
+/** A single visual moment inside a multi-beat scene. The composition
+ *  cross-fades between consecutive beats and applies the beat's own
+ *  motion preset inside its frame window, so each beat is a real
+ *  "shot" with its own camera behaviour rather than a slow ken-burns
+ *  smeared across the whole scene. */
+export interface BookMovieBeat {
+  imagePath: string;
+  /** Per-beat camera preset. Falls back to a rotation through the
+   *  default beat-motion pool when omitted, so legacy beats still
+   *  get distinct camera moves without changing the manifest. */
+  motion?: SceneMotion;
+}
+
 export interface BookMovieScene {
   sceneId: string;
   title: string;
@@ -57,11 +70,18 @@ export interface BookMovieScene {
   subtitles?: SubtitleCue[];
   /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
   imagePath: string;
-  /** Optional multi-beat visual track. When present, the cinematic
-   *  cut cross-fades through these images across the scene's
-   *  durationSeconds; backwards-compatible with single-image scenes
-   *  (older manifests omit this and keep playing imagePath). */
-  beats?: { imagePath: string }[];
+  /** Optional multi-beat visual track. Each beat is a distinct shot
+   *  (wide / close-up / reaction / detail) that gets its own camera
+   *  motion window inside the scene. Beat boundaries snap to the
+   *  scene's subtitle cues so visual changes land on natural sentence
+   *  breaks instead of arbitrary even thirds — the difference between
+   *  "slideshow" pacing and "cinematic" pacing.
+   *
+   *  Backwards-compatible: older manifests omit this and keep
+   *  playing imagePath as a single beat. Beats without an explicit
+   *  `motion` get one assigned deterministically by index so even
+   *  legacy books look more alive on re-render. */
+  beats?: BookMovieBeat[];
   /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
   audioPath: string;
   /** Per Phase 10 spec — alias of audioPath but explicit. Either is fine. */
@@ -258,6 +278,65 @@ function makeMusicVolume(
   };
 }
 
+/**
+ * Compute per-beat frame windows for a multi-beat scene. When subtitle
+ * cues are available, beat boundaries snap to sentence breaks — group
+ * the cues evenly across beats and use each group's first-cue start
+ * and last-cue end as the beat's window. When no cues exist, fall back
+ * to even spacing so older books still cross-fade cleanly.
+ *
+ * Always enforces a minimum beat length so a tiny single-sentence
+ * group doesn't flash by faster than the eye can follow.
+ */
+function computeBeatWindows(
+  beatCount: number,
+  cues: FrameCue[],
+  durationInFrames: number,
+): Array<{ startF: number; endF: number }> {
+  if (beatCount <= 1) return [{ startF: 0, endF: durationInFrames }];
+  const MIN_BEAT_FRAMES = Math.round(1.5 * BOOK_MOVIE_FPS);
+
+  // No cues → even spacing (legacy / no-subtitle scenes).
+  if (cues.length === 0) {
+    const len = Math.max(1, Math.floor(durationInFrames / beatCount));
+    return Array.from({ length: beatCount }, (_, i) => ({
+      startF: i * len,
+      endF: i === beatCount - 1 ? durationInFrames : (i + 1) * len,
+    }));
+  }
+
+  // Group cues evenly across beats. Beat i covers cues
+  // [floor(i·N/M) … floor((i+1)·N/M) - 1].
+  const windows: Array<{ startF: number; endF: number }> = [];
+  for (let i = 0; i < beatCount; i++) {
+    const firstCueIdx = Math.floor((i * cues.length) / beatCount);
+    const lastCueIdx = Math.max(
+      firstCueIdx,
+      Math.floor(((i + 1) * cues.length) / beatCount) - 1,
+    );
+    const startF = i === 0 ? 0 : cues[firstCueIdx].fromFrame;
+    const endF = i === beatCount - 1 ? durationInFrames : cues[lastCueIdx].toFrame;
+    windows.push({ startF, endF });
+  }
+
+  // Clamp: nudge windows so no beat is too short (eye-perception floor).
+  // Single forward pass — drop frames from the next beat into the
+  // current one. Last beat absorbs any leftover.
+  for (let i = 0; i < windows.length - 1; i++) {
+    const len = windows[i].endF - windows[i].startF;
+    if (len < MIN_BEAT_FRAMES) {
+      const need = MIN_BEAT_FRAMES - len;
+      windows[i].endF += need;
+      windows[i + 1].startF += need;
+      // Don't let the next beat go negative.
+      if (windows[i + 1].startF > windows[i + 1].endF) {
+        windows[i + 1].startF = windows[i + 1].endF;
+      }
+    }
+  }
+  return windows;
+}
+
 const SceneShot: React.FC<{
   scene: BookMovieScene;
   index: number;
@@ -266,16 +345,9 @@ const SceneShot: React.FC<{
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
 
-  const motion = scene.motion ?? motionForMood(scene.mood);
-  const params = motionParams(motion);
+  const sceneMotion = scene.motion ?? motionForMood(scene.mood);
+  const params = motionParams(sceneMotion);
   const effects = scene.effects ?? [];
-
-  // Camera math driven by the motion table — same composition for
-  // every scene, but each scene has its own camera personality.
-  const t = frame / Math.max(1, durationInFrames);
-  const scale = interpolate(t, [0, 1], [params.startScale, params.endScale]);
-  const tx = interpolate(t, [0, 1], [0, params.panX]);
-  const ty = interpolate(t, [0, 1], [0, params.panY]);
 
   // Shake comes from the effects DSL when an effect of type 'shake'
   // is present; otherwise fall back to the motion table's shake. The
@@ -322,49 +394,67 @@ const SceneShot: React.FC<{
       ? staticFile(`audio/mood/${scene.mood}.wav`)
       : null;
 
-  // Multi-beat track: when the manifest carries beats[], we paint
-  // each one as its own <Img> and fade between them at evenly-
-  // spaced intervals across the scene's frame range. The camera
-  // transform applies to every beat identically so the cinematic
-  // motion stays consistent. Single-beat scenes fall through to
-  // the legacy single <Img> path.
-  const beatImages = scene.beats && scene.beats.length >= 2
-    ? scene.beats.map(b => b.imagePath)
-    : [scene.imagePath];
-  const beatLengthFrames = Math.max(1, Math.floor(durationInFrames / beatImages.length));
-  const fadeFrames = Math.min(20, Math.floor(beatLengthFrames * 0.18));
+  // Multi-beat track. Each beat is its own cinematic shot with its
+  // own camera motion played inside its window. Beat windows snap
+  // to subtitle cue boundaries (sentence breaks) instead of evenly-
+  // spaced thirds — the difference between "slideshow pacing" and
+  // "narrative pacing". Single-beat (or legacy) scenes fall back to
+  // a one-shot timeline.
+  const beats: BookMovieBeat[] = scene.beats && scene.beats.length >= 2
+    ? scene.beats
+    : [{ imagePath: scene.imagePath, motion: sceneMotion }];
+  const beatWindows = React.useMemo(
+    () => computeBeatWindows(beats.length, cues, durationInFrames),
+    [beats.length, cues, durationInFrames],
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806', opacity }}>
-      {/* ── Background image(s) with motion-driven camera ── */}
+      {/* ── Background image(s) with per-beat motion-driven camera ──
+          Each beat is rendered as its own <Img> with its own camera
+          interpolation inside its frame window. Cross-fades happen at
+          the window boundaries — natural sentence cuts when subtitles
+          are available, evenly spaced otherwise. The shake (from
+          effects DSL or motion table) applies to whichever beat is
+          active, so battle scenes feel kinetic without smearing the
+          shake across every beat. */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-        {beatImages.map((src, i) => {
-          // Cross-fade window for this beat. The first beat starts
-          // visible; subsequent beats fade in over fadeFrames. After
-          // their slot, beats fade out unless this is the last one
-          // (final beat holds to the end of the scene).
-          const startF = i * beatLengthFrames;
-          const endF = i === beatImages.length - 1 ? durationInFrames : (i + 1) * beatLengthFrames;
+        {beats.map((beat, i) => {
+          const win = beatWindows[i] ?? { startF: 0, endF: durationInFrames };
+          const beatLen = Math.max(1, win.endF - win.startF);
+          const fadeFrames = Math.min(18, Math.floor(beatLen * 0.15));
+
+          // Per-beat camera math. The beat's motion preset drives a
+          // local interpolation 0..1 across its window — so a 4-second
+          // close-up zooms, then the next beat starts its OWN pan from
+          // scratch instead of continuing the previous beat's drift.
+          const beatMotion = beat.motion ?? sceneMotion;
+          const bp = motionParams(beatMotion);
+          const localT = (frame - win.startF) / beatLen;
+          const tClamped = Math.max(0, Math.min(1, localT));
+          const beatScale = interpolate(tClamped, [0, 1], [bp.startScale, bp.endScale]);
+          const beatTx = interpolate(tClamped, [0, 1], [0, bp.panX]);
+          const beatTy = interpolate(tClamped, [0, 1], [0, bp.panY]);
+
+          // Cross-fade window. First beat starts visible; subsequent
+          // beats fade in over fadeFrames before their window. Last
+          // beat holds to the end of the scene's frame budget.
           let beatOpacity = 1;
-          if (beatImages.length > 1) {
-            if (frame < startF - fadeFrames) {
-              beatOpacity = 0;
-            } else if (frame < startF) {
-              beatOpacity = (frame - (startF - fadeFrames)) / fadeFrames;
-            } else if (frame < endF) {
-              beatOpacity = 1;
-            } else {
-              beatOpacity = 0;
-            }
+          if (beats.length > 1) {
+            if (frame < win.startF - fadeFrames) beatOpacity = 0;
+            else if (frame < win.startF) beatOpacity = (frame - (win.startF - fadeFrames)) / fadeFrames;
+            else if (frame < win.endF) beatOpacity = 1;
+            else if (i === beats.length - 1) beatOpacity = 1;
+            else beatOpacity = 0;
           }
           return (
             <Img
               key={i}
-              src={resolveAsset(src)}
+              src={resolveAsset(beat.imagePath)}
               style={{
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%', objectFit: 'cover',
-                transform: `scale(${scale}) translate(${tx + shakeX}px, ${ty + shakeY}px)`,
+                transform: `scale(${beatScale}) translate(${beatTx + shakeX}px, ${beatTy + shakeY}px)`,
                 filter: 'brightness(0.86) saturate(1.15)',
                 opacity: beatOpacity,
               }}

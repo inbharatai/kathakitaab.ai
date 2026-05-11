@@ -35,6 +35,27 @@ function estimateNarrationSeconds(narration: string): number {
 }
 
 /**
+ * Validate an LLM-supplied camera_action against the SceneMotion union.
+ * Returns the typed motion or undefined when the value is missing,
+ * malformed, or a token we don't render. Used to safely persist beat
+ * motions without letting a misspelled "slow_zoom" past the boundary.
+ */
+function normaliseSceneMotion(raw: string | undefined): SceneMotion | undefined {
+  if (!raw) return undefined;
+  const v = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const valid: SceneMotion[] = [
+    'slow_zoom_in',
+    'slow_zoom_out',
+    'pan_left',
+    'pan_right',
+    'divine_glow',
+    'battle_push',
+    'fade_only',
+  ];
+  return (valid as string[]).includes(v) ? (v as SceneMotion) : undefined;
+}
+
+/**
  * Project the in-flight characters[] into universal CanonEntry shape
  * so registerRuntimeCanon can index them. Filters out anything that
  * lacks both an appearance and an anchor — those don't help the
@@ -150,6 +171,12 @@ export interface SceneBeat {
    *  visual_description (which describes the whole scene); each
    *  beat describes a specific visual moment. */
   visualDescription: string;
+  /** Per-beat camera motion. Lets the LLM pick a different shot
+   *  type for each beat (e.g. wide establishing → slow zoom on
+   *  character → reveal). Optional — the manifest synthesizer
+   *  fills missing motions deterministically from a rotation pool
+   *  so every beat gets a distinct camera move regardless. */
+  motion?: SceneMotion;
 }
 
 export interface GeneratedCharacter {
@@ -351,10 +378,11 @@ async function generateBookOpenAI(
     short_summary: string;
     visual_description: string;
     /** Additional visual moments inside the scene the camera cuts to
-     *  during narration. Optional: older prompts and Gemini-fallback
-     *  paths might return undefined. We treat absence as "single beat,
-     *  use visual_description only". */
-    visual_beats?: string[];
+     *  during narration. The current prompt asks the LLM for objects
+     *  with `description` + `camera_action`; we ALSO accept the legacy
+     *  string[] shape so older prompts and Gemini-fallback paths still
+     *  produce something usable. Missing entirely → single-beat scene. */
+    visual_beats?: Array<string | { description: string; camera_action?: string }>;
     mood?: SceneMood;
     theme?: string;
   }> = outline.scenes || [];
@@ -478,29 +506,48 @@ motion guide:
   });
 
   // STEP 3: Image generation (parallel, the slow phase).
-  // Each scene now wants 1-3 visual beats: the establishing shot
-  // (visual_description) plus 0-2 follow-up beats (visual_beats[]).
-  // We flatten { sceneIndex, prompt } pairs and paint them with one
-  // shared concurrency cap, so a 7-scene book with 3 beats each runs
-  // 21 image jobs through the same gpt-image-1 throttle without
-  // serializing per scene.
+  // Each scene now wants 1-5 visual beats: the establishing shot
+  // (visual_description, beat 0) plus 0-4 follow-up beats from
+  // visual_beats[]. Each follow-up may carry an optional camera_action
+  // — when present, that motion preset is persisted on the SceneBeat
+  // so BookMovie plays a distinct shot per beat. When the LLM didn't
+  // emit camera_action, manifestSynthesizer fills it from a deterministic
+  // mood-themed rotation pool so every beat still has a unique camera.
   //
   // gpt-image-1 dominates the time budget — ~45s/call median.
   // Cap at 3 in flight: high enough to fit in Vercel's 300s budget,
   // low enough that one stuck call doesn't deadlock the others by
   // holding all the slots.
-  type BeatJob = { sceneIndex: number; beatIndex: number; prompt: string };
+  type BeatJob = {
+    sceneIndex: number;
+    beatIndex: number;
+    prompt: string;
+    /** Camera motion the LLM picked for this beat (if any). */
+    cameraAction?: string;
+  };
   const beatJobs: BeatJob[] = sceneOutlines.flatMap((scene, sIdx) => {
-    const prompts: string[] = [scene.visual_description];
+    const jobs: BeatJob[] = [
+      { sceneIndex: sIdx, beatIndex: 0, prompt: scene.visual_description },
+    ];
     for (const extra of scene.visual_beats ?? []) {
-      // Drop empties / accidental duplicates so the LLM saying
+      // Tolerate both shapes: object {description, camera_action} (new
+      // prompt) or bare string (legacy / fallback). Drop empties so
       // visual_beats=[""] doesn't cost us a $0.04 image of nothing.
-      const trimmed = (extra ?? '').trim();
+      const desc = typeof extra === 'string' ? extra : extra?.description;
+      const cam = typeof extra === 'object' && extra !== null
+        ? extra.camera_action
+        : undefined;
+      const trimmed = (desc ?? '').trim();
       if (trimmed.length > 8 && trimmed !== scene.visual_description.trim()) {
-        prompts.push(trimmed);
+        jobs.push({
+          sceneIndex: sIdx,
+          beatIndex: jobs.length,
+          prompt: trimmed,
+          cameraAction: cam,
+        });
       }
     }
-    return prompts.map((prompt, bIdx) => ({ sceneIndex: sIdx, beatIndex: bIdx, prompt }));
+    return jobs;
   });
 
   onProgress?.('Illustrating scenes...', 42);
@@ -537,6 +584,10 @@ motion guide:
       sceneBeats[r.sceneIndex][r.beatIndex] = {
         imageUrl: r.imageUrl,
         visualDescription: r.prompt,
+        // Only persist motion when the LLM picked one we recognise.
+        // Manifest synthesizer fills missing motions deterministically
+        // from a mood pool, so legacy beats still get distinct cameras.
+        motion: normaliseSceneMotion(r.cameraAction),
       };
     }
   }

@@ -188,12 +188,23 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
           height: h.height,
         }));
 
-      // Multi-beat visual track. When the generator painted 2+ beats
-      // for this scene, forward them so BookMovie cross-fades through
-      // them across `durationSeconds`. Single-beat (or legacy) scenes
-      // omit the field and the renderer holds on `imagePath`.
+      // Multi-beat visual track. Each beat gets its own camera motion
+      // so the scene reads as a sequence of distinct shots, not a
+      // ken-burns smear across one image. We honour the LLM's per-beat
+      // motion when present; otherwise rotate deterministically through
+      // a pool so existing books (which only carry imageUrl) still get
+      // varied camera moves on next render.
+      //
+      // The pool is biased so the first beat lands "establishing"
+      // (slow_zoom_in for most moods, divine_glow for sacred, battle_push
+      // for dramatic) and subsequent beats vary by scene mood so action
+      // scenes feel kinetic and serene scenes feel observant. Universal —
+      // no per-book hacks.
       const beats = s.beats && s.beats.length >= 2
-        ? s.beats.map(b => ({ imagePath: b.imageUrl }))
+        ? s.beats.map((b, i) => ({
+            imagePath: b.imageUrl,
+            motion: (b.motion as SceneMotion | undefined) ?? beatMotionForIndex(i, motion, s.mood),
+          }))
         : undefined;
 
       return {
@@ -222,4 +233,51 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
     scenes,
     generatedAt: new Date(book.generatedAt).toISOString(),
   };
+}
+
+/**
+ * Pick a camera motion for beat `index` of a scene, given the scene's
+ * primary motion and mood. Deterministic and universal — same inputs
+ * always produce the same beat motion, so manifest hashes stay stable
+ * across regenerations and the rotation feels intentional rather than
+ * random.
+ *
+ * Beat 0 always lands on the scene's primary motion (the "establishing
+ * shot"). Subsequent beats walk through a mood-themed pool so each
+ * beat has a distinct camera personality:
+ *   action scenes  → battle_push / pan_right / slow_zoom_in / fade_only
+ *   sacred scenes  → divine_glow / slow_zoom_in / fade_only / pan_left
+ *   somber scenes  → pan_left / slow_zoom_out / fade_only / slow_zoom_in
+ *   default        → slow_zoom_in / pan_right / divine_glow / fade_only
+ * The pools include `fade_only` as a periodic "rest beat" — the eye
+ * needs micro-pauses between active camera moves to avoid motion noise.
+ */
+function beatMotionForIndex(
+  index: number,
+  sceneMotion: SceneMotion,
+  mood: string | null | undefined,
+): SceneMotion {
+  if (index === 0) return sceneMotion;
+  const pool = beatMotionPool(mood);
+  return pool[(index - 1) % pool.length];
+}
+
+function beatMotionPool(mood: string | null | undefined): SceneMotion[] {
+  switch (mood) {
+    case 'dramatic':
+    case 'tense':
+      return ['battle_push', 'pan_right', 'slow_zoom_in', 'fade_only'];
+    case 'sacred':
+      return ['divine_glow', 'slow_zoom_in', 'fade_only', 'pan_left'];
+    case 'somber':
+    case 'melancholy':
+      return ['pan_left', 'slow_zoom_out', 'fade_only', 'slow_zoom_in'];
+    case 'mysterious':
+      return ['pan_right', 'slow_zoom_in', 'divine_glow', 'fade_only'];
+    case 'joyful':
+      return ['slow_zoom_in', 'pan_right', 'divine_glow', 'fade_only'];
+    case 'serene':
+    default:
+      return ['slow_zoom_in', 'pan_right', 'fade_only', 'pan_left'];
+  }
 }
