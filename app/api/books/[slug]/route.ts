@@ -2,7 +2,15 @@ import { NextResponse, after } from 'next/server';
 import { getBook as getSeedBook, getScenesByBookId, getCharactersByBookId } from '@/lib/data/ramayanaSeed';
 import { getBook as getRegistryBook, deleteBook } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { hydrateAndPersist } from '@/lib/video/manifestRegistry';
+
+// Anonymous visitors can only open the curated Ramayana seed. Every
+// other book (AI-generated mythology, fables, personalised stories)
+// requires sign-in. This is the operator directive: free reading is
+// restricted to the canonical reference book; signed-in users get
+// the full library.
+const ANONYMOUS_READABLE_SLUGS = new Set(['ramayana']);
 
 /** Returns true when the requester may read this AI-generated book.
  *  Public books are always readable. Private books are readable only
@@ -29,13 +37,28 @@ export async function GET(
     return NextResponse.json({ book: seedBook, scenes, characters });
   }
 
+  // For any non-seed book, require a signed-in user — anonymous
+  // visitors are restricted to the Ramayana seed only. Returns 401
+  // so the client can redirect to /signin?next=<here>; respond with
+  // the slug so the UI can show a clear "sign in to read X" prompt.
+  const session = await getSessionFromRouteRequest(request);
+  if (!session && !ANONYMOUS_READABLE_SLUGS.has(slug)) {
+    return NextResponse.json({
+      error: 'Sign in to read this book. The Ramayana is open to everyone — every other book requires a free account.',
+      reason: 'auth_required',
+      slug,
+    }, { status: 401 });
+  }
+
   // Fall back to the bookRegistry (AI-generated books). The shape
   // there is GeneratedBook — slightly different from the seed Book
   // type, so we normalise into the same { book, scenes, characters }
   // envelope the reader expects.
   const generated = await getRegistryBook(slug);
   if (generated) {
-    const ownerId = getOwnerIdFromRequest(request);
+    // Use the authed userId when present, else fall back to legacy
+    // anonymous owner cookie. Private books only resolve for owner.
+    const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
     if (!canRead(generated, ownerId)) {
       // 404 instead of 403 so the existence of the slug stays
       // private. A private book to its owner = visible; to anyone

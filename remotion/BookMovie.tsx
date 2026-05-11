@@ -543,13 +543,15 @@ const AmbientFiguresLayer: React.FC<{
                 mixBlendMode: 'screen',
               }}
             />
-            {/* Mouth — only on character hotspots. Opens/closes with
-                cueActive so the bg figures appear to be speaking the
-                narration. Position math lives above this block — for
-                full-body bboxes mouthYFrac is 0.08 (right under the
-                top edge of the bbox, on the face); for head-only
-                bboxes it's 0.55 (mid-face). */}
-            {isCharacter && (
+            {/* Mouth — only on character hotspots, and only when the
+                bbox is head-shaped (not full-body). For full-body
+                bboxes the character is too small in the frame for the
+                mouth puppet to add perceptible value, and the bbox-
+                vs-actual-head misalignment makes the position
+                approximate at best. Skipping the render entirely is
+                cleaner than risking misplacement on the upper chest
+                — that was the "nipples" complaint. */}
+            {isCharacter && !isFullBody && (
               <div
                 style={{
                   position: 'absolute',

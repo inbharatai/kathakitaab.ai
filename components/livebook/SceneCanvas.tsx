@@ -1032,25 +1032,21 @@ interface MouthPulseProps {
 }
 
 function MouthPulse({ hotspot, intensity, gazeOffsetX, gazeOffsetY, phaseOffset, isLead }: MouthPulseProps) {
-  // Two distinct bbox shapes in the wild:
-  //   - head-only (h ≤ 1.8×w, hand-authored): mouth mid-face, ~55%
-  //     down the bbox, normal size.
-  //   - full-body (h > 1.8×w, vision-agent-derived): the head sits
-  //     in the top ~10-15% of the bbox; the mouth lands at ~8% from
-  //     the top of the bbox, on the face. Size scales down too.
-  //
-  // Earlier "Math.min(h, w*1.4)" head-height hack put the mouth on
-  // the upper chest for full-body bboxes — the "nipples" complaint.
+  // Skip the mouth render entirely for full-body cinematic bboxes
+  // (h > 1.8 × w). The bbox doesn't tightly track the actual head
+  // position, so the mouth always lands somewhere approximate — and
+  // for a small-in-frame character the puppet adds no perceptible
+  // value anyway. Better no mouth than a dark oval drifting around
+  // the chest area. Head-only bboxes (hand-authored close-ups) keep
+  // the mouth — the math is reliable there.
   const isFullBody = hotspot.height > hotspot.width * 1.8;
+  if (isFullBody) return null;
   const widthFrac = isLead ? 0.22 : 0.18;
   const heightFrac = isLead ? 0.10 : 0.085;
-  const mouthY = isFullBody
-    ? hotspot.height * 0.08
-    : Math.min(hotspot.height, hotspot.width * 1.4) * 0.55;
-  const mouthW = hotspot.width * (isFullBody ? widthFrac * 0.55 : widthFrac);
-  const mouthH = isFullBody
-    ? hotspot.width * 0.06
-    : Math.min(hotspot.height, hotspot.width * 1.4) * heightFrac;
+  const headHeight = Math.min(hotspot.height, hotspot.width * 1.4);
+  const mouthY = headHeight * 0.55;
+  const mouthW = hotspot.width * widthFrac;
+  const mouthH = headHeight * heightFrac;
   // Open-amount: 30% baseline (lips parted) → 100% at peak. The
   // sin(phaseOffset) varies which moment of the cycle each chorus
   // mouth is at, so they don't all open at the same instant.

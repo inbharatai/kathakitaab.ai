@@ -13,6 +13,12 @@
 
 import { NextResponse } from 'next/server';
 import { getManifestForSlugAsync, hydrateAndPersist } from '@/lib/video/manifestRegistry';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+
+// Anonymous visitors can watch only the curated Ramayana movie. Every
+// other movie / trailer needs sign-in — matches the read access rule
+// in /api/books/[slug].
+const ANONYMOUS_WATCHABLE_SLUGS = new Set(['ramayana']);
 
 // First call for an AI-generated book hydrates all scene narrations
 // via Gemini → Supabase. ~11 scenes × 6s = ~70s. Subsequent calls
@@ -24,6 +30,17 @@ export async function GET(request: Request) {
   const slug = searchParams.get('slug');
   if (!slug) {
     return NextResponse.json({ error: 'slug query parameter is required' }, { status: 400 });
+  }
+
+  // Same anonymous gate as /api/books/[slug]: only Ramayana plays
+  // without sign-in. Every other movie/trailer requires an account.
+  const session = await getSessionFromRouteRequest(request);
+  if (!session && !ANONYMOUS_WATCHABLE_SLUGS.has(slug)) {
+    return NextResponse.json({
+      error: 'Sign in to watch this movie. The Ramayana plays for everyone — every other movie needs a free account.',
+      reason: 'auth_required',
+      slug,
+    }, { status: 401 });
   }
 
   // Hydrate inline. Sarvam-in-after() couldn't deliver reliably; the

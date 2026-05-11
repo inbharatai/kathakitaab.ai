@@ -1,6 +1,6 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import SceneViewer from '@/components/livebook/SceneViewer';
@@ -21,6 +21,7 @@ function toTitleCase(slug: string): string {
 const RAMAYANA_DEFAULT_SCENE = 'ayodhya_intro';
 
 function SceneViewerWrapper({ params }: { params: { slug: string } }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const explicitScene = searchParams.get('scene');
   // Initial value is derived synchronously from the URL + slug so we
@@ -46,6 +47,14 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
     (async () => {
       try {
         const res = await fetch(`/api/books/${params.slug}`);
+        // 401 = anonymous visitor trying to read a non-Ramayana book.
+        // Bounce them to /signin and back to this URL so the
+        // experience is "sign in, the book loads" not "error toast".
+        if (res.status === 401) {
+          const next = `/books/${params.slug}${typeof window !== 'undefined' ? window.location.search : ''}`;
+          router.push(`/signin?next=${encodeURIComponent(next)}`);
+          return;
+        }
         if (!res.ok) {
           if (!cancelled) setError(`Book "${params.slug}" hasn't been generated yet — go to the library to create it.`);
           return;
@@ -63,7 +72,7 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [params.slug, initialSceneId]);
+  }, [params.slug, initialSceneId, router]);
 
   if (error) {
     return (
