@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAllBooks as getSeedBooks } from '@/lib/data/ramayanaSeed';
+import { getScenesByBookId } from '@/lib/data/scenes';
 import { getAllBooks as getRegistryBooks } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 
@@ -27,6 +28,24 @@ export async function GET(request: Request) {
   const generated = await getRegistryBooks();
   const ownerId = getOwnerIdFromRequest(request);
 
+  // Cover for seed books = first scene's background image. Without
+  // this, the library shows a placeholder gradient for Ramayana while
+  // every AI book gets a real cover from its first scene — the
+  // mismatch is jarring.
+  const seedAsBook = seed.map(b => {
+    const scenes = getScenesByBookId(b.id).sort((a, b) => a.order_index - b.order_index);
+    return {
+      id: b.id,
+      slug: b.slug,
+      title: b.title,
+      subtitle: b.subtitle,
+      description: b.description,
+      source_tradition: 'public-domain',
+      mode: 'world' as const,
+      coverImage: scenes[0]?.background_asset_url || '',
+    };
+  });
+
   const generatedAsBook = generated
     .filter(b => {
       // Public AI-generated books: always visible.
@@ -34,18 +53,28 @@ export async function GET(request: Request) {
       // Private books: only the owner sees them in the listing.
       return ownerId !== null && b.ownerId === ownerId;
     })
-    .map(b => ({
-      id: b.id,
-      slug: b.slug,
-      title: b.title,
-      subtitle: b.subtitle,
-      description: b.description,
-      source_tradition: b.source_tradition,
-      // Surface the mode so future UI can group "your private stories"
-      // separately from the public library. Older books without a
-      // mode read as world implicitly.
-      mode: b.mode ?? 'world',
-    }));
+    .map(b => {
+      // Prefer the first scene's first beat image (multi-beat books)
+      // and fall back to background_asset_url (single-beat / legacy).
+      const firstScene = [...b.scenes].sort((a, b) => a.order_index - b.order_index)[0];
+      const coverImage =
+        firstScene?.beats?.[0]?.imageUrl
+        || firstScene?.background_asset_url
+        || '';
+      return {
+        id: b.id,
+        slug: b.slug,
+        title: b.title,
+        subtitle: b.subtitle,
+        description: b.description,
+        source_tradition: b.source_tradition,
+        // Surface the mode so future UI can group "your private stories"
+        // separately from the public library. Older books without a
+        // mode read as world implicitly.
+        mode: b.mode ?? 'world',
+        coverImage,
+      };
+    });
 
-  return NextResponse.json({ books: [...seed, ...generatedAsBook] });
+  return NextResponse.json({ books: [...seedAsBook, ...generatedAsBook] });
 }

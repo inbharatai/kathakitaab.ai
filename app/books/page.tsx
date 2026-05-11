@@ -12,16 +12,20 @@ interface LibraryBook {
   subtitle?: string;
   description?: string;
   mode?: 'world' | 'classroom' | 'personalized_text' | 'personalized_photo';
+  /** First scene's image — used as the card cover. When missing the
+   *  card falls back to the gradient + emoji placeholder. */
+  coverImage?: string;
 }
 
 // Pulled when /api/books returns nothing (cold lambda before any
 // other route has warmed Redis). Ramayana is the curated seed so
-// the page is never empty.
+// the page is never empty. coverImage matches the static manifest.
 const FALLBACK: LibraryBook[] = [{
   slug: 'ramayana',
   title: 'Ramayana',
   subtitle: 'A classic epic retold as a living storybook',
   description: 'Read the Ramayana as a clean visual story, or step inside and shape the next turn through simple choices.',
+  coverImage: '/images/scene_ayodhya_intro.png',
 }];
 
 // Small visual identity per book type. Used to pick a cover gradient
@@ -130,20 +134,38 @@ export default function BooksPage() {
                 style={{ padding: 0, overflow: 'hidden', background: 'rgba(43,27,21,0.45)' }}
               >
                 <div style={{
-                  height: 168,
-                  background: 'linear-gradient(135deg, #2A1810 0%, #6A3916 48%, #D4A847 100%)',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  height: 220,
+                  // Real scene image when available, gradient placeholder
+                  // when not. A darkened bottom gradient overlays the
+                  // image so the title and subtitle stay legible
+                  // regardless of how bright the underlying scene is.
+                  backgroundImage: book.coverImage
+                    ? `linear-gradient(180deg, rgba(12,8,6,0) 30%, rgba(12,8,6,0.55) 70%, rgba(12,8,6,0.92) 100%), url("${book.coverImage}")`
+                    : 'linear-gradient(135deg, #2A1810 0%, #6A3916 48%, #D4A847 100%)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'flex-start', justifyContent: 'flex-end',
+                  padding: 18,
                   position: 'relative', overflow: 'hidden',
                 }}>
-                  {[...Array(6)].map((_, j) => (
-                    <div key={j} style={{
-                      position: 'absolute', right: 20 + j * 3, top: 0, bottom: 0,
-                      width: 1, background: 'rgba(255,255,255,0.06)',
-                    }} />
-                  ))}
-                  <span style={{ fontSize: '3.5rem', marginBottom: 8, filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.5))' }}>{icon}</span>
-                  <span className="font-serif" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-gold-light)' }}>{book.title}</span>
-                  <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>{subtitle}</span>
+                  {!book.coverImage && (
+                    <span style={{
+                      position: 'absolute', top: '50%', left: '50%',
+                      transform: 'translate(-50%, -120%)',
+                      fontSize: '3.5rem',
+                      filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.5))',
+                    }}>{icon}</span>
+                  )}
+                  <span className="font-serif" style={{
+                    fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-gold-light)',
+                    textShadow: '0 2px 14px rgba(0,0,0,0.7)',
+                  }}>{book.title}</span>
+                  <span style={{
+                    fontSize: '0.76rem', color: 'rgba(255,255,255,0.86)', marginTop: 4,
+                    textShadow: '0 1px 8px rgba(0,0,0,0.6)',
+                  }}>{subtitle}</span>
                 </div>
 
                 <div style={{ padding: 20 }}>
