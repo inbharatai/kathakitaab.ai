@@ -98,7 +98,7 @@ export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
 
   const providers = buildProviderChain();
   if (providers.length === 0) {
-    throw new Error('No TTS provider configured. Set SARVAM_API_KEY or GEMINI_API_KEY.');
+    throw new Error('No TTS provider configured. Set SARVAM_API_KEY. (Gemini fallback is disabled in production — KATHA_ENABLE_GEMINI=1 plus GEMINI_API_KEY to re-enable for an experiment.)');
   }
 
   let lastError: unknown;

@@ -19,5 +19,13 @@ export function getTextModel(): string {
 }
 
 export function isGeminiConfigured(): boolean {
+  // Production directive: OpenAI + Sarvam only. Every agent that
+  // checks isGeminiConfigured() reads this as "Gemini is off",
+  // turning the per-agent Gemini fallback branches into dead code
+  // in one place without rewriting 13 files. To re-enable for an
+  // experiment or local dev, set KATHA_ENABLE_GEMINI=1 alongside
+  // GEMINI_API_KEY — without that flag, even a valid key returns
+  // false here.
+  if (process.env.KATHA_ENABLE_GEMINI !== '1') return false;
   return !!process.env.GEMINI_API_KEY;
 }

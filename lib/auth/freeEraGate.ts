@@ -1,0 +1,180 @@
+// ============================================================
+// lib/auth/freeEraGate.ts
+//
+// First-100-users gate + per-user generation quota.
+//
+// Rules:
+//   1. To generate ANY book the caller must be a signed-in user.
+//   2. To be admitted into the free era, the user's id must already
+//      carry is_free_era=true on the public.users row, OR they must
+//      win one of the first 100 admission slots. Admission is atomic
+//      via a Redis counter — race-safe under concurrent first-time
+//      generators.
+//   3. Each free-era user gets 1 lifetime book generation. After that
+//      they're capped until paid tier launches.
+//
+// Returns one of:
+//   - { allowed: true, seq, isFreshAdmission }      — go generate
+//   - { allowed: false, reason: 'auth_required' }   — show signin
+//   - { allowed: false, reason: 'waitlist' }        — cap reached
+//   - { allowed: false, reason: 'quota_exhausted' } — used their 1 gen
+// ============================================================
+
+import { getRedis } from '@/lib/redis';
+import { getSupabaseService } from '@/lib/supabase';
+import type { AuthSession } from './session';
+
+const FREE_ERA_CAP = 100;
+const FREE_ERA_QUOTA_PER_USER = 1;
+const FREE_ERA_COUNTER_KEY = 'kk:free_era:admitted';
+
+export type GateDecision =
+  | { allowed: true; seq: number; isFreshAdmission: boolean }
+  | { allowed: false; reason: 'auth_required'; message: string }
+  | { allowed: false; reason: 'waitlist'; message: string }
+  | { allowed: false; reason: 'quota_exhausted'; message: string }
+  | { allowed: false; reason: 'misconfigured'; message: string };
+
+/**
+ * Check + reserve a generation slot for the given session. Idempotent
+ * in the sense that a user already inside the free era just gets a
+ * cheap "you're in" decision; the side-effect (counter increment + DB
+ * flag flip) only happens on FIRST admission.
+ *
+ * The seat reservation does NOT bump the lifetime counter — that's
+ * done by a follow-up call to bookGenerationConsumed() once the
+ * request actually starts a generation. That separation means a
+ * pre-flight UI check ("can I press the button?") doesn't burn the
+ * user's one allowance.
+ */
+export async function checkFreeEraGate(session: AuthSession | null): Promise<GateDecision> {
+  if (!session) {
+    return {
+      allowed: false,
+      reason: 'auth_required',
+      message: 'Sign in to make a story. Reading existing books stays free for everyone.',
+    };
+  }
+
+  const supabase = getSupabaseService();
+  if (!supabase) {
+    return {
+      allowed: false,
+      reason: 'misconfigured',
+      message: 'Supabase service role is not configured. Generation is paused.',
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, is_free_era, free_era_seq, is_pro, books_generated_lifetime')
+    .eq('id', session.userId)
+    .maybeSingle();
+  if (error) {
+    return { allowed: false, reason: 'misconfigured', message: `users lookup failed: ${error.message}` };
+  }
+  if (!data) {
+    // Should never happen — the auth trigger creates the row. But if
+    // it does, surface clearly rather than silently letting them in.
+    return { allowed: false, reason: 'misconfigured', message: 'User record missing. Please sign out and in again.' };
+  }
+
+  const used = data.books_generated_lifetime ?? 0;
+
+  // Already admitted (free or paid) — just check quota.
+  if (data.is_pro) return { allowed: true, seq: data.free_era_seq ?? -1, isFreshAdmission: false };
+  if (data.is_free_era) {
+    if (used >= FREE_ERA_QUOTA_PER_USER) {
+      return {
+        allowed: false,
+        reason: 'quota_exhausted',
+        message: 'You\'ve used your free-era generation. Paid tier launches soon — your existing books stay available.',
+      };
+    }
+    return { allowed: true, seq: data.free_era_seq ?? -1, isFreshAdmission: false };
+  }
+
+  // Not yet admitted. Atomically claim a slot if we're under the cap.
+  const seq = await reserveFreeEraSeat();
+  if (seq === null || seq > FREE_ERA_CAP) {
+    return {
+      allowed: false,
+      reason: 'waitlist',
+      message: 'The first-100 free era is full. Join the waitlist and we\'ll email when paid generation opens.',
+    };
+  }
+
+  // Persist admission. Survives the user's session.
+  const { error: updateErr } = await supabase
+    .from('users')
+    .update({ is_free_era: true, free_era_seq: seq, updated_at: new Date().toISOString() })
+    .eq('id', session.userId);
+  if (updateErr) {
+    // Counter is gone (incremented). Release isn't worth the
+    // complexity — at worst the cap admits 99 users instead of 100.
+    return {
+      allowed: false,
+      reason: 'misconfigured',
+      message: `Could not record admission: ${updateErr.message}. Please retry.`,
+    };
+  }
+
+  return { allowed: true, seq, isFreshAdmission: true };
+}
+
+/**
+ * Read-only counter peek for the sign-in page banner ("Spot 47/100").
+ * Never increments. Safe to call from anywhere.
+ */
+export async function peekFreeEraAdmitted(): Promise<{ admitted: number; cap: number }> {
+  const r = getRedis();
+  if (!r) return { admitted: 0, cap: FREE_ERA_CAP };
+  const raw = await r.get<number>(FREE_ERA_COUNTER_KEY);
+  return { admitted: Number(raw ?? 0), cap: FREE_ERA_CAP };
+}
+
+/**
+ * Bumps the per-user lifetime book counter after a generation actually
+ * starts. Call this AFTER setProgress() returns success — that way a
+ * user whose generation is rejected by validation doesn't burn their
+ * one free shot.
+ */
+export async function bookGenerationConsumed(userId: string): Promise<void> {
+  const supabase = getSupabaseService();
+  if (!supabase) return;
+  // Prefer the SQL function (atomic, race-safe). If it isn't deployed
+  // yet — pre-migration boot — fall back to a read-modify-write, which
+  // is good enough for a free-era counter that tolerates ±1 drift.
+  const { error } = await supabase.rpc('increment_books_generated', { user_id: userId });
+  if (!error) return;
+  const { data } = await supabase
+    .from('users')
+    .select('books_generated_lifetime')
+    .eq('id', userId)
+    .maybeSingle();
+  const cur = (data?.books_generated_lifetime as number | undefined) ?? 0;
+  await supabase
+    .from('users')
+    .update({ books_generated_lifetime: cur + 1, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+}
+
+/**
+ * Add an email to the waitlist (idempotent — unique constraint on email).
+ * Used from the sign-up form when the cap is reached.
+ */
+export async function joinWaitlist(email: string, source = 'signin'): Promise<void> {
+  const supabase = getSupabaseService();
+  if (!supabase) return;
+  await supabase.from('waitlist').upsert({ email, source }, { onConflict: 'email' });
+}
+
+// ── internal ──
+
+async function reserveFreeEraSeat(): Promise<number | null> {
+  const r = getRedis();
+  if (!r) return null;
+  // Atomic INCR — Upstash supports it. Each caller gets a unique seq.
+  const seq = await r.incr(FREE_ERA_COUNTER_KEY);
+  return typeof seq === 'number' ? seq : null;
+}

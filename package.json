@@ -30,6 +30,7 @@
     "@remotion/cli": "4.0.457",
     "@remotion/player": "4.0.457",
     "@remotion/renderer": "4.0.457",
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",

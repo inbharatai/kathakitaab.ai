@@ -9,6 +9,10 @@ import { checkRateLimit, checkOwnerDailyLimit } from '@/lib/middleware/rateLimit
 import { moderatePrompt } from '@/lib/safety/moderation';
 import { scrubError } from '@/lib/safety/scrub';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { checkFreeEraGate, bookGenerationConsumed } from '@/lib/auth/freeEraGate';
+import { captureException } from '@/lib/observability/sentry';
+import { capture as trackEvent } from '@/lib/observability/analytics';
 import {
   worldOutlinePrompt,
   classroomOutlinePrompt,
@@ -139,10 +143,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  // Owner cookie. World mode permits anonymous; private modes
-  // require a valid cookie (the middleware always sets one — if
-  // it's missing here something is upstream-broken).
-  const ownerId = getOwnerIdFromRequest(request);
+  // Auth gate: generation requires a signed-in user during the
+  // free-era beta. Anonymous reading of existing books stays open.
+  // The gate also enforces the first-100-users cap and the per-user
+  // 1-book lifetime quota.
+  const session = await getSessionFromRouteRequest(request);
+  const gate = await checkFreeEraGate(session);
+  if (!gate.allowed) {
+    const status = gate.reason === 'auth_required' ? 401
+      : gate.reason === 'waitlist' ? 403
+      : gate.reason === 'quota_exhausted' ? 402
+      : 503;
+    return NextResponse.json({ error: gate.message, reason: gate.reason }, { status });
+  }
+
+  // Owner cookie still used for read-time visibility checks on private
+  // books. Authenticated users carry both the cookie AND a session;
+  // newly-generated books are owned by the userId (preferred) but the
+  // cookie ownerId is kept as a fallback for legacy reads.
+  const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
   const isPrivateMode = body.mode === 'classroom' || body.mode === 'personalized_text';
   if (isPrivateMode && !ownerId) {
     return NextResponse.json({
@@ -247,6 +266,16 @@ export async function POST(request: Request) {
   // before generateBook emits its first onProgress callback.
   await setProgress(slug, 'Starting...', 0);
 
+  // Burn the user's free-era quota now that we're actually starting
+  // a generation. Done AFTER setProgress so a 5xx from setProgress
+  // doesn't burn the slot for nothing. Fire-and-forget — counter
+  // bump shouldn't block the user's response.
+  if (session?.userId) {
+    void bookGenerationConsumed(session.userId).catch(err => {
+      console.warn('[generate] failed to bump quota counter:', err instanceof Error ? err.message : err);
+    });
+  }
+
   after(async () => {
     try {
       const stylePreset = resolveStylePreset(body, bookTitle);
@@ -292,6 +321,11 @@ export async function POST(request: Request) {
       }
 
       await setProgress(slug, 'Complete!', 100, true);
+      void trackEvent({
+        event: 'book_generated',
+        distinctId: session?.userId ?? ownerId ?? slug,
+        properties: { slug, mode, stylePreset, sceneCount: book.scenes?.length ?? 0 },
+      });
     } catch (err: unknown) {
       // Scrub the error message before logging so any PII (child
       // name, prompt, slug) that landed in the thrown value is
@@ -301,6 +335,17 @@ export async function POST(request: Request) {
       console.error('[generate] failed for', safe.name, ':', safe.message);
       const userMsg = err instanceof Error ? err.message : 'Generation failed';
       await setProgress(slug, 'Error', 0, true, userMsg);
+      // Surface the unscrubbed error to Sentry — operator-only
+      // destination, fine to include raw context tags.
+      captureException(err, {
+        tags: { route: 'books_generate', mode: mode || 'world' },
+        extra: { slug },
+      });
+      void trackEvent({
+        event: 'book_generation_failed',
+        distinctId: session?.userId ?? ownerId ?? slug,
+        properties: { slug, mode, stylePreset: body.stylePreset, error: safe.message },
+      });
     }
   });
 

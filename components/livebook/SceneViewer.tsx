@@ -28,6 +28,7 @@ import NarrationPanel from './NarrationPanel';
 import QuizPanel from './QuizPanel';
 import SceneNavigation from './SceneNavigation';
 import SourceBadge from './SourceBadge';
+import { ReportButton } from './ReportButton';
 import FlipbookPage, { FlipbookEntry, FlipbookPageData } from './FlipbookPage';
 import StoryHeader from './StoryHeader';
 
@@ -1199,6 +1200,11 @@ export default function SceneViewer({
                         </div>
                       ) : null}
                       {showSourceNote && mode !== 'quiz' ? <SourceBadge note={rawScene?.source_notes ?? storyScene.source_notes} /> : null}
+                      {showSourceNote && (
+                        <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                          <ReportButton bookSlug={bookSlug} sceneId={storyScene.scene_id} />
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
