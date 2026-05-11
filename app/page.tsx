@@ -10,6 +10,8 @@ import { BookTrailer, TRAILER_FPS, computeTrailerFrames } from '@/remotion/BookT
 import { getManifestForSlug } from '@/lib/video/manifestRegistry';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
 import { AuthNavButton } from '@/components/auth/AuthNavButton';
+import { CinematicHeroBackground } from '@/components/landing/CinematicHeroBackground';
+import { DriftingMotes } from '@/components/landing/DriftingMotes';
 
 const LANDING_MANIFEST = getManifestForSlug('ramayana')!;
 const LANDING_MOVIE_FRAMES = computeBookMovieFrames(LANDING_MANIFEST);
@@ -17,13 +19,10 @@ const LANDING_TRAILER_FRAMES = computeTrailerFrames(LANDING_MANIFEST);
 
 // ── Data ─────────────────────────────────────────────────────
 
-const SCENE_PREVIEWS = [
-  { src: '/images/scene_ayodhya_intro.png', label: 'Ayodhya' },
-  { src: '/images/scene_mithila_bow.png', label: 'The Bow' },
-  { src: '/images/scene_forest_life.png', label: 'Forest' },
-  { src: '/images/scene_battle_lanka.png', label: 'Battle' },
-  { src: '/images/scene_return_ayodhya.png', label: 'Return' },
-];
+// SCENE_PREVIEWS was the static thumbnail strip behind the hero —
+// replaced by the auto-cycling CinematicHeroBackground component
+// (components/landing/CinematicHeroBackground.tsx) which sources its
+// own scene list. No callers remain.
 
 const COMPARISON = [
   { old: 'Static pages you flip through', new: 'Living scenes — figures breathe, sway, blink, and look around' },
@@ -197,20 +196,13 @@ export default function HomePage() {
 
       {/* ── Hero ── */}
       <section className="lp-hero" ref={heroRef}>
-        {/* Animated scene preview strip behind hero */}
-        <div className="lp-hero-scenes">
-          {SCENE_PREVIEWS.map((s, i) => (
-            <motion.div
-              key={s.label}
-              className="lp-hero-scene-thumb"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 0.25, y: 0 }}
-              transition={{ delay: 0.8 + i * 0.15, duration: 1 }}
-            >
-              <Image src={s.src} alt={s.label} fill sizes="300px" style={{ objectFit: 'cover' }} />
-            </motion.div>
-          ))}
-        </div>
+        {/* Auto-cycling Ken-Burns scene background — cycles through
+            the photoreal Ramayana paintings every 7s with a slow zoom,
+            crossfading on transition. Replaces the previous static
+            thumbnail strip which was too subtle to read as motion.
+            Drifting motes layer on top adds the "divine dust" mood. */}
+        <CinematicHeroBackground />
+        <DriftingMotes />
 
         <motion.div className="lp-hero-content" style={{ y: heroParallax, scale: heroScale }}>
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
@@ -247,41 +239,146 @@ export default function HomePage() {
         <div className="lp-hero-glow lp-hero-glow-3" />
       </section>
 
-      {/* ── Interactive Demo Preview ── */}
-      <section className="lp-demo">
-        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
-          <Image src="/logo.png" alt="KathaKitaab.ai" width={140} height={140} style={{ display: 'block', margin: '0 auto 20px', borderRadius: '18px' }} />
-          <p className="lp-section-sub">Highlighted characters and objects respond on click. Tap the background and the AI checks for hidden details worth surfacing.</p>
+      {/* ── Dual experience: interactive reader + cinematic movie ──
+          Replaces the old "Interactive Demo Preview" + the late
+          "Trailer / Movie Mode" section (which sat ~5 sections down).
+          Side-by-side under the hero so visitors see both experiences
+          on first scroll. */}
+      <section className="lp-demo" id="movie-mode" style={{ paddingTop: 32 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+          <motion.h2 className="lp-section-title" style={{ marginTop: 0 }}>
+            Two ways to experience every story
+          </motion.h2>
+          <p className="lp-section-sub" style={{ maxWidth: 720, margin: '8px auto 0' }}>
+            Click into characters and discover hidden details, or watch the whole book play as a cinematic film. One engine, two cuts — same scenes, same Sarvam narration.
+          </p>
         </motion.div>
 
-        <motion.div
-          className="lp-demo-frame"
-          initial={{ opacity: 0, scale: 0.96 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <div className="lp-demo-image">
-            <Image src="/images/scene_forest_life.png" alt="Interactive Forest Scene" fill sizes="900px" style={{ objectFit: 'cover' }} priority />
-            {/* Simulated hotspot indicators */}
-            <div className="lp-demo-hotspot" style={{ left: '28%', top: '40%' }}>
-              <span className="lp-demo-hotspot-ring" />
-              <span className="lp-demo-hotspot-label">Rama</span>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+          gap: 24, maxWidth: 1280, margin: '32px auto 0',
+        }}>
+          {/* LEFT — interactive reader preview with simulated hotspots */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+          >
+            <div style={{ fontSize: '0.72rem', color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '0.22em' }}>
+              Live reader · click to interact
             </div>
-            <div className="lp-demo-hotspot" style={{ left: '48%', top: '42%' }}>
-              <span className="lp-demo-hotspot-ring" />
-              <span className="lp-demo-hotspot-label">Sita</span>
+            <div className="lp-demo-frame" style={{ marginTop: 0 }}>
+              <div className="lp-demo-image" style={{ aspectRatio: '16 / 9' }}>
+                <Image src="/images/scene_forest_life.png" alt="Interactive Forest Scene" fill sizes="640px" style={{ objectFit: 'cover' }} priority />
+                <div className="lp-demo-hotspot" style={{ left: '28%', top: '40%' }}>
+                  <span className="lp-demo-hotspot-ring" />
+                  <span className="lp-demo-hotspot-label">Rama</span>
+                </div>
+                <div className="lp-demo-hotspot" style={{ left: '48%', top: '42%' }}>
+                  <span className="lp-demo-hotspot-ring" />
+                  <span className="lp-demo-hotspot-label">Sita</span>
+                </div>
+                <div className="lp-demo-hotspot" style={{ left: '72%', top: '55%' }}>
+                  <span className="lp-demo-hotspot-ring" />
+                  <span className="lp-demo-hotspot-label">Golden Deer</span>
+                </div>
+              </div>
+              <div className="lp-demo-caption">
+                <span className="lp-demo-caption-icon">{'\uD83D\uDC46'}</span>
+            Click any highlighted character or object. Tap the background and the AI surfaces a hidden detail worth knowing.
+              </div>
             </div>
-            <div className="lp-demo-hotspot" style={{ left: '72%', top: '55%' }}>
-              <span className="lp-demo-hotspot-ring" />
-              <span className="lp-demo-hotspot-label">Golden Deer</span>
+            <Link href="/books/ramayana" className="lp-btn-outline" style={{ textDecoration: 'none', alignSelf: 'flex-start', marginTop: 6 }}>
+              Open the live reader →
+            </Link>
+          </motion.div>
+
+          {/* RIGHT — live Remotion Player with trailer/movie toggle */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55, delay: 0.08 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+          >
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+            }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '0.22em' }}>
+                Cinematic cut · plays in-browser
+              </div>
+              <div role="tablist" aria-label="Movie preview mode" style={{
+                display: 'inline-flex', gap: 4, padding: 3,
+                background: 'rgba(12,8,6,0.7)', borderRadius: 999,
+                border: '1px solid rgba(255,215,0,0.16)',
+              }}>
+                {(['trailer', 'movie'] as const).map(key => {
+                  const active = moviePreview === key;
+                  const label = key === 'trailer'
+                    ? `Trailer · ${Math.round(LANDING_TRAILER_FRAMES / TRAILER_FPS)}s`
+                    : `Movie · ${Math.round(LANDING_MOVIE_FRAMES / BOOK_MOVIE_FPS / 60)} min`;
+                  return (
+                    <button
+                      key={key}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setMoviePreview(key)}
+                      data-testid={`landing-${key}-toggle`}
+                      style={{
+                        padding: '6px 14px', borderRadius: 999,
+                        background: active ? 'linear-gradient(135deg, #FF9933, #FFD700)' : 'transparent',
+                        color: active ? '#0C0806' : 'var(--color-gold-light)',
+                        border: 'none', cursor: 'pointer',
+                        fontSize: '0.74rem', fontWeight: 700, letterSpacing: 0.3,
+                        transition: 'background 0.2s ease, color 0.2s ease',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          <div className="lp-demo-caption">
-            <span className="lp-demo-caption-icon">{'\uD83D\uDC46'}</span>
-            Click Rama, Sita, the Golden Deer, the river, the trees — anything. AI generates a unique response.
-          </div>
-        </motion.div>
+            <div className="lp-trailer-wrap" style={{ marginTop: 0 }}>
+              {moviePreview === 'trailer' ? (
+                <Player
+                  key="dual-trailer"
+                  component={BookTrailer}
+                  inputProps={{ manifest: LANDING_MANIFEST }}
+                  durationInFrames={LANDING_TRAILER_FRAMES}
+                  fps={TRAILER_FPS}
+                  compositionWidth={1920}
+                  compositionHeight={1080}
+                  initialFrame={20}
+                  controls
+                  clickToPlay
+                  doubleClickToFullscreen
+                  style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
+                />
+              ) : (
+                <Player
+                  key="dual-movie"
+                  component={BookMovie}
+                  inputProps={{ manifest: LANDING_MANIFEST }}
+                  durationInFrames={LANDING_MOVIE_FRAMES}
+                  fps={BOOK_MOVIE_FPS}
+                  compositionWidth={1920}
+                  compositionHeight={1080}
+                  initialFrame={30}
+                  controls
+                  clickToPlay
+                  doubleClickToFullscreen
+                  style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
+                />
+              )}
+            </div>
+            <Link href="/books/ramayana/movie" className="lp-btn-primary" style={{ textDecoration: 'none', alignSelf: 'flex-start', marginTop: 6 }}>
+              Open movie mode <span className="lp-btn-arrow">{'→'}</span>
+            </Link>
+          </motion.div>
+        </div>
       </section>
 
       {/* ── How It Works ── */}
@@ -335,145 +432,43 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Trailer / Movie Mode ── */}
-      <section className="lp-trailer" id="movie-mode">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          style={{ textAlign: 'center', marginBottom: 18 }}
-        >
-          <span className="lp-hero-badge" style={{ marginBottom: 14 }}>
+      {/* ── What's inside every book — capability pills ──
+          The old movie section was the home of these bullets. Now
+          that the Player lives in the dual-experience block above,
+          this small ribbon stays as the proof-of-engine moment. */}
+      <section className="lp-worlds" style={{ paddingTop: 32, paddingBottom: 32 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 22 }}>
+          <span className="lp-hero-badge">
             <span className="lp-hero-badge-dot" />
-            New · Cartoon Phase 1 · Puppet states + drifting fog
+            What lives inside every book + movie
           </span>
-          <motion.h2 className="lp-section-title" style={{ marginTop: 8 }}>
-            Every book also plays as a film
-          </motion.h2>
-          <p className="lp-section-sub" style={{ maxWidth: 760, margin: '10px auto 0' }}>
-            One manifest, two cuts. The engine renders a {Math.round(LANDING_TRAILER_FRAMES / TRAILER_FPS)}-second
-            cinematic trailer or the full {Math.round(LANDING_MOVIE_FRAMES / BOOK_MOVIE_FPS / 60)}-minute movie
-            from the same scenes — per-scene motion, sentence cues, and a procedural mood bed ducked under
-            Sarvam&apos;s emotional narration. The same effects DSL — particles, dust shafts, drifting fog,
-            divine glow — and the same per-character puppet states play in the live reader and the
-            in-browser cinematic cut. Downloadable MP4 export is coming soon.
-          </p>
-          <ul style={{
-            display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
-            margin: '22px auto 0', padding: 0, listStyle: 'none', maxWidth: 920,
-          }}>
-            {[
-              ['🎥', 'Per-scene motion — battle push, divine glow, slow pan'],
-              ['🌬️', 'Ambient idle — figures breathe, sway, blink, and look around'],
-              ['🎭', 'Puppet states — Talk speeds breath, Fight quickens sway, Leap arcs upward'],
-              ['🗣️', 'Emotional Sarvam narration — pace + pitch shaped per scene mood'],
-              ['💬', 'Sentence cues with explicit ms timing in the manifest'],
-              ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
-              ['✨', 'Universal effects DSL — particles, dust shafts, fog, rim light'],
-              ['👁', 'Audio-driven mouth pulse + geometric gaze toward the addressee'],
-              ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
-              ['📥', 'Downloadable MP4 export — coming soon (browser playback live today)'],
-            ].map(([icon, text]) => (
-              <li key={text} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '8px 14px', borderRadius: 999,
-                background: 'rgba(43,27,21,0.6)', border: '1px solid rgba(255,215,0,0.12)',
-                fontSize: '0.82rem', color: 'var(--color-gold-light)',
-              }}>
-                <span aria-hidden>{icon}</span>{text}
-              </li>
-            ))}
-          </ul>
-
-          {/* Trailer / Full Movie toggle — same composition vocabulary,
-              different pacing. Visitors land on the trailer (snappy)
-              and can switch to the full cut without leaving the page. */}
-          <div role="tablist" aria-label="Movie preview mode" style={{
-            display: 'inline-flex', gap: 4, marginTop: 26, padding: 4,
-            background: 'rgba(12,8,6,0.7)', borderRadius: 999,
-            border: '1px solid rgba(255,215,0,0.16)',
-          }}>
-            {(['trailer', 'movie'] as const).map(key => {
-              const active = moviePreview === key;
-              const label = key === 'trailer'
-                ? `Trailer · ${Math.round(LANDING_TRAILER_FRAMES / TRAILER_FPS)}s`
-                : `Full Movie · ${Math.round(LANDING_MOVIE_FRAMES / BOOK_MOVIE_FPS / 60)} min`;
-              return (
-                <button
-                  key={key}
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setMoviePreview(key)}
-                  data-testid={`landing-${key}-toggle`}
-                  style={{
-                    padding: '8px 18px', borderRadius: 999,
-                    background: active ? 'linear-gradient(135deg, #FF9933, #FFD700)' : 'transparent',
-                    color: active ? '#0C0806' : 'var(--color-gold-light)',
-                    border: 'none', cursor: 'pointer',
-                    fontSize: '0.82rem', fontWeight: 700, letterSpacing: 0.4,
-                    transition: 'background 0.2s ease, color 0.2s ease',
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
         </motion.div>
-
-        <motion.div
-          className="lp-trailer-wrap"
-          initial={{ opacity: 0, scale: 0.97 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          {/* Live Remotion composition — same one that exports the MP4.
-              Narration WAVs stream from Supabase CDN, scene art is in
-              /public, mood beds are local procedural WAVs. No pre-render
-              wait. Switching modes swaps the composition + manifest in
-              place; React keys force a fresh Player mount. */}
-          {moviePreview === 'trailer' ? (
-            <Player
-              key="trailer"
-              component={BookTrailer}
-              inputProps={{ manifest: LANDING_MANIFEST }}
-              durationInFrames={LANDING_TRAILER_FRAMES}
-              fps={TRAILER_FPS}
-              compositionWidth={1920}
-              compositionHeight={1080}
-              initialFrame={20}
-              controls
-              clickToPlay
-              doubleClickToFullscreen
-              style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
-            />
-          ) : (
-            <Player
-              key="movie"
-              component={BookMovie}
-              inputProps={{ manifest: LANDING_MANIFEST }}
-              durationInFrames={LANDING_MOVIE_FRAMES}
-              fps={BOOK_MOVIE_FPS}
-              compositionWidth={1920}
-              compositionHeight={1080}
-              initialFrame={30}
-              controls
-              clickToPlay
-              doubleClickToFullscreen
-              style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806', borderRadius: 'inherit' }}
-            />
-          )}
-        </motion.div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 22, flexWrap: 'wrap' }}>
-          <Link href="/books/ramayana/movie" className="lp-btn-primary" style={{ textDecoration: 'none' }}>
-            Open Movie Mode
-            <span className="lp-btn-arrow">{'→'}</span>
-          </Link>
-          <Link href="/books/ramayana" className="lp-btn-outline" style={{ textDecoration: 'none' }}>
-            Read it interactively
-          </Link>
-        </div>
+        <ul style={{
+          display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap',
+          margin: '0 auto', padding: 0, listStyle: 'none', maxWidth: 1080,
+        }}>
+          {[
+            ['🎥', 'Per-scene motion — battle push, divine glow, slow pan'],
+            ['🌬️', 'Ambient idle — figures breathe, sway, blink, look around'],
+            ['🎭', 'Puppet states — Talk speeds breath, Fight quickens sway'],
+            ['🗣️', 'Emotional Sarvam narration — pace + pitch shaped per mood'],
+            ['💬', 'Sentence cues with explicit ms timing in the manifest'],
+            ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
+            ['✨', 'Universal effects DSL — particles, dust shafts, fog, rim light'],
+            ['👁', 'Audio-driven mouth pulse + geometric gaze toward addressees'],
+            ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
+            ['📥', 'Downloadable MP4 export — coming soon'],
+          ].map(([icon, text]) => (
+            <li key={text} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '7px 13px', borderRadius: 999,
+              background: 'rgba(43,27,21,0.6)', border: '1px solid rgba(255,215,0,0.12)',
+              fontSize: '0.8rem', color: 'var(--color-gold-light)',
+            }}>
+              <span aria-hidden>{icon}</span>{text}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ── Visual style presets ── */}
