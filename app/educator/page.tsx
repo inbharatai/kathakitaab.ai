@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import StudioModeSelector from '@/components/library/StudioModeSelector';
+import { AuthNavButton } from '@/components/auth/AuthNavButton';
 
 // Theme starting points the universal generator handles cleanly.
 // Each chip pre-fills the title input — clicking it doesn't bypass
@@ -48,10 +49,11 @@ export default function EducatorPage() {
           </span>
         </Link>
         <span style={{ color: 'var(--color-text-dim)', fontSize: '0.9rem' }}>/ Studio</span>
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 16px', fontSize: '0.85rem' }}>
             View Library
           </Link>
+          <AuthNavButton next="/educator" compact />
         </div>
       </nav>
 

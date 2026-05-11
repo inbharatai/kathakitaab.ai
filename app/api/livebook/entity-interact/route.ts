@@ -18,6 +18,7 @@ import { checkContentSafety } from '@/lib/agents/safetyAgent';
 import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 import { getCachedBranch, getManifest } from '@/lib/engine/branchPreGenerator';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 import { startBranchImageJob } from '@/lib/engine/branchImageJobs';
 
@@ -96,6 +97,19 @@ const ACTION_GUIDANCE: Record<string, string> = {
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
+
+  // Entity interaction triggers gpt-4o-mini + gpt-image-1 calls.
+  // Require sign-in for any branch / interaction generation,
+  // matching the directive that any generation (story or image)
+  // is gated behind auth. Pre-cached branches don't reach this
+  // point — they're served from /api/livebook/branch-image.
+  const session = await getSessionFromRouteRequest(request);
+  if (!session) {
+    return NextResponse.json({
+      error: 'Sign in to interact with characters and objects.',
+      reason: 'auth_required',
+    }, { status: 401 });
+  }
 
   try {
     if (!isOpenAIConfigured() && !isGeminiConfigured()) {

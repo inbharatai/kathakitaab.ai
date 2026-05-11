@@ -88,6 +88,13 @@ export default function PersonalizedStoryForm() {
           },
         }),
       });
+      // 401 = caller isn't signed in. Redirect to /signin and back
+      // to /educator so the form is ready when they return.
+      if (res.status === 401) {
+        inFlightRef.current = false;
+        router.push(`/signin?next=${encodeURIComponent('/educator')}`);
+        return;
+      }
       if (!res.ok) {
         let msg = '';
         try { const j = await res.json(); msg = j.error || ''; } catch { /* */ }
