@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { generateBook, type GeneratedBook, type GenerationMode, type BookMetadata } from '@/lib/openai/bookGeneratorAgent';
 import type { StylePreset } from '@/lib/types/style';
-import { defaultPresetForBook, STYLE_PRESETS } from '@/lib/types/style';
+import { defaultPresetForBook, STYLE_PRESETS, slugSuffixForPreset } from '@/lib/types/style';
 import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
@@ -184,7 +184,17 @@ export async function POST(request: Request) {
 
   if (mode === 'world') {
     bookTitle = (body as WorldBody).title.trim();
-    slug = bookTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // Slug includes a preset suffix when the user picked a non-default
+    // style, so generating "Ramayana" as storybook lands at a separate
+    // slug from the curated photoreal Ramayana and doesn't trigger
+    // the world-mode cache hit below. Default preset keeps the bare
+    // slug so existing books (and the seed Ramayana) continue to
+    // resolve unchanged.
+    const baseSlug = bookTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const presetForSlug: StylePreset = body.stylePreset && body.stylePreset in STYLE_PRESETS
+      ? body.stylePreset
+      : defaultPresetForBook({ title: bookTitle });
+    slug = `${baseSlug}${slugSuffixForPreset(presetForSlug)}`;
     outlinePrompt = worldOutlinePrompt(bookTitle);
     visibility = 'public';
   } else if (mode === 'classroom') {

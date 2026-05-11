@@ -159,13 +159,52 @@ export async function isBookGenerating(slug: string): Promise<boolean> {
 }
 
 export async function getAllBooks(): Promise<GeneratedBook[]> {
-  // Returns whatever is locally hot plus seeds. Cross-lambda
-  // enumeration would need SCAN over Redis, which is fine but
-  // unused — `app/api/books/route.ts` reads from ramayanaSeed.
-  return [
-    ...Object.values(SEED_BOOKS),
-    ...Array.from(memBooks.values()),
-  ];
+  // Scans Redis for every persisted book and returns them alongside
+  // the in-memory hot cache and any registered seeds. Without the
+  // Redis pass, a fresh lambda would only see books it has already
+  // answered for in this invocation — meaning the public library
+  // page would show just the seed Ramayana on every cold boot.
+  const r = getRedis();
+  const seen = new Set<string>();
+  const out: GeneratedBook[] = [];
+
+  for (const b of Object.values(SEED_BOOKS)) {
+    seen.add(b.slug);
+    out.push(b);
+  }
+  for (const b of memBooks.values()) {
+    if (seen.has(b.slug)) continue;
+    seen.add(b.slug);
+    out.push(b);
+  }
+
+  if (r) {
+    try {
+      // Upstash supports KEYS pattern scans cheaply for small key
+      // counts (the library is in the dozens, not millions). If it
+      // ever grows we can switch to a maintained kk:books:index set.
+      const keys = await r.keys('kk:book:*');
+      const missing = keys.filter(k => !seen.has(k.replace('kk:book:', '')));
+      if (missing.length > 0) {
+        const fetched = await Promise.all(
+          missing.map(k => r.get<GeneratedBook>(k).catch(() => null)),
+        );
+        for (const b of fetched) {
+          if (!b || seen.has(b.slug)) continue;
+          seen.add(b.slug);
+          memBooks.set(b.slug, b);
+          syncCanonFromBook(b);
+          out.push(b);
+        }
+      }
+    } catch (err) {
+      // Don't fail the listing — degrade to the hot/seed view.
+      console.warn('[bookRegistry] Redis enumeration failed:',
+        err instanceof Error ? err.message : err);
+    }
+  }
+
+  return out;
 }
 
 export async function getScene(bookSlug: string, sceneId: string) {

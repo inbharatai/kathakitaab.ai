@@ -60,6 +60,25 @@ export const STYLE_PRESETS: Record<StylePreset, StylePresetMeta> = {
 };
 
 /**
+ * Slug suffix appended to a world-mode book's slug when the chosen
+ * preset isn't the default photoreal cinematic. Lets a user generate
+ * the same title (e.g. "Ramayana") in multiple styles without
+ * colliding on the dedupe cache. The default preset keeps the bare
+ * slug for backwards compatibility with the seed Ramayana and every
+ * book generated before the preset shipped.
+ *
+ *   ramayana                    → photoreal_cinematic (default)
+ *   ramayana-watercolour        → storybook_watercolor
+ *   ramayana-animation          → cinematic_animation
+ */
+export function slugSuffixForPreset(preset: StylePreset | undefined): string {
+  if (!preset || preset === 'photoreal_cinematic') return '';
+  if (preset === 'storybook_watercolor') return '-watercolour';
+  if (preset === 'cinematic_animation') return '-animation';
+  return '';
+}
+
+/**
  * Map a generic book genre / mode hint to a sensible default preset
  * so the UI can pre-select something the user usually wants without
  * forcing them to choose. Conservative — when in doubt, photoreal
