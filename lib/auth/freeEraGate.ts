@@ -23,6 +23,7 @@
 import { getRedis } from '@/lib/redis';
 import { getSupabaseService } from '@/lib/supabase';
 import type { AuthSession } from './session';
+import { isAdminSession } from './adminAllowlist';
 
 const FREE_ERA_CAP = 100;
 const FREE_ERA_QUOTA_PER_USER = 1;
@@ -54,6 +55,14 @@ export async function checkFreeEraGate(session: AuthSession | null): Promise<Gat
       reason: 'auth_required',
       message: 'Sign in to make a story. Reading existing books stays free for everyone.',
     };
+  }
+
+  // Admin allowlist — the deployment owner + any KATHA_ADMIN_EMAILS
+  // bypass the free-era cap and per-user quota entirely so they can
+  // exercise the live product end-to-end without burning their own
+  // allowance. No DB lookup, no counter touch.
+  if (isAdminSession(session)) {
+    return { allowed: true, seq: -1, isFreshAdmission: false };
   }
 
   const supabase = getSupabaseService();
@@ -137,26 +146,63 @@ export async function peekFreeEraAdmitted(): Promise<{ admitted: number; cap: nu
  * Bumps the per-user lifetime book counter after a generation actually
  * starts. Call this AFTER setProgress() returns success — that way a
  * user whose generation is rejected by validation doesn't burn their
- * one free shot.
+ * one free shot. Admin allowlist callers are a no-op so testing
+ * doesn't drain the deployment owner's quota.
+ *
+ * Pair with bookGenerationRefund() in the route's error path so a
+ * failed generation gives the user their slot back.
  */
-export async function bookGenerationConsumed(userId: string): Promise<void> {
+export async function bookGenerationConsumed(session: AuthSession | null): Promise<void> {
+  if (!session) return;
+  if (isAdminSession(session)) return;
   const supabase = getSupabaseService();
   if (!supabase) return;
   // Prefer the SQL function (atomic, race-safe). If it isn't deployed
   // yet — pre-migration boot — fall back to a read-modify-write, which
   // is good enough for a free-era counter that tolerates ±1 drift.
-  const { error } = await supabase.rpc('increment_books_generated', { user_id: userId });
+  const { error } = await supabase.rpc('increment_books_generated', { user_id: session.userId });
   if (!error) return;
   const { data } = await supabase
     .from('users')
     .select('books_generated_lifetime')
-    .eq('id', userId)
+    .eq('id', session.userId)
     .maybeSingle();
   const cur = (data?.books_generated_lifetime as number | undefined) ?? 0;
   await supabase
     .from('users')
     .update({ books_generated_lifetime: cur + 1, updated_at: new Date().toISOString() })
-    .eq('id', userId);
+    .eq('id', session.userId);
+}
+
+/**
+ * Refund a previously-consumed generation slot. Called from the
+ * /api/books/generate failure path so a crashed generation gives the
+ * user their one allowance back instead of leaving them empty-handed.
+ *
+ * Floors the counter at zero — drift from concurrent refunds shouldn't
+ * be able to underflow into negatives. Admin callers are a no-op
+ * (consumed was a no-op too, nothing to refund).
+ */
+export async function bookGenerationRefund(session: AuthSession | null): Promise<void> {
+  if (!session) return;
+  if (isAdminSession(session)) return;
+  const supabase = getSupabaseService();
+  if (!supabase) return;
+  const { error } = await supabase.rpc('decrement_books_generated', { user_id: session.userId });
+  if (!error) return;
+  // Fallback: read-modify-write, clamped at zero.
+  const { data } = await supabase
+    .from('users')
+    .select('books_generated_lifetime')
+    .eq('id', session.userId)
+    .maybeSingle();
+  const cur = (data?.books_generated_lifetime as number | undefined) ?? 0;
+  const next = Math.max(0, cur - 1);
+  if (next === cur) return;
+  await supabase
+    .from('users')
+    .update({ books_generated_lifetime: next, updated_at: new Date().toISOString() })
+    .eq('id', session.userId);
 }
 
 /**

@@ -10,7 +10,8 @@ import { moderatePrompt } from '@/lib/safety/moderation';
 import { scrubError } from '@/lib/safety/scrub';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
-import { checkFreeEraGate, bookGenerationConsumed } from '@/lib/auth/freeEraGate';
+import { checkFreeEraGate, bookGenerationConsumed, bookGenerationRefund } from '@/lib/auth/freeEraGate';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { captureException } from '@/lib/observability/sentry';
 import { capture as trackEvent } from '@/lib/observability/analytics';
 import {
@@ -123,8 +124,17 @@ function validateBody(body: GenerateBody): string {
 // ── Route handler ────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  const limited = await checkRateLimit(request, { scope: 'expensive' });
-  if (limited) return limited;
+  // Resolve the session first so admin allowlist callers can skip
+  // the per-IP rate limit and moderation gates that would otherwise
+  // throttle a deployment-owner doing live QA. Anonymous callers
+  // get null back essentially for free (no cookie → no DB hit).
+  const session = await getSessionFromRouteRequest(request);
+  const isAdmin = isAdminSession(session);
+
+  if (!isAdmin) {
+    const limited = await checkRateLimit(request, { scope: 'expensive' });
+    if (limited) return limited;
+  }
 
   if (!isOpenAIConfigured()) {
     return NextResponse.json({ error: 'OPENAI_API_KEY is not set. The book generator is OpenAI-only.' }, { status: 503 });
@@ -146,8 +156,7 @@ export async function POST(request: Request) {
   // Auth gate: generation requires a signed-in user during the
   // free-era beta. Anonymous reading of existing books stays open.
   // The gate also enforces the first-100-users cap and the per-user
-  // 1-book lifetime quota.
-  const session = await getSessionFromRouteRequest(request);
+  // 1-book lifetime quota — admin sessions short-circuit it.
   const gate = await checkFreeEraGate(session);
   if (!gate.allowed) {
     const status = gate.reason === 'auth_required' ? 401
@@ -172,8 +181,9 @@ export async function POST(request: Request) {
   // Daily per-cookie cap on child-mode generation. Runs AFTER the
   // per-IP rate limit so a determined attacker rotating IPs still
   // hits the cookie ceiling. World mode keeps only the per-IP cap
-  // (anonymous public usage is fine to allow generously).
-  if (isPrivateMode && ownerId) {
+  // (anonymous public usage is fine to allow generously). Admin
+  // sessions skip — they're doing live QA, not abuse.
+  if (isPrivateMode && ownerId && !isAdmin) {
     const kind = body.mode === 'personalized_text' ? 'personalized' : 'classroom';
     const ownerLimited = await checkOwnerDailyLimit(ownerId, kind);
     if (ownerLimited) return ownerLimited;
@@ -182,15 +192,19 @@ export async function POST(request: Request) {
   // Pre-generation moderation. World mode keeps the V0 fail-OPEN
   // behaviour. Classroom + personalized are CHILD-related modes
   // and MUST fail-CLOSED — a moderation outage cannot allow a
-  // child story to be generated unverified.
-  const moderationText = moderationInputFor(body);
-  const moderation = await moderatePrompt(moderationText, { failClosed: isPrivateMode });
-  if (moderation.flagged) {
-    // Log only the mode + category labels. The user's text NEVER
-    // appears in this log line — keys/values are pre-scrubbed to
-    // category names ('sexual/minors' etc.) which are safe.
-    console.warn('[generate] moderation blocked; mode=%s categories=%s', body.mode || 'world', moderation.categories.join(','));
-    return NextResponse.json({ error: moderation.reason }, { status: 400 });
+  // child story to be generated unverified. Admin sessions bypass
+  // entirely so the deployment owner can probe the system with
+  // edge-case prompts without tripping over their own gates.
+  if (!isAdmin) {
+    const moderationText = moderationInputFor(body);
+    const moderation = await moderatePrompt(moderationText, { failClosed: isPrivateMode });
+    if (moderation.flagged) {
+      // Log only the mode + category labels. The user's text NEVER
+      // appears in this log line — keys/values are pre-scrubbed to
+      // category names ('sexual/minors' etc.) which are safe.
+      console.warn('[generate] moderation blocked; mode=%s categories=%s', body.mode || 'world', moderation.categories.join(','));
+      return NextResponse.json({ error: moderation.reason }, { status: 400 });
+    }
   }
 
   // ── Per-mode setup: title, slug, prompt, metadata ──
@@ -269,9 +283,12 @@ export async function POST(request: Request) {
   // Burn the user's free-era quota now that we're actually starting
   // a generation. Done AFTER setProgress so a 5xx from setProgress
   // doesn't burn the slot for nothing. Fire-and-forget — counter
-  // bump shouldn't block the user's response.
+  // bump shouldn't block the user's response. Admin sessions are a
+  // no-op inside bookGenerationConsumed so testing doesn't drain
+  // the owner's quota. Failure inside `after()` refunds via
+  // bookGenerationRefund in the catch block below.
   if (session?.userId) {
-    void bookGenerationConsumed(session.userId).catch(err => {
+    void bookGenerationConsumed(session).catch(err => {
       console.warn('[generate] failed to bump quota counter:', err instanceof Error ? err.message : err);
     });
   }
@@ -335,6 +352,13 @@ export async function POST(request: Request) {
       console.error('[generate] failed for', safe.name, ':', safe.message);
       const userMsg = err instanceof Error ? err.message : 'Generation failed';
       await setProgress(slug, 'Error', 0, true, userMsg);
+      // Refund the free-era slot we burned at request entry — a
+      // failed generation shouldn't cost the user their one allowance.
+      // No-op for admin (consume was a no-op too). Floors at zero so
+      // a refund race against another success can't underflow.
+      void bookGenerationRefund(session).catch(refundErr => {
+        console.warn('[generate] refund failed:', refundErr instanceof Error ? refundErr.message : refundErr);
+      });
       // Surface the unscrubbed error to Sentry — operator-only
       // destination, fine to include raw context tags.
       captureException(err, {
