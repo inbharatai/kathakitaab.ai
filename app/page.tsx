@@ -148,35 +148,66 @@ const FEATURED_BOOKS = [
 // Visual style presets surfaced on the generation form. Pulled from
 // the canonical style registry so descriptions stay in sync with the
 // actual prompt clauses that ship to gpt-image-1.
+//
+// previewImages drives the slow Ken-Burns crossfade behind each card
+// so visitors see the actual output of the style they're picking,
+// not just the label. Photoreal and Comic reuse Ramayana beats we
+// already have on disk; watercolour + animation samples are baked
+// by scripts/generate-style-samples.ts.
 const STYLE_CARDS: Array<{
   preset: StylePreset;
   icon: string;
   bestFor: string[];
   accent: string;
+  previewImages: string[];
 }> = [
   {
     preset: 'photoreal_cinematic',
     icon: '🎬',
     bestFor: ['Ramayana', 'Mahabharata', 'Historical drama', 'Mythological epics'],
     accent: 'rgba(255,153,51,0.5)',
+    previewImages: [
+      '/images/scene_ayodhya_intro_beat_1.png',
+      '/images/scene_mithila_bow_beat_1.png',
+      '/images/scene_battle_lanka_beat_3.png',
+      '/images/scene_return_ayodhya_beat_1.png',
+    ],
   },
   {
     preset: 'storybook_watercolor',
     icon: '📖',
     bestFor: ['Panchatantra', 'Jataka tales', 'Aesop fables', 'Talking-animal stories', 'Children\'s tales'],
     accent: 'rgba(212,168,71,0.5)',
+    previewImages: [
+      '/images/style-samples/watercolour/1-court.png',
+      '/images/style-samples/watercolour/2-forest.png',
+      '/images/style-samples/watercolour/3-battle.png',
+      '/images/style-samples/watercolour/4-temple.png',
+    ],
   },
   {
     preset: 'cinematic_animation',
     icon: '✨',
     bestFor: ['Adventure tales', 'Fantasy quests', 'Modern reimaginings', 'Anything in between'],
     accent: 'rgba(255,215,0,0.5)',
+    previewImages: [
+      '/images/style-samples/animation/1-court.png',
+      '/images/style-samples/animation/2-forest.png',
+      '/images/style-samples/animation/3-battle.png',
+      '/images/style-samples/animation/4-temple.png',
+    ],
   },
   {
     preset: 'comic_book',
     icon: '💥',
     bestFor: ['Action mythology', 'Superhero retellings', 'Battle epics', 'Anything with punch'],
     accent: 'rgba(231,76,60,0.55)',
+    previewImages: [
+      '/images/comic/scene_ayodhya_intro_beat_1.png',
+      '/images/comic/scene_ravana_jatayu_beat_3.png',
+      '/images/comic/scene_hanuman_lanka_beat_1.png',
+      '/images/comic/scene_mithila_bow_beat_3.png',
+    ],
   },
 ];
 
@@ -550,31 +581,49 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.5 }}
                 style={{
+                  position: 'relative',
+                  overflow: 'hidden',
                   padding: 22, borderRadius: 16,
                   background: 'rgba(43,27,21,0.55)',
                   border: `1px solid ${card.accent}`,
                   boxShadow: `0 14px 50px rgba(0,0,0,0.4), 0 0 0 1px ${card.accent} inset`,
                   display: 'flex', flexDirection: 'column', gap: 12,
+                  minHeight: 320,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: '1.6rem' }} aria-hidden>{card.icon}</span>
-                  <h3 className="font-serif" style={{ fontSize: '1.25rem', color: 'var(--color-gold-light)', margin: 0 }}>
-                    {meta.label}
-                  </h3>
+                <BookCardBackground images={card.previewImages} accent={card.accent} />
+                {/* Lift content above the moving background. */}
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: '1.6rem' }} aria-hidden>{card.icon}</span>
+                    <h3 className="font-serif" style={{
+                      fontSize: '1.25rem', color: 'var(--color-gold-light)', margin: 0,
+                      textShadow: '0 2px 12px rgba(0,0,0,0.85)',
+                    }}>
+                      {meta.label}
+                    </h3>
+                  </div>
+                  <p style={{
+                    color: 'rgba(232,219,196,0.92)', margin: 0, fontSize: '0.88rem', lineHeight: 1.55,
+                    textShadow: '0 1px 8px rgba(0,0,0,0.85)',
+                  }}>
+                    {meta.description}
+                  </p>
+                  <div style={{
+                    fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1.4,
+                    color: 'var(--color-gold)', marginTop: 4,
+                    textShadow: '0 1px 6px rgba(0,0,0,0.8)',
+                  }}>
+                    Best for
+                  </div>
+                  <ul style={{
+                    margin: 0, paddingLeft: 18,
+                    color: 'rgba(232,219,196,0.88)', fontSize: '0.82rem', lineHeight: 1.7,
+                    textShadow: '0 1px 6px rgba(0,0,0,0.8)',
+                  }}>
+                    {card.bestFor.map(b => <li key={b}>{b}</li>)}
+                  </ul>
                 </div>
-                <p style={{ color: 'var(--color-text-dim)', margin: 0, fontSize: '0.88rem', lineHeight: 1.55 }}>
-                  {meta.description}
-                </p>
-                <div style={{
-                  fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1.4,
-                  color: 'var(--color-gold)', marginTop: 4,
-                }}>
-                  Best for
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--color-text-dim)', fontSize: '0.82rem', lineHeight: 1.7 }}>
-                  {card.bestFor.map(b => <li key={b}>{b}</li>)}
-                </ul>
               </motion.div>
             );
           })}

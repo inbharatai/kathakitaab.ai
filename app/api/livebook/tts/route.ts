@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { speakTTS } from '@/lib/audio/ttsRouter';
+import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
 
 const TTS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -115,7 +116,28 @@ export async function POST(request: Request) {
       mood,
     });
 
-    // Cache for 7 days — narration text is stable, repeats are free
+    // Upload to Supabase first — same pattern hydrateBookAudio uses
+    // for the pre-baked scene narrations. Content-hash filenames in
+    // audioStorage make identical bytes dedupe automatically, so a
+    // second TTS request with the same text re-uses the existing
+    // blob instead of writing a new one. The browser's CDN cache
+    // then carries the audio across Redis expirations.
+    try {
+      await uploadGeneratedNarration(result.audio, {
+        mimeType: result.mimeType,
+        pathHint: bookSlug || 'on-demand',
+      });
+    } catch (uploadErr) {
+      // Non-fatal: Redis cache below still gives us a fast path,
+      // and the next request just re-uploads. Log so it shows up
+      // in Sentry without breaking the listener.
+      console.warn('[tts] supabase upload failed:', uploadErr instanceof Error ? uploadErr.message : uploadErr);
+    }
+
+    // Cache for 7 days — narration text is stable, repeats are free.
+    // Redis holds the bytes so the next listener gets an instant
+    // first-paint without a Supabase round-trip; Supabase above is
+    // the durable copy that survives TTL expiry.
     await setCachedResponse(
       cacheKey,
       {
