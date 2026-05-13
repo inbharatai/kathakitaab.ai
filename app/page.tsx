@@ -231,7 +231,7 @@ export default function HomePage() {
           <div className="lp-nav-logo">
             <Image src="/logo.png" alt="KathaKitaab" width={36} height={36} style={{ objectFit: 'cover', transform: 'scale(1.9) translateY(18%)' }} />
           </div>
-          <span className="lp-nav-name">KathaKitaab<span className="lp-nav-ai">.ai</span></span>
+          <span className="lp-nav-name">KathaKitaab</span>
         </Link>
         <div className="lp-nav-links">
           <Link href="/books" className="lp-nav-link">Stories</Link>
@@ -526,12 +526,14 @@ export default function HomePage() {
             New · Pick the aesthetic, lock the cast
           </span>
           <h2 className="lp-section-title" style={{ marginTop: 14 }}>
-            Three visual styles. One consistent cast.
+            Four visual styles. One consistent cast.
           </h2>
           <p className="lp-section-sub" style={{ maxWidth: 780, margin: '12px auto 0' }}>
             Pick a style at generation time. Whichever you choose, every scene image
             is anchored to a canonical portrait of each character — Rama looks like the
-            same Rama in scene 1 and scene 12. Style and accuracy are decoupled by design.
+            same Rama in scene 1 and scene 12. Comic books even talk: in-frame speech
+            bubbles, narrator captions, shout starbursts — typed in as the narration
+            plays. Style and accuracy are decoupled by design.
           </p>
         </motion.div>
         <div style={{

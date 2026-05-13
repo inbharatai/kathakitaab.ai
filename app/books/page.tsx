@@ -89,7 +89,7 @@ export default function BooksPage() {
         <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '1.3rem' }}>📚</span>
           <span style={{ fontWeight: 800, fontSize: '1.1rem', background: 'linear-gradient(135deg, #E8832A, #D4A847)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            KathaKitaab.ai
+            KathaKitaab
           </span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>

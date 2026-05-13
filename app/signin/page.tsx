@@ -109,7 +109,7 @@ function SignInForm() {
             background: 'linear-gradient(135deg, #E8832A, #D4A847)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
-            KathaKitaab.ai
+            KathaKitaab
           </span>
         </Link>
         <Link href="/books" style={{
