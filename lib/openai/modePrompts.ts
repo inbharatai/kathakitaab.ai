@@ -74,7 +74,14 @@ const OUTLINE_JSON_SHAPE = `Return JSON with this structure:
         }
       ],
       "mood": "serene|dramatic|somber|joyful|sacred|mysterious|tense",
-      "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection"
+      "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection",
+      "dialogue": [
+        {
+          "speaker": "character slug from the characters[] array below — must match exactly. Use empty string '' for narrator captions.",
+          "text": "one short in-character line, ideally under 140 characters. Quote the character themselves, not a description of them speaking. NO third-person prose like 'Rama said' — just the spoken words.",
+          "kind": "one of: speech | thought | caption | shout. Default to 'speech'. Use 'thought' for unspoken internal monologue, 'caption' for narrator framing like 'Years later, in Lanka...', 'shout' for action / yelling / battle cries."
+        }
+      ]
     }
   ],
   "characters": [
@@ -106,6 +113,29 @@ const VOICE_ARCHETYPE_GUIDE = `voice_archetype guide — pick the closest fit:
 - aged-female: queen mothers, elder female characters
 - narrator: when no character voice fits`;
 
+const DIALOGUE_GUIDE = `dialogue guide — used by the Comic Book style preset:
+Every scene MUST include 2 to 5 dialogue entries that capture the spoken
+beats of the narration. The Comic Book renderer turns these into in-frame
+speech bubbles anchored to each speaker. Other style presets (photoreal,
+watercolour, animation) ignore the field and use a bottom subtitle bar —
+but the field is required regardless, because a single book can be
+re-rendered in the comic style later.
+
+Rules:
+- speaker MUST be a slug that exists in the characters[] array, OR an
+  empty string for a narrator caption.
+- text is the line the character SAYS (or thinks), not a description.
+  GOOD: "The bow will not bend for any mortal arm."
+  BAD:  "Janaka warned the assembly that the bow was unbendable."
+- Each line under ~140 characters. Aim for punchy, in-character lines.
+- Open the scene with a 'caption' if location/time shifts ("Years later,
+  in Lanka...") so the reader is oriented.
+- Use 'thought' sparingly — for internal monologue only.
+- Use 'shout' for battle cries, action moments, dramatic ultimatums.
+- Default kind to 'speech' for everything else.
+- Do NOT include 'Rama said' / 'she replied' attributions inside text —
+  the speaker field already carries that.`;
+
 // ── World mode (existing behaviour, extracted) ───────────────
 
 export function worldOutlinePrompt(title: string): string {
@@ -117,7 +147,9 @@ For each scene, include 2 to 3 distinct VISUAL BEATS — different moments withi
 
 ${OUTLINE_JSON_SHAPE}
 
-${VOICE_ARCHETYPE_GUIDE}`;
+${VOICE_ARCHETYPE_GUIDE}
+
+${DIALOGUE_GUIDE}`;
 }
 
 // ── Classroom mode ───────────────────────────────────────────
@@ -162,7 +194,9 @@ For each scene, include 2 to 3 distinct visual beats: the establishing shot (vis
 
 ${OUTLINE_JSON_SHAPE}
 
-${VOICE_ARCHETYPE_GUIDE}`;
+${VOICE_ARCHETYPE_GUIDE}
+
+${DIALOGUE_GUIDE}`;
 }
 
 // ── Personalized text mode ───────────────────────────────────
@@ -220,7 +254,9 @@ CRITICAL constraints — these are non-negotiable for a children's product:
 
 ${OUTLINE_JSON_SHAPE}
 
-${VOICE_ARCHETYPE_GUIDE}`;
+${VOICE_ARCHETYPE_GUIDE}
+
+${DIALOGUE_GUIDE}`;
 }
 
 // ── Random private slug helper ────────────────────────────────

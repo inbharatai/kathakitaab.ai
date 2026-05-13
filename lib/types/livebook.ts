@@ -55,6 +55,37 @@ export interface Scene {
    *  When present the live reader + movie play this sequence; when
    *  absent both fall back to background_asset_url as a single beat. */
   beats?: SceneBeat[];
+  /** Comic-book overlay track — speech bubbles, thought clouds, and
+   *  narrator captions anchored to character hotspots. Only rendered
+   *  when the book's stylePreset is 'comic_book'; other presets keep
+   *  the bottom subtitle bar driven by planSubtitles(). Lines play
+   *  in order, one at a time, timed to the sentence cues derived
+   *  from narration. Empty / absent on legacy books — the dialogue
+   *  tagger backfills it on the next comic-style regeneration. */
+  dialogue?: SceneDialogue[];
+}
+
+// ---- Scene dialogue ----
+/** A single beat of in-frame dialogue or narration overlay used by
+ *  the Comic Book style preset. Universal across all books — the
+ *  outline prompt emits it for new generations, dialogueTagger
+ *  backfills it for legacy books. */
+export interface SceneDialogue {
+  /** Character slug the line is attributed to. Must match a slug in
+   *  the book's Character[] roster for the speech-bubble anchor to
+   *  find a hotspot. For unattributed narrator lines, set kind to
+   *  'caption' and leave speaker empty or use 'narrator'. */
+  speaker: string;
+  /** The line itself. Plain text — the renderer wraps long lines
+   *  but lines under ~140 chars present best in a bubble. */
+  text: string;
+  /** Visual presentation:
+   *    - 'speech'  : classic bubble + tail pointing to the speaker
+   *    - 'thought' : cloud-shaped bubble with trailing dots
+   *    - 'caption' : rectangular narrator box, no tail
+   *    - 'shout'   : jagged-edge bubble for action / yelling
+   *  Defaults to 'speech' when omitted. */
+  kind?: 'speech' | 'thought' | 'caption' | 'shout';
 }
 
 // ---- Scene beat ----

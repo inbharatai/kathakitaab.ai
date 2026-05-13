@@ -56,6 +56,38 @@ function normaliseSceneMotion(raw: string | undefined): SceneMotion | undefined 
 }
 
 /**
+ * Sanitises the outline LLM's dialogue[] before it lands on a Scene.
+ * Drops entries with empty text, validates `kind` against the four
+ * supported bubble shapes, falls back to 'speech' for unknown / missing
+ * kinds, and clamps the array to 6 entries per scene so a runaway LLM
+ * can't blow up the comic renderer's overlay layer. Returns undefined
+ * (not []) when nothing usable came back so the consumer can short-
+ * circuit on `dialogue` truthiness checks. Universal — same shape
+ * comes out for every preset, only the comic renderer reads it.
+ */
+function normaliseSceneDialogue(
+  raw: Array<{ speaker?: string; text?: string; kind?: string }> | undefined,
+): SceneDialogue[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const validKinds = new Set(['speech', 'thought', 'caption', 'shout']);
+  const out: SceneDialogue[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const text = (entry.text ?? '').toString().trim();
+    if (text.length === 0) continue;
+    const kindRaw = (entry.kind ?? '').toString().trim().toLowerCase();
+    const kind = validKinds.has(kindRaw) ? (kindRaw as SceneDialogue['kind']) : 'speech';
+    out.push({
+      speaker: (entry.speaker ?? '').toString().trim(),
+      text,
+      kind,
+    });
+    if (out.length >= 6) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
  * Project the in-flight characters[] into universal CanonEntry shape
  * so registerRuntimeCanon can index them. Filters out anything that
  * lacks both an appearance and an anchor — those don't help the
@@ -153,6 +185,20 @@ export interface GeneratedScene {
    *  `background_asset_url` so any downstream code that only knows
    *  about the legacy single-image field gets a sensible default. */
   beats?: SceneBeat[];
+  /** Comic-book overlay track — speech bubbles, thought clouds,
+   *  narrator captions. Only rendered when the book's stylePreset
+   *  is 'comic_book'; other presets keep the bottom subtitle bar.
+   *  Missing on legacy books — dialogueTagger backfills on demand. */
+  dialogue?: SceneDialogue[];
+}
+
+/** Mirrors lib/types/livebook.ts:SceneDialogue. Kept duplicated here
+ *  rather than re-exported to avoid pulling the broader UI type tree
+ *  into the agent module. Any shape change must update both. */
+export interface SceneDialogue {
+  speaker: string;
+  text: string;
+  kind?: 'speech' | 'thought' | 'caption' | 'shout';
 }
 
 /** A single visual moment within a scene. Each beat gets its own
@@ -385,6 +431,12 @@ async function generateBookOpenAI(
     visual_beats?: Array<string | { description: string; camera_action?: string }>;
     mood?: SceneMood;
     theme?: string;
+    /** Comic-book overlay track emitted by the outline LLM. Optional
+     *  to keep backwards compat with prompt versions that pre-date
+     *  the field — when missing, the comic-book renderer falls back
+     *  to the bottom subtitle bar (other presets always do).
+     *  Shape mirrors SceneDialogue but kind defaults to 'speech'. */
+    dialogue?: Array<{ speaker?: string; text?: string; kind?: string }>;
   }> = outline.scenes || [];
   const charactersRaw: GeneratedCharacter[] = outline.characters || [];
   // Backstop the LLM's voice_archetype: if it returned an unknown
@@ -646,6 +698,11 @@ motion guide:
       // image scene, so leaving `beats` undefined lets the reader
       // take its existing fast path.
       beats: beats.length >= 2 ? beats : undefined,
+      // Comic-book overlay track. Normalised from the outline LLM's
+      // free-form output: trim text, validate kind, drop empties.
+      // Persisted on every book regardless of preset so a future
+      // re-render in the comic style finds dialogue already there.
+      dialogue: normaliseSceneDialogue(scene.dialogue),
     };
   });
 

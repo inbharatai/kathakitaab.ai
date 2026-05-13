@@ -15,7 +15,8 @@
 export type StylePreset =
   | 'photoreal_cinematic'
   | 'storybook_watercolor'
-  | 'cinematic_animation';
+  | 'cinematic_animation'
+  | 'comic_book';
 
 export interface StylePresetMeta {
   /** UI label shown to the user when choosing a preset. */
@@ -57,6 +58,14 @@ export const STYLE_PRESETS: Record<StylePreset, StylePresetMeta> = {
       'Style: cinematic 3D animation still in the Pixar / Dreamworks register — stylised volumetric characters with expressive faces, soft global illumination, warm rim-light, painterly textures, shallow depth of field, polished feature-film rendering. Stylised but high-fidelity, the look of a modern 3D animated theatrical release.',
     negative: ['photorealism', 'photographic film grain', 'flat 2D outline cartoon', 'anime cel-shading', '2D hand-drawn animation'],
   },
+  comic_book: {
+    label: 'Comic book',
+    description:
+      'Bold ink outlines, halftone shading, in-frame speech bubbles. Best for action-driven mythology, superhero retellings, anything that wants the punch of a comic panel.',
+    promptClause:
+      'Style: comic-book panel illustration in the modern Marvel / DC register — bold black ink outlines, dynamic linework, Ben-Day halftone shading, flat saturated palette, dramatic foreshortening, strong chiaroscuro shadows, action-pose composition. Faces and figures stylised but instantly recognisable. Leave clean negative space in the upper third of the frame where speech bubbles will be overlaid by the renderer; do NOT paint speech bubbles or text into the image itself.',
+    negative: ['photorealism', 'soft watercolor', '3D animation', 'anime cel-shading', 'manga', 'painted speech bubbles', 'embedded text or letters'],
+  },
 };
 
 /**
@@ -82,6 +91,7 @@ export const STYLE_PRESETS: Record<StylePreset, StylePresetMeta> = {
 export function slugSuffixForPreset(preset: StylePreset | undefined, explicit = false): string {
   if (preset === 'storybook_watercolor') return '-watercolour';
   if (preset === 'cinematic_animation') return '-animation';
+  if (preset === 'comic_book') return '-comic';
   if (explicit && (!preset || preset === 'photoreal_cinematic')) return '-photoreal';
   return '';
 }

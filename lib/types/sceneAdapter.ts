@@ -137,6 +137,7 @@ export function sceneToStoryScene(
   scene: SceneWithHotspots,
   characters?: Character[],
   bookSlugOverride?: string,
+  bookContext?: { stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book' },
 ): StoryScene {
   const hotspots = scene.hotspots ?? [];
 
@@ -214,6 +215,16 @@ export function sceneToStoryScene(
       correct_answer: q.correct_answer,
       explanation: q.explanation,
     })),
+    // Comic-book overlay track. Forwarded verbatim — the canvas
+    // decides whether to render it based on `style_preset` below.
+    // Cast through unknown because the seed type alias doesn't yet
+    // expose the field.
+    dialogue: (scene as unknown as { dialogue?: StoryScene['dialogue'] }).dialogue,
+    // Book-level style preset, passed in by the caller (SceneViewer
+    // pulls it from /api/books/{slug}). When absent, defaults to
+    // undefined → renderer never mounts the comic layer for legacy
+    // books that pre-date the field.
+    style_preset: bookContext?.stylePreset,
   };
 }
 

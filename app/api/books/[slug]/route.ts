@@ -93,6 +93,10 @@ export async function GET(
         subtitle: generated.subtitle,
         description: generated.description,
         source_tradition: generated.source_tradition,
+        // Style preset propagates to the live reader so the canvas
+        // can choose subtitle vs comic-bubble overlay layer per book.
+        // Missing on legacy books → renderer treats as non-comic.
+        stylePreset: generated.stylePreset,
       },
       scenes: generated.scenes,
       characters: generated.characters,

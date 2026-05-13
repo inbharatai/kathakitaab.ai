@@ -224,6 +224,11 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
         effects,
         subtitles: planSubtitles(s.narration, durationSeconds),
         hotspots,
+        // Comic-book overlay track. Forwarded verbatim from the
+        // GeneratedScene. The renderer only mounts the comic bubble
+        // layer when stylePreset === 'comic_book' (set at manifest
+        // level below), so other-preset books pay no cost.
+        dialogue: s.dialogue,
       };
     });
 
@@ -232,6 +237,11 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
     bookTitle: book.title,
     scenes,
     generatedAt: new Date(book.generatedAt).toISOString(),
+    // Book-level style preset propagated into the movie manifest
+    // so the renderer can choose subtitle-bar vs comic-bubble
+    // overlay per-book. Universal — any book carrying the field
+    // gets the matching presentation in both reader and movie.
+    stylePreset: book.stylePreset,
   };
 }
 

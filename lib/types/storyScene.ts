@@ -220,6 +220,21 @@ export interface StoryScene {
   unverified?: boolean;
   /** Human-readable explanation of why a scene is unverified. */
   verification_note?: string;
+
+  /** Comic-book overlay track. Only consumed by the renderer when
+   *  `style_preset === 'comic_book'`; other presets ignore it and
+   *  use the bottom subtitle bar. Optional — missing on legacy
+   *  books until the dialogue tagger runs. */
+  dialogue?: Array<{
+    speaker: string;
+    text: string;
+    kind?: 'speech' | 'thought' | 'caption' | 'shout';
+  }>;
+  /** Style preset the parent book was generated under. Drives which
+   *  text-display layer the canvas mounts (subtitle bar vs comic
+   *  bubbles). Missing → renderer treats as 'photoreal_cinematic'
+   *  for visual contract, never as comic. */
+  style_preset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book';
 }
 
 // ── Visual Bible (consistency across scenes) ─────────────────

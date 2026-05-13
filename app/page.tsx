@@ -172,6 +172,12 @@ const STYLE_CARDS: Array<{
     bestFor: ['Adventure tales', 'Fantasy quests', 'Modern reimaginings', 'Anything in between'],
     accent: 'rgba(255,215,0,0.5)',
   },
+  {
+    preset: 'comic_book',
+    icon: '💥',
+    bestFor: ['Action mythology', 'Superhero retellings', 'Battle epics', 'Anything with punch'],
+    accent: 'rgba(231,76,60,0.55)',
+  },
 ];
 
 // ── Component ────────────────────────────────────────────────

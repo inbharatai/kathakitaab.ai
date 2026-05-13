@@ -30,6 +30,18 @@ import ramayanaManifest from '@/remotion/manifests/ramayana.json';
 import { getBook, saveGeneratedBook } from '@/lib/data/bookRegistry';
 import { ramayanaHotspots } from '@/lib/data/hotspots';
 import { synthesizeBookMovieManifest, hydrateBookAudio } from './manifestSynthesizer';
+// Optional comic-book sibling manifest. Built by
+// scripts/generate-ramayana-comic.ts. Imported via dynamic-require so
+// the build doesn't fail when the script hasn't been run yet (the
+// JSON file only exists post-generation). When present, the registry
+// exposes it at the `ramayana-comic` slug.
+let ramayanaComicManifest: BookMovieManifest | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ramayanaComicManifest = require('@/remotion/manifests/ramayana-comic.json') as BookMovieManifest;
+} catch {
+  ramayanaComicManifest = null;
+}
 
 /**
  * Enrich the static Ramayana manifest with the hand-authored
@@ -63,6 +75,11 @@ function enrichRamayanaWithHotspots(m: BookMovieManifest): BookMovieManifest {
 
 const STATIC_REGISTRY: Record<string, BookMovieManifest> = {
   ramayana: enrichRamayanaWithHotspots(ramayanaManifest as BookMovieManifest),
+  // Comic sibling — only registered when the manifest exists on disk.
+  // Hotspots are already authored inside the comic manifest by the
+  // generator script (target_id-as-label so dialogue speakers anchor
+  // correctly), so no enrichment step is needed.
+  ...(ramayanaComicManifest ? { 'ramayana-comic': ramayanaComicManifest } : {}),
   // Add new books here as their pre-baked manifests are committed.
 };
 

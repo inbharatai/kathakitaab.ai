@@ -109,6 +109,16 @@ export interface BookMovieScene {
    *  baked into the bg image; this layer adds the "alive" signal
    *  (breath-rate scale + glow pulse) over them. */
   hotspots?: BookMovieHotspot[];
+  /** Comic-book overlay track. Rendered as in-frame speech bubbles
+   *  ONLY when the parent manifest's stylePreset === 'comic_book'.
+   *  Other presets keep their subtitle track. Bubble timing is
+   *  derived from sentence cues — one bubble per dialogue entry,
+   *  distributed proportionally across the scene's duration. */
+  dialogue?: Array<{
+    speaker: string;
+    text: string;
+    kind?: 'speech' | 'thought' | 'caption' | 'shout';
+  }>;
 }
 
 export interface BookMovieManifest {
@@ -116,6 +126,11 @@ export interface BookMovieManifest {
   bookTitle: string;
   scenes: BookMovieScene[];
   generatedAt: string;
+  /** Style preset the book was generated under. Drives whether the
+   *  movie player renders the bottom subtitle track (default) or
+   *  comic-style in-frame speech bubbles (comic_book). Absent on
+   *  legacy manifests → treated as non-comic. */
+  stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book';
 }
 
 export const BOOK_MOVIE_FPS = 30;
@@ -341,7 +356,11 @@ const SceneShot: React.FC<{
   scene: BookMovieScene;
   index: number;
   total: number;
-}> = ({ scene, index, total }) => {
+  /** Book-level style preset, forwarded from the manifest. Drives
+   *  whether this scene renders the standard subtitle panel or
+   *  comic-book speech bubbles. Absent → defaults to non-comic. */
+  stylePreset?: BookMovieManifest['stylePreset'];
+}> = ({ scene, index, total, stylePreset }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
 
@@ -517,13 +536,27 @@ const SceneShot: React.FC<{
         </div>
       </div>
 
-      {/* ── Cinematic subtitle panel ── */}
-      <SubtitlePanel
-        cues={cues}
-        activeCueIndex={activeCueIndex}
-        activeCue={activeCue}
-        appearAlpha={headerAppear}
-      />
+      {/* ── Text overlay layer ──
+          Comic books get in-frame bubbles instead of the bottom
+          subtitle bar. The two layers are mutually exclusive so the
+          chosen visual world stays coherent — see [[reference-admin-bypass]]
+          for the same pattern (universal gate, one source of truth). */}
+      {stylePreset === 'comic_book' && Array.isArray(scene.dialogue) && scene.dialogue.length > 0 ? (
+        <RemotionBubbleLayer
+          dialogue={scene.dialogue}
+          hotspots={scene.hotspots ?? []}
+          frame={frame}
+          fps={fps}
+          durationInFrames={durationInFrames}
+        />
+      ) : (
+        <SubtitlePanel
+          cues={cues}
+          activeCueIndex={activeCueIndex}
+          activeCue={activeCue}
+          appearAlpha={headerAppear}
+        />
+      )}
 
       {/* ── Narration audio (Sarvam Bulbul) ── */}
       <Sequence from={audioStart}>
@@ -673,6 +706,131 @@ const AmbientFiguresLayer: React.FC<{
           </React.Fragment>
         );
       })}
+    </div>
+  );
+};
+
+// Remotion-native comic bubble layer. Mirrors the live reader's
+// ComicBubbleLayer but takes its timing from the frame counter
+// instead of subscribing to the narration audio element — Remotion
+// renders frame-by-frame in a headless browser, no rAF available.
+//
+// One bubble at a time, equal slots across the scene's duration,
+// typewriter reveal during the first 70% of each slot. The styling
+// must mirror the live reader so a user who reads-then-watches
+// (or vice versa) sees the same comic aesthetic.
+const RemotionBubbleLayer: React.FC<{
+  dialogue: NonNullable<BookMovieScene['dialogue']>;
+  hotspots: BookMovieHotspot[];
+  frame: number;
+  fps: number;
+  durationInFrames: number;
+}> = ({ dialogue, hotspots, frame, fps, durationInFrames }) => {
+  const beatCount = dialogue.length;
+  if (beatCount === 0) return null;
+  // Equal-slot distribution across the scene's full duration.
+  // Each slot reveals over the first 70%, holds for 30%.
+  const slotFrames = durationInFrames / beatCount;
+  const rawIdx = Math.floor(frame / slotFrames);
+  const idx = Math.max(0, Math.min(beatCount - 1, rawIdx));
+  const within = (frame - idx * slotFrames) / slotFrames;
+  const holdFrac = 0.30;
+  const reveal = Math.min(1, within / (1 - holdFrac));
+  const entry = dialogue[idx];
+  const kind = entry.kind ?? 'speech';
+  const revealed = entry.text.slice(0, Math.max(1, Math.floor(entry.text.length * reveal)));
+
+  // Pop-in animation for the bubble: scale from 0.7 → 1 over the
+  // first ~7 frames of the slot. Looks like the page-turn snap of a
+  // comic panel. Pure interpolation — no CSS keyframes (Remotion
+  // doesn't run those on the server-render path reliably).
+  const localFrame = frame - idx * slotFrames;
+  const popScale = Math.min(1, 0.7 + (localFrame / Math.max(1, fps * 0.22)) * 0.3);
+  const popAlpha = Math.min(1, localFrame / Math.max(1, fps * 0.15));
+
+  // Captions render at the top of the frame, no anchor.
+  if (kind === 'caption') {
+    return (
+      <div style={{
+        position: 'absolute', left: '6%', right: '6%', top: '5%',
+        padding: '18px 28px',
+        background: '#fff1c8',
+        border: '5px solid #14110d',
+        boxShadow: '0 10px 26px rgba(0,0,0,0.45)',
+        opacity: popAlpha,
+        transform: 'rotate(-0.6deg)',
+        zIndex: 30,
+      }}>
+        <span style={{
+          fontFamily: '"Bangers", "Comic Sans MS", serif',
+          fontSize: 34, lineHeight: 1.25, color: '#0d0a08',
+          fontStyle: 'italic', letterSpacing: 0.4,
+        }}>{revealed}</span>
+      </div>
+    );
+  }
+
+  // Speech / thought / shout: anchor to the speaker's hotspot.
+  const anchor = hotspots.find(h => h.type === 'character' && h.label && h.label.toLowerCase() === entry.speaker.toLowerCase());
+  // Layout
+  const width = 36;
+  const anchorCx = anchor ? anchor.x + anchor.width / 2 : 50;
+  const anchorTop = anchor ? anchor.y : 30;
+  const left = anchor
+    ? (anchorCx > 50 ? Math.max(4, anchorCx - width + 6) : Math.min(96 - width, anchorCx - 6))
+    : 32;
+  const top = anchor ? Math.max(4, anchor.y - 22) : 6;
+
+  const bubbleBg = kind === 'shout' ? '#ffe23d' : '#fdfaf2';
+  const fontFamily = '"Bangers", "Comic Sans MS", serif';
+  const fontSize = kind === 'shout' ? 38 : 30;
+  const fontWeight = kind === 'shout' ? 800 : 600;
+  const textTransform = kind === 'shout' ? 'uppercase' : 'none';
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}>
+      <div style={{
+        position: 'absolute',
+        left: `${left}%`, top: `${top}%`, width: `${width}%`,
+        transformOrigin: 'center bottom',
+        transform: `scale(${popScale.toFixed(3)})`,
+        opacity: popAlpha,
+      }}>
+        <div style={{
+          position: 'relative',
+          padding: kind === 'shout' ? '20px 32px' : '18px 26px',
+          background: bubbleBg,
+          border: '5px solid #14110d',
+          borderRadius: kind === 'thought' ? '54% 46% 60% 40% / 50% 60% 40% 50%' : 18,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.40)',
+          transform: kind === 'shout' ? 'rotate(-2deg)' : 'none',
+        }}>
+          <span style={{
+            fontFamily, fontSize, fontWeight,
+            lineHeight: 1.22, color: '#0d0a08',
+            letterSpacing: 0.3,
+            textTransform: textTransform as React.CSSProperties['textTransform'],
+          }}>
+            {revealed}
+          </span>
+        </div>
+      </div>
+      {anchor && kind !== 'thought' && (
+        <svg
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          <polygon
+            points={`${left + width / 2 - 2.2},${top + 12} ${left + width / 2 + 2.2},${top + 12} ${anchorCx},${anchorTop + 1}`}
+            fill="#fdfaf2"
+            stroke="#14110d"
+            strokeWidth={0.6}
+            strokeLinejoin="round"
+            opacity={popAlpha}
+          />
+        </svg>
+      )}
     </div>
   );
 };
@@ -869,7 +1027,12 @@ export const BookMovie: React.FC<{ manifest: BookMovieManifest }> = ({ manifest 
         const { from, frames } = placements[index];
         return (
           <Sequence key={scene.sceneId} from={from} durationInFrames={frames}>
-            <SceneShot scene={scene} index={index} total={total} />
+            <SceneShot
+              scene={scene}
+              index={index}
+              total={total}
+              stylePreset={manifest.stylePreset}
+            />
           </Sequence>
         );
       })}

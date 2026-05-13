@@ -38,6 +38,8 @@ import { motionForVerb } from '@/lib/video/verbCharacterMotion';
 import { useSceneCutouts } from '@/lib/hooks/useSceneCutouts';
 import { useCharacterStates } from '@/lib/hooks/useCharacterStates';
 import BeatCrossFade from './BeatCrossFade';
+import { ComicBubbleLayer, type BubbleAnchor } from '@/components/comic/ComicBubbleLayer';
+import { useComicDialogueDriver } from '@/lib/hooks/useComicDialogueDriver';
 
 // ── Glow filter for glow animations ──────────────────────────
 
@@ -493,6 +495,30 @@ export default function SceneCanvas({
     triggerBurst(action, hotspot);
     onHotspotAction?.(hotspot, action);
   }, [onHotspotAction, triggerBurst]);
+
+  // ── Comic-book overlay (preset-gated) ──
+  // Only mounts when the parent book was generated under the
+  // comic_book preset AND the scene actually carries a dialogue
+  // track. Photoreal / watercolour / animation books skip this
+  // entirely and keep their bottom subtitle bar. Universal — same
+  // gate runs for every book; only the data drives the visual.
+  const comicEnabled = scene.style_preset === 'comic_book'
+    && Array.isArray(scene.dialogue)
+    && scene.dialogue.length > 0;
+  const comicDialogue = comicEnabled ? scene.dialogue! : [];
+  const driver = useComicDialogueDriver(comicDialogue.length, comicEnabled);
+  // Build speaker anchors from character hotspots — slug match is
+  // the bridge between the canonical character roster and the
+  // scene's positional bboxes.
+  const comicAnchors: BubbleAnchor[] = scene.hotspots
+    .filter(h => h.type === 'character')
+    .map(h => ({
+      speaker: h.target_id,
+      x: h.x,
+      y: h.y,
+      width: h.width,
+      height: h.height,
+    }));
 
   return (
     <div
@@ -1005,6 +1031,20 @@ export default function SceneCanvas({
             AI interpretation
           </motion.div>
         </div>
+      )}
+
+      {/* ── Layer 7: Comic-book bubble overlay (preset-gated) ──
+          Top-most z so bubbles always read over the painted scene
+          and the hotspot overlay. Only mounts when comicEnabled.
+          Driver gives us which beat is active + typing progress;
+          ComicBubbleLayer renders the actual SVG bubble + tail. */}
+      {comicEnabled && driver.activeIndex >= 0 && (
+        <ComicBubbleLayer
+          dialogue={comicDialogue}
+          activeIndex={driver.activeIndex}
+          anchors={comicAnchors}
+          typingProgress={driver.typingProgress}
+        />
       )}
     </div>
   );

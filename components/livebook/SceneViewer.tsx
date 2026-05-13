@@ -356,9 +356,18 @@ export default function SceneViewer({
       const loadedScene: SceneWithHotspots = sceneData.scene;
 
       let bookCharacters: Character[] = [];
+      let bookStylePreset:
+        | 'photoreal_cinematic'
+        | 'storybook_watercolor'
+        | 'cinematic_animation'
+        | 'comic_book'
+        | undefined;
       if (bookRes.ok) {
         const bookData = await bookRes.json();
         bookCharacters = bookData.characters ?? [];
+        // Surface the book-level style preset so the canvas can mount
+        // the comic-bubble overlay layer only for comic books.
+        bookStylePreset = bookData.stylePreset ?? bookData.book?.stylePreset;
       }
 
       // Store raw data for legacy compatibility
@@ -367,7 +376,9 @@ export default function SceneViewer({
       onSceneChange?.(loadedScene);
 
       // Convert to StoryScene
-      const converted = sceneToStoryScene(loadedScene, bookCharacters, bookSlug);
+      const converted = sceneToStoryScene(loadedScene, bookCharacters, bookSlug, {
+        stylePreset: bookStylePreset,
+      });
       setStoryScene(converted);
       setSceneState(createInitialSceneState(converted));
 
