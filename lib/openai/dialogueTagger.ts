@@ -161,7 +161,19 @@ Rules:
     return [];
   }
 
-  const rosterSlugs = new Set(characters.map(c => c.slug));
+  // Build a flexible speaker resolver: maps slug, display name, and
+  // every alias (all lowercased) back to the canonical slug. Lets the
+  // tagger be forgiving when the LLM returns 'Rama' instead of 'rama'
+  // or 'Ram' or 'King Rama'. Without this, scenes with proper-noun
+  // speaker tags collapse to 0 dialogue entries.
+  const nameToSlug = new Map<string, string>();
+  for (const c of characters) {
+    nameToSlug.set(c.slug.toLowerCase(), c.slug);
+    nameToSlug.set(c.name.toLowerCase(), c.slug);
+    for (const alias of c.aliases ?? []) {
+      nameToSlug.set(alias.toLowerCase(), c.slug);
+    }
+  }
   const out: SceneDialogue[] = [];
   for (const entry of parsed.dialogue ?? []) {
     if (!entry || typeof entry !== 'object') continue;
@@ -171,11 +183,16 @@ Rules:
     const kind: SceneDialogue['kind'] = VALID_KINDS.has(kindRaw as NonNullable<SceneDialogue['kind']>)
       ? (kindRaw as NonNullable<SceneDialogue['kind']>)
       : 'speech';
-    // Speaker must either exist in the roster or be empty (caption /
-    // unattributed). Anything else collapses to '' so the renderer
-    // doesn't try to anchor to a hotspot that won't be found.
-    let speaker = (entry.speaker ?? '').toString().trim();
-    if (speaker && !rosterSlugs.has(speaker)) speaker = '';
+    // Resolve speaker to a roster slug via the case-insensitive lookup
+    // above. Empty (narrator caption) is fine. Anything we can't map
+    // to a known character collapses to '' so the renderer doesn't
+    // try to anchor to a hotspot that won't be found.
+    const rawSpeaker = (entry.speaker ?? '').toString().trim();
+    let speaker = '';
+    if (rawSpeaker) {
+      const resolved = nameToSlug.get(rawSpeaker.toLowerCase());
+      if (resolved) speaker = resolved;
+    }
     // A non-caption with no speaker is meaningless — drop it.
     if (!speaker && kind !== 'caption') continue;
     out.push({ speaker, text, kind });

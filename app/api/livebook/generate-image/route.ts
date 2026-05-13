@@ -14,6 +14,7 @@ import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache
 import { generateSceneImage } from '@/lib/agents/visualAgent';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getBookStylePreset } from '@/lib/data/bookStyle';
 
 // Character visual prompts — carefully crafted for consistency
 const CHARACTER_VISUAL_PROMPTS: Record<string, string> = {
@@ -102,10 +103,17 @@ export async function POST(request: Request) {
 
     // Generate image using Visual Agent (OpenAI primary, Gemini fallback).
     // bookSlug + characters opt-in to canon-locked appearance + style.
+    // Resolve the book's style preset so the branch image renders in
+    // the same visual world as the rest of the book. Without this, a
+    // comic-book reader who clicks a hotspot would get a photoreal
+    // branch image — preset coherence breaks. Universal: same call
+    // for every preset, undefined falls through to the default.
+    const stylePreset = await getBookStylePreset(bookSlug);
     const result = await generateSceneImage(prompt, {
       bookSlug,
       characters: characters ?? (label ? [label] : undefined),
       mood: 'serene',
+      stylePreset,
     });
 
     if (!result.imageUrl) {

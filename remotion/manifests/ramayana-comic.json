@@ -1,0 +1,1565 @@
+{
+  "bookSlug": "ramayana-comic",
+  "bookTitle": "Ramayana LiveBook — Comic",
+  "scenes": [
+    {
+      "sceneId": "ayodhya_intro",
+      "title": "The Princes of Ayodhya",
+      "narration": "Long ago, in the golden city of Ayodhya, King Dasharatha ruled a prosperous kingdom with wisdom and love. He was blessed with four sons: Rama, Bharata, Lakshmana, and Shatrughna. Among them, Rama shone brightest — calm, truthful, and compassionate. The great sage Vishwamitra arrived one day, seeking Rama and Lakshmana's help to protect sacred rituals from dark forces. Thus began the journey that would shape the world.",
+      "imagePath": "/images/comic/scene_ayodhya_intro_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_ayodhya_intro_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_ayodhya_intro_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_ayodhya_intro_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_ayodhya_intro_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_ayodhya_intro_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/ayodhya_intro.wav",
+      "durationSeconds": 29,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "vignette",
+          "intensity": 0.45,
+          "color": "rgba(2,4,16,0.7)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "dust",
+          "density": 0.25
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "Long ago, in the golden city of Ayodhya, King Dasharatha ruled a prosperous kingdom with wisdom and love.",
+          "startMs": 300,
+          "endMs": 7325
+        },
+        {
+          "text": "He was blessed with four sons: Rama, Bharata, Lakshmana, and Shatrughna.",
+          "startMs": 7325,
+          "endMs": 12142
+        },
+        {
+          "text": "Among them, Rama shone brightest — calm, truthful, and compassionate.",
+          "startMs": 12142,
+          "endMs": 16759
+        },
+        {
+          "text": "The great sage Vishwamitra arrived one day, seeking Rama and Lakshmana's help to protect sacred rituals from dark forces.",
+          "startMs": 16759,
+          "endMs": 24855
+        },
+        {
+          "text": "Thus began the journey that would shape the world.",
+          "startMs": 24855,
+          "endMs": 28200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 11,
+          "y": 11,
+          "width": 15,
+          "height": 60
+        },
+        {
+          "label": "lakshmana",
+          "type": "character",
+          "x": 26,
+          "y": 12,
+          "width": 12,
+          "height": 58
+        },
+        {
+          "label": "dasharatha",
+          "type": "character",
+          "x": 38,
+          "y": 20,
+          "width": 14,
+          "height": 50
+        },
+        {
+          "label": "ayodhya_palace",
+          "type": "place",
+          "x": 75,
+          "y": 20,
+          "width": 18,
+          "height": 40
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "dasharatha",
+          "text": "In Ayodhya, we shall protect our realm with wisdom and love.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "rama",
+          "text": "I will stand by my brother and protect the sacred from darkness.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "Together, we are stronger! Let us face whatever comes!",
+          "kind": "speech"
+        }
+      ]
+    },
+    {
+      "sceneId": "mithila_bow",
+      "title": "Sita and the Bow of Shiva",
+      "narration": "In the kingdom of Mithila, King Janaka held a great challenge: whoever could lift and string the mighty bow of Shiva would win the hand of his daughter, Sita. Many powerful kings tried and failed. When Rama stepped forward, he not only lifted the bow but broke it with ease. The assembly watched in awe. Sita placed the garland around Rama's neck. Their union was celebrated across both kingdoms.",
+      "imagePath": "/images/comic/scene_mithila_bow_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_mithila_bow_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_mithila_bow_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_mithila_bow_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_mithila_bow_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_mithila_bow_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/mithila_bow.wav",
+      "durationSeconds": 30,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "In the kingdom of Mithila, King Janaka held a great challenge: whoever could lift and string the mighty bow of Shiva would win the hand of his daughter, Sita.",
+          "startMs": 300,
+          "endMs": 11978
+        },
+        {
+          "text": "Many powerful kings tried and failed.",
+          "startMs": 11978,
+          "endMs": 14713
+        },
+        {
+          "text": "When Rama stepped forward, he not only lifted the bow but broke it with ease.",
+          "startMs": 14713,
+          "endMs": 20404
+        },
+        {
+          "text": "The assembly watched in awe.",
+          "startMs": 20404,
+          "endMs": 22474
+        },
+        {
+          "text": "Sita placed the garland around Rama's neck.",
+          "startMs": 22474,
+          "endMs": 25652
+        },
+        {
+          "text": "Their union was celebrated across both kingdoms.",
+          "startMs": 25652,
+          "endMs": 29200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 29,
+          "y": 16,
+          "width": 19,
+          "height": 55
+        },
+        {
+          "label": "sita",
+          "type": "character",
+          "x": 51,
+          "y": 29,
+          "width": 10,
+          "height": 42
+        },
+        {
+          "label": "shiva_bow",
+          "type": "object",
+          "x": 15,
+          "y": 0,
+          "width": 20,
+          "height": 70
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "sita",
+          "text": "At last, a worthy champion! May our destinies intertwine.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "rama",
+          "text": "This bow is but a trifle compared to my love for you, Sita.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "Look at him! Rama's strength knows no bounds!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "dasharatha",
+          "text": "My son has proven himself! A true ruler is born!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "",
+          "text": "The assembly erupted in joy as Sita garlanded Rama, sealing their fates.",
+          "kind": "caption"
+        }
+      ]
+    },
+    {
+      "sceneId": "exile",
+      "title": "The Exile",
+      "narration": "Rama was chosen to be the next king of Ayodhya. But Queen Kaikeyi, reminded of an old promise by Dasharatha, demanded that her son Bharata become king and Rama be exiled for fourteen years. Dasharatha's heart shattered, but Rama accepted the exile calmly, saying duty and truth must always be honored. Sita and Lakshmana refused to let him go alone. Together, they left the palace for the forest.",
+      "imagePath": "/images/comic/scene_exile_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_exile_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_exile_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_exile_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_exile_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_exile_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/exile.wav",
+      "durationSeconds": 30,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "Rama was chosen to be the next king of Ayodhya.",
+          "startMs": 300,
+          "endMs": 3765
+        },
+        {
+          "text": "But Queen Kaikeyi, reminded of an old promise by Dasharatha, demanded that her son Bharata become king and Rama be exiled for fourteen years.",
+          "startMs": 3765,
+          "endMs": 14160
+        },
+        {
+          "text": "Dasharatha's heart shattered, but Rama accepted the exile calmly, saying duty and truth must always be honored.",
+          "startMs": 14160,
+          "endMs": 22343
+        },
+        {
+          "text": "Sita and Lakshmana refused to let him go alone.",
+          "startMs": 22343,
+          "endMs": 25808
+        },
+        {
+          "text": "Together, they left the palace for the forest.",
+          "startMs": 25808,
+          "endMs": 29200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 29,
+          "y": 11,
+          "width": 18,
+          "height": 55
+        },
+        {
+          "label": "sita",
+          "type": "character",
+          "x": 46,
+          "y": 19,
+          "width": 14,
+          "height": 50
+        },
+        {
+          "label": "lakshmana",
+          "type": "character",
+          "x": 12,
+          "y": 12,
+          "width": 13,
+          "height": 50
+        },
+        {
+          "label": "dasharatha",
+          "type": "character",
+          "x": 61,
+          "y": 8,
+          "width": 15,
+          "height": 55
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "rama",
+          "text": "I will honor my duty, no matter the cost. Exile is a path I must walk.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sita",
+          "text": "I will not let you face this alone, Rama. Wherever you go, I will follow.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "Brother, I stand with you. Together, we shall face whatever comes.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "dasharatha",
+          "text": "My heart breaks to see you go, my son. This is a cruel fate.",
+          "kind": "speech"
+        }
+      ]
+    },
+    {
+      "sceneId": "forest_life",
+      "title": "Life in the Forest",
+      "narration": "Rama, Sita, and Lakshmana built a peaceful home in the forest at Panchavati. They lived simply among nature, learning from sages and protecting the forest dwellers. One day, a golden deer appeared — enchanting and beautiful. Sita was captivated and asked Rama to catch it. Rama followed the deer into the forest, and Lakshmana was drawn away too. It was a trap.",
+      "imagePath": "/images/comic/scene_forest_life_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_forest_life_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_forest_life_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_forest_life_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_forest_life_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_forest_life_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/forest_life.wav",
+      "durationSeconds": 27,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(60,120,40,0.06)"
+        },
+        {
+          "type": "dust_shaft",
+          "angle": 55,
+          "color": "rgba(180,210,140,0.14)",
+          "density": 0.45
+        },
+        {
+          "type": "fog",
+          "intensity": 0.18,
+          "color": "rgba(220,230,210,1)",
+          "speed": 0.7
+        },
+        {
+          "type": "particles",
+          "kind": "leaf",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "Rama, Sita, and Lakshmana built a peaceful home in the forest at Panchavati.",
+          "startMs": 300,
+          "endMs": 5829
+        },
+        {
+          "text": "They lived simply among nature, learning from sages and protecting the forest dwellers.",
+          "startMs": 5829,
+          "endMs": 12158
+        },
+        {
+          "text": "One day, a golden deer appeared — enchanting and beautiful.",
+          "startMs": 12158,
+          "endMs": 16450
+        },
+        {
+          "text": "Sita was captivated and asked Rama to catch it.",
+          "startMs": 16450,
+          "endMs": 19869
+        },
+        {
+          "text": "Rama followed the deer into the forest, and Lakshmana was drawn away too.",
+          "startMs": 19869,
+          "endMs": 25180
+        },
+        {
+          "text": "It was a trap.",
+          "startMs": 25180,
+          "endMs": 26200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 10,
+          "y": 10,
+          "width": 20,
+          "height": 80
+        },
+        {
+          "label": "sita",
+          "type": "character",
+          "x": 30,
+          "y": 15,
+          "width": 15,
+          "height": 75
+        },
+        {
+          "label": "golden_deer",
+          "type": "object",
+          "x": 80,
+          "y": 50,
+          "width": 15,
+          "height": 40
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "rama",
+          "text": "This golden deer is unlike any I've seen! I must catch it for you, Sita.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sita",
+          "text": "Oh, Rama! It's so beautiful! Please bring it to me!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "Wait, brother! Something feels off about this chase.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "",
+          "text": "Little did they know, it was a trap laid by Ravana.",
+          "kind": "caption"
+        }
+      ]
+    },
+    {
+      "sceneId": "ravana_jatayu",
+      "title": "Ravana's Deception and Jatayu's Courage",
+      "narration": "With Rama and Lakshmana away, the demon king Ravana arrived disguised as a sage and abducted Sita, carrying her away in his flying chariot. Jatayu, the noble eagle and old friend of Dasharatha, saw Sita's distress and attacked Ravana with all his might. Though old and outmatched, Jatayu fought bravely before falling. When Rama found the wounded Jatayu, the eagle told him what happened with his last breaths. Rama wept and honored Jatayu as he would his own father.",
+      "imagePath": "/images/comic/scene_ravana_jatayu_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_ravana_jatayu_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_ravana_jatayu_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_ravana_jatayu_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_ravana_jatayu_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_ravana_jatayu_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/ravana_jatayu.wav",
+      "durationSeconds": 34,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "With Rama and Lakshmana away, the demon king Ravana arrived disguised as a sage and abducted Sita, carrying her away in his flying chariot.",
+          "startMs": 300,
+          "endMs": 10177
+        },
+        {
+          "text": "Jatayu, the noble eagle and old friend of Dasharatha, saw Sita's distress and attacked Ravana with all his might.",
+          "startMs": 10177,
+          "endMs": 18207
+        },
+        {
+          "text": "Though old and outmatched, Jatayu fought bravely before falling.",
+          "startMs": 18207,
+          "endMs": 22755
+        },
+        {
+          "text": "When Rama found the wounded Jatayu, the eagle told him what happened with his last breaths.",
+          "startMs": 22755,
+          "endMs": 29221
+        },
+        {
+          "text": "Rama wept and honored Jatayu as he would his own father.",
+          "startMs": 29221,
+          "endMs": 33200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "ravana",
+          "type": "character",
+          "x": 58,
+          "y": 21,
+          "width": 11,
+          "height": 21
+        },
+        {
+          "label": "sita",
+          "type": "character",
+          "x": 67,
+          "y": 23,
+          "width": 7,
+          "height": 19
+        },
+        {
+          "label": "jatayu",
+          "type": "character",
+          "x": 26,
+          "y": 6,
+          "width": 29,
+          "height": 29
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "jatayu",
+          "text": "I may be old, but I will not let you take her without a fight!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "ravana",
+          "text": "Foolish bird! You think you can stop me? Stand aside!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "rama",
+          "text": "Jatayu! No! You fought valiantly, my friend. I will avenge you!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sita",
+          "text": "Help me, noble Jatayu! Do not let him take me!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "",
+          "text": "In his final moments, Jatayu revealed the truth to Rama.",
+          "kind": "caption"
+        }
+      ]
+    },
+    {
+      "sceneId": "hanuman_meets_rama",
+      "title": "The Search and the Meeting with Hanuman",
+      "narration": "Grief-stricken but resolute, Rama and Lakshmana searched the forests for Sita. Their path led them to Kishkindha, where they met Sugriva, the exiled vanara king, and his minister Hanuman. Hanuman felt an instant, deep devotion to Rama. An alliance was formed: Rama would help Sugriva regain his kingdom, and Sugriva would help Rama find Sita. Hanuman pledged his life to Rama's cause.",
+      "imagePath": "/images/comic/scene_hanuman_meets_rama_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_hanuman_meets_rama_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_meets_rama_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_meets_rama_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_meets_rama_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_meets_rama_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/hanuman_meets_rama.wav",
+      "durationSeconds": 27,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,80,30,0.05)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "Grief-stricken but resolute, Rama and Lakshmana searched the forests for Sita.",
+          "startMs": 300,
+          "endMs": 5616
+        },
+        {
+          "text": "Their path led them to Kishkindha, where they met Sugriva, the exiled vanara king, and his minister Hanuman.",
+          "startMs": 5616,
+          "endMs": 12977
+        },
+        {
+          "text": "Hanuman felt an instant, deep devotion to Rama.",
+          "startMs": 12977,
+          "endMs": 16180
+        },
+        {
+          "text": "An alliance was formed: Rama would help Sugriva regain his kingdom, and Sugriva would help Rama find Sita.",
+          "startMs": 16180,
+          "endMs": 23405
+        },
+        {
+          "text": "Hanuman pledged his life to Rama's cause.",
+          "startMs": 23405,
+          "endMs": 26200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 11,
+          "y": 11,
+          "width": 19,
+          "height": 80
+        },
+        {
+          "label": "hanuman",
+          "type": "character",
+          "x": 71,
+          "y": 10,
+          "width": 20,
+          "height": 80
+        },
+        {
+          "label": "sugriva",
+          "type": "character",
+          "x": 70,
+          "y": 40,
+          "width": 10,
+          "height": 20
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "rama",
+          "text": "We will find Sita, no matter the cost. I swear it by my honor!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "Together, brother, we will not rest until she is safe!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "I pledge my life to your cause, Rama. I will help you find Sita!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sugriva",
+          "text": "With your strength and my knowledge, we shall reclaim what is lost!",
+          "kind": "speech"
+        }
+      ]
+    },
+    {
+      "sceneId": "hanuman_lanka",
+      "title": "Hanuman's Leap to Lanka",
+      "narration": "Hanuman stood at the edge of the southern ocean. Lanka lay beyond the vast waters. With a mighty leap powered by devotion, Hanuman soared across the sea, overcoming every obstacle. In Lanka, he searched until he found Sita in the Ashoka Vatika, surrounded by guards. He showed her Rama's ring as proof and gave her hope. Before leaving, Hanuman let himself be captured to deliver a message to Ravana, then set fire to parts of Lanka as a warning.",
+      "imagePath": "/images/comic/scene_hanuman_lanka_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_hanuman_lanka_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_lanka_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_lanka_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_lanka_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_hanuman_lanka_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/hanuman_lanka.wav",
+      "durationSeconds": 34,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(70,130,180,0.06)"
+        },
+        {
+          "type": "fog",
+          "intensity": 0.22,
+          "color": "rgba(200,220,235,1)",
+          "speed": 1.1
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.5,
+          "color": "#C8A0FF"
+        },
+        {
+          "type": "glow",
+          "color": "rgba(180,140,255,0.4)",
+          "radius": 0.5
+        },
+        {
+          "type": "flash",
+          "rateHz": 0.5,
+          "color": "rgba(180,140,255,0.4)"
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "ripple",
+          "freq": 0.06,
+          "amplitude": 1.4,
+          "originX": 0.5,
+          "originY": 0.7
+        },
+        {
+          "type": "parallax",
+          "factor": 0.2
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "Hanuman stood at the edge of the southern ocean.",
+          "startMs": 300,
+          "endMs": 3881
+        },
+        {
+          "text": "Lanka lay beyond the vast waters.",
+          "startMs": 3881,
+          "endMs": 6343
+        },
+        {
+          "text": "With a mighty leap powered by devotion, Hanuman soared across the sea, overcoming every obstacle.",
+          "startMs": 6343,
+          "endMs": 13580
+        },
+        {
+          "text": "In Lanka, he searched until he found Sita in the Ashoka Vatika, surrounded by guards.",
+          "startMs": 13580,
+          "endMs": 19921
+        },
+        {
+          "text": "He showed her Rama's ring as proof and gave her hope.",
+          "startMs": 19921,
+          "endMs": 23875
+        },
+        {
+          "text": "Before leaving, Hanuman let himself be captured to deliver a message to Ravana, then set fire to parts of Lanka as a warning.",
+          "startMs": 23875,
+          "endMs": 33200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "hanuman",
+          "type": "character",
+          "x": 0,
+          "y": 47,
+          "width": 15,
+          "height": 40
+        },
+        {
+          "label": "sita",
+          "type": "character",
+          "x": 47,
+          "y": 35,
+          "width": 15,
+          "height": 50
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "hanuman",
+          "text": "With Rama's love as my strength, I will leap across this ocean!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "sita",
+          "text": "Rama's ring! Hope is not lost!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "ravana",
+          "text": "You dare invade my kingdom? You will pay for this, monkey!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "Let this fire be a warning, Ravana! Your tyranny ends now!",
+          "kind": "shout"
+        }
+      ]
+    },
+    {
+      "sceneId": "bridge_to_lanka",
+      "title": "The Bridge to Lanka",
+      "narration": "With the location of Sita confirmed, Rama led the vanara army to the southern shore. The vast ocean lay between them and Lanka. Under the guidance of Nala and Nila, the vanaras began building a great bridge — each stone placed with devotion, each stone floating upon the water as Rama's name was written upon them. The bridge stretched across the sea, and the army marched toward Lanka.",
+      "imagePath": "/images/comic/scene_bridge_to_lanka_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_bridge_to_lanka_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_bridge_to_lanka_beat_2.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/bridge_to_lanka.wav",
+      "durationSeconds": 30,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(70,130,180,0.06)"
+        },
+        {
+          "type": "fog",
+          "intensity": 0.22,
+          "color": "rgba(200,220,235,1)",
+          "speed": 1.1
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "ripple",
+          "freq": 0.06,
+          "amplitude": 1.4,
+          "originX": 0.5,
+          "originY": 0.7
+        },
+        {
+          "type": "parallax",
+          "factor": 0.2
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "With the location of Sita confirmed, Rama led the vanara army to the southern shore.",
+          "startMs": 300,
+          "endMs": 6638
+        },
+        {
+          "text": "The vast ocean lay between them and Lanka.",
+          "startMs": 6638,
+          "endMs": 9807
+        },
+        {
+          "text": "Under the guidance of Nala and Nila, the vanaras began building a great bridge — each stone placed with devotion, each stone floating upon the water as Rama's name was written upon them.",
+          "startMs": 9807,
+          "endMs": 23842
+        },
+        {
+          "text": "The bridge stretched across the sea, and the army marched toward Lanka.",
+          "startMs": 23842,
+          "endMs": 29200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 17,
+          "y": 9,
+          "width": 20,
+          "height": 60
+        },
+        {
+          "label": "hanuman",
+          "type": "character",
+          "x": 45,
+          "y": 50,
+          "width": 12,
+          "height": 20
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "rama",
+          "text": "Together, we shall build a bridge of hope and strength to rescue Sita!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "With each stone, we honor your name, Rama! Let the ocean tremble beneath our resolve!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "The path to Lanka is clear! We will not falter!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sita",
+          "text": "My heart awaits your return, my beloved Rama. Build your bridge with courage.",
+          "kind": "thought"
+        }
+      ]
+    },
+    {
+      "sceneId": "battle_lanka",
+      "title": "The Battle in Lanka",
+      "narration": "The great battle began. Ravana's mighty army faced Rama's vanara forces. Warriors clashed on both sides. Ravana's brother Vibhishana, unable to support injustice, chose to leave Lanka and join Rama — choosing dharma over blind family loyalty. After fierce battles, Rama faced Ravana in single combat. The demon king fell, and Rama mourned even his enemy, recognizing Ravana's greatness corrupted by pride.",
+      "imagePath": "/images/scene_battle_lanka.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/battle_lanka.wav",
+      "durationSeconds": 27,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,20,10,0.10)"
+        },
+        {
+          "type": "vignette",
+          "intensity": 0.35
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "flash",
+          "rateHz": 0.3,
+          "color": "rgba(255,240,210,0.45)"
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "The great battle began.",
+          "startMs": 300,
+          "endMs": 1800
+        },
+        {
+          "text": "Ravana's mighty army faced Rama's vanara forces.",
+          "startMs": 1800,
+          "endMs": 4908
+        },
+        {
+          "text": "Warriors clashed on both sides.",
+          "startMs": 4908,
+          "endMs": 6915
+        },
+        {
+          "text": "Ravana's brother Vibhishana, unable to support injustice, chose to leave Lanka and join Rama — choosing dharma over blind family loyalty.",
+          "startMs": 6915,
+          "endMs": 15786
+        },
+        {
+          "text": "After fierce battles, Rama faced Ravana in single combat.",
+          "startMs": 15786,
+          "endMs": 19477
+        },
+        {
+          "text": "The demon king fell, and Rama mourned even his enemy, recognizing Ravana's greatness corrupted by pride.",
+          "startMs": 19477,
+          "endMs": 26200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 11,
+          "y": 11,
+          "width": 20,
+          "height": 80
+        },
+        {
+          "label": "ravana",
+          "type": "character",
+          "x": 60,
+          "y": 15,
+          "width": 20,
+          "height": 75
+        },
+        {
+          "label": "vibhishana",
+          "type": "character",
+          "x": 40,
+          "y": 30,
+          "width": 10,
+          "height": 50
+        }
+      ],
+      "dialogue": []
+    },
+    {
+      "sceneId": "return_ayodhya",
+      "title": "Return to Ayodhya",
+      "narration": "With Sita rescued and the battle won, Rama, Sita, Lakshmana, and Hanuman flew back to Ayodhya in the Pushpaka Vimana. Bharata, who had faithfully kept Rama's sandals on the throne for fourteen years, welcomed his brother with tears of joy. The people of Ayodhya lit thousands of lamps to celebrate Rama's return. The city shone like a constellation on earth. Rama was crowned king, and a golden era of justice began.",
+      "imagePath": "/images/scene_return_ayodhya.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/return_ayodhya.wav",
+      "durationSeconds": 31,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(255,200,120,0.05)",
+          "blendMode": "screen"
+        },
+        {
+          "type": "rim_light",
+          "angle": 60,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.25
+        },
+        {
+          "type": "glow",
+          "color": "rgba(180,140,255,0.4)",
+          "radius": 0.5
+        },
+        {
+          "type": "flash",
+          "rateHz": 0.5,
+          "color": "rgba(180,140,255,0.4)"
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        },
+        {
+          "type": "parallax",
+          "factor": 0.15
+        },
+        {
+          "type": "bloom",
+          "threshold": 0.7,
+          "intensity": 1.5
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "With Sita rescued and the battle won, Rama, Sita, Lakshmana, and Hanuman flew back to Ayodhya in the Pushpaka Vimana.",
+          "startMs": 300,
+          "endMs": 8791
+        },
+        {
+          "text": "Bharata, who had faithfully kept Rama's sandals on the throne for fourteen years, welcomed his brother with tears of joy.",
+          "startMs": 8791,
+          "endMs": 17572
+        },
+        {
+          "text": "The people of Ayodhya lit thousands of lamps to celebrate Rama's return.",
+          "startMs": 17572,
+          "endMs": 22797
+        },
+        {
+          "text": "The city shone like a constellation on earth.",
+          "startMs": 22797,
+          "endMs": 26063
+        },
+        {
+          "text": "Rama was crowned king, and a golden era of justice began.",
+          "startMs": 26063,
+          "endMs": 30200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 29,
+          "y": 11,
+          "width": 16,
+          "height": 60
+        },
+        {
+          "label": "sita",
+          "type": "character",
+          "x": 45,
+          "y": 18,
+          "width": 13,
+          "height": 55
+        },
+        {
+          "label": "bharata",
+          "type": "character",
+          "x": 59,
+          "y": 20,
+          "width": 12,
+          "height": 50
+        },
+        {
+          "label": "hanuman",
+          "type": "character",
+          "x": 18,
+          "y": 42,
+          "width": 10,
+          "height": 20
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "",
+          "text": "With Sita safe, the heavens rejoice! Ayodhya awaits its rightful king!",
+          "kind": "caption"
+        },
+        {
+          "speaker": "bharata",
+          "text": "Brother, I kept your sandals safe! The throne is yours, as it should be!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "rama",
+          "text": "Together, we shall usher in a golden era for our people!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "The battle is over, but our journey of justice has just begun!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "Let the lamps of Ayodhya shine as bright as our victory!",
+          "kind": "shout"
+        }
+      ]
+    },
+    {
+      "sceneId": "lessons",
+      "title": "What the Ramayana Teaches",
+      "narration": "The Ramayana is not just a story — it is a guide for life. Rama teaches us about duty and selfless leadership. Sita teaches dignity and inner courage. Lakshmana teaches unwavering loyalty. Hanuman teaches that devotion and humility make us truly strong. Bharata teaches that power without righteousness has no value. Jatayu teaches that courage has no age. Vibhishana teaches that truth must come before blind loyalty. And Ravana reminds us that knowledge without humility can become dangerous.",
+      "imagePath": "/images/scene_lessons.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/lessons.wav",
+      "durationSeconds": 34,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,20,10,0.10)"
+        },
+        {
+          "type": "rim_light",
+          "angle": 50,
+          "color": "rgba(255,210,140,0.22)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "glow",
+          "color": "rgba(255,215,0,0.32)",
+          "radius": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "The Ramayana is not just a story — it is a guide for life.",
+          "startMs": 300,
+          "endMs": 4226
+        },
+        {
+          "text": "Rama teaches us about duty and selfless leadership.",
+          "startMs": 4226,
+          "endMs": 7678
+        },
+        {
+          "text": "Sita teaches dignity and inner courage.",
+          "startMs": 7678,
+          "endMs": 10318
+        },
+        {
+          "text": "Lakshmana teaches unwavering loyalty.",
+          "startMs": 10318,
+          "endMs": 12823
+        },
+        {
+          "text": "Hanuman teaches that devotion and humility make us truly strong.",
+          "startMs": 12823,
+          "endMs": 17156
+        },
+        {
+          "text": "Bharata teaches that power without righteousness has no value.",
+          "startMs": 17156,
+          "endMs": 21353
+        },
+        {
+          "text": "Jatayu teaches that courage has no age.",
+          "startMs": 21353,
+          "endMs": 23993
+        },
+        {
+          "text": "Vibhishana teaches that truth must come before blind loyalty.",
+          "startMs": 23993,
+          "endMs": 28122
+        },
+        {
+          "text": "And Ravana reminds us that knowledge without humility can become dangerous.",
+          "startMs": 28122,
+          "endMs": 33200
+        }
+      ],
+      "hotspots": [
+        {
+          "label": "rama",
+          "type": "character",
+          "x": 16,
+          "y": 21,
+          "width": 15,
+          "height": 55
+        },
+        {
+          "label": "sita",
+          "type": "character",
+          "x": 31,
+          "y": 25,
+          "width": 13,
+          "height": 50
+        },
+        {
+          "label": "hanuman",
+          "type": "character",
+          "x": 66,
+          "y": 45,
+          "width": 13,
+          "height": 35
+        },
+        {
+          "label": "lakshmana",
+          "type": "character",
+          "x": 0,
+          "y": 20,
+          "width": 10,
+          "height": 55
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "",
+          "text": "The Ramayana is not just a story — it is a guide for life.",
+          "kind": "caption"
+        },
+        {
+          "speaker": "rama",
+          "text": "Duty and selfless leadership are the true marks of a ruler.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sita",
+          "text": "Dignity and inner courage will always triumph over adversity.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "Loyalty is my bond; I stand by my brother without falter.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "Devotion and humility are the roots of true strength!",
+          "kind": "shout"
+        }
+      ]
+    },
+    {
+      "sceneId": "closing",
+      "title": "The Light of Dharma",
+      "narration": "The Ramayana has been told and retold for thousands of years across countless cultures and languages. Its power lies not just in its epic events, but in the timeless questions it raises: What does it mean to do the right thing? How do we stay strong when the world tests us? What is true courage, true love, true loyalty? Every generation finds its own answers inside this ancient story. The light of dharma continues to shine.",
+      "imagePath": "/images/scene_lessons.png",
+      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/closing.wav",
+      "durationSeconds": 33,
+      "mood": "dramatic",
+      "motion": "battle_push",
+      "effects": [
+        {
+          "type": "tint",
+          "color": "rgba(120,20,10,0.10)"
+        },
+        {
+          "type": "particles",
+          "kind": "spark",
+          "density": 0.4
+        },
+        {
+          "type": "shake",
+          "amplitude": 1.6,
+          "freq": 0.41
+        }
+      ],
+      "subtitles": [
+        {
+          "text": "The Ramayana has been told and retold for thousands of years across countless cultures and languages.",
+          "startMs": 300,
+          "endMs": 7935
+        },
+        {
+          "text": "Its power lies not just in its epic events, but in the timeless questions it raises: What does it mean to do the right thing?",
+          "startMs": 7935,
+          "endMs": 17384
+        },
+        {
+          "text": "How do we stay strong when the world tests us?",
+          "startMs": 17384,
+          "endMs": 20861
+        },
+        {
+          "text": "What is true courage, true love, true loyalty?",
+          "startMs": 20861,
+          "endMs": 24338
+        },
+        {
+          "text": "Every generation finds its own answers inside this ancient story.",
+          "startMs": 24338,
+          "endMs": 29252
+        },
+        {
+          "text": "The light of dharma continues to shine.",
+          "startMs": 29252,
+          "endMs": 32200
+        }
+      ],
+      "hotspots": [],
+      "dialogue": [
+        {
+          "speaker": "",
+          "text": "What does it mean to do the right thing? The light of dharma continues to shine.",
+          "kind": "caption"
+        },
+        {
+          "speaker": "rama",
+          "text": "True strength lies in our choices, even when the world tests us.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sita",
+          "text": "In the face of darkness, we must find our inner light.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "lakshmana",
+          "text": "Together, we will uphold dharma and protect our honor!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "With unwavering loyalty, I stand by you, my prince!",
+          "kind": "speech"
+        }
+      ]
+    }
+  ],
+  "generatedAt": "2026-05-13T16:14:04.092Z",
+  "stylePreset": "comic_book"
+}

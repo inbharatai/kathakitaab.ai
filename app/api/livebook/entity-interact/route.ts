@@ -21,6 +21,7 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 import { startBranchImageJob } from '@/lib/engine/branchImageJobs';
+import { getBookStylePreset } from '@/lib/data/bookStyle';
 
 // gpt-image-1 cold gens regularly run 25-45s. Vercel's default 10s
 // (Hobby) and 60s (Pro Node) gates would kill the background image
@@ -122,6 +123,11 @@ export async function POST(request: Request) {
     // default to a sentinel ("auto") so the cache key shape is stable.
     const actionType = (body.actionType || 'auto').toLowerCase();
     const theme = body.theme;
+    // Resolve the book's style preset ONCE per request so both image
+    // gen paths below (pregen ensureImageJob + fresh result.imagePrompt)
+    // render in the right visual world. Comic books stay comic when
+    // a user clicks something; photoreal books stay photoreal.
+    const stylePreset = await getBookStylePreset(body.bookSlug);
 
     // Helper: any cached/pre-gen branch may have arrived without an
     // image (pregenerate-branches deliberately leaves `imageUrl: null`
@@ -149,6 +155,7 @@ export async function POST(request: Request) {
             characters: canonCharacters,
             mood: 'serene',
             theme,
+            stylePreset,
           }));
         });
         return { ...base, branchId, imageStatus: 'pending' as const };
@@ -298,6 +305,7 @@ Scene context: ${sceneNarration.slice(0, 300)}${canonFragment ? `\n\n${canonFrag
           characters: canonCharacters,
           mood: 'serene',
           theme,
+          stylePreset,
         }));
       });
     }

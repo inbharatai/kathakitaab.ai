@@ -25,6 +25,7 @@ import { isGeminiConfigured } from '@/lib/openai/client';
 import { getCachedResponse, setCachedResponse, buildCacheKey } from '@/lib/cache/responseCache';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getBookStylePreset } from '@/lib/data/bookStyle';
 import type { StoryScene, SceneHotspot, SceneCharacter, SceneObject } from '@/lib/types/storyScene';
 
 interface GenerateSceneRequest {
@@ -201,6 +202,10 @@ export async function POST(request: Request) {
     }
 
     // Pass canon context so character appearance + book style auto-inject.
+    // Resolve the book's stylePreset so on-demand scene images stay
+    // coherent with the rest of the book — a comic book's mid-read
+    // regen needs to come back as a comic panel, not a film still.
+    const stylePreset = await getBookStylePreset(bookSlug);
     const imageResult = await generateSceneImage(visualPrompt, {
       bookSlug,
       characters: Array.from(new Set([
@@ -209,6 +214,7 @@ export async function POST(request: Request) {
       ])),
       mood: narrative.mood,
       theme,
+      stylePreset,
     });
 
     // ── Step 6: Vision-verify hotspot positions ──
