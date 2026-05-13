@@ -260,7 +260,7 @@ export default function HomePage() {
       <nav className="lp-nav">
         <Link href="/" className="lp-nav-brand">
           <div className="lp-nav-logo">
-            <Image src="/logo.png" alt="KathaKitaab" width={36} height={36} style={{ objectFit: 'cover', transform: 'scale(1.9) translateY(18%)' }} />
+            <Image src="/logo.png" alt="KathaKitaab" width={36} height={36} style={{ objectFit: 'contain' }} />
           </div>
           <span className="lp-nav-name">KathaKitaab</span>
         </Link>
@@ -790,8 +790,8 @@ export default function HomePage() {
       <footer className="lp-footer">
         <div className="lp-footer-inner">
           <div className="lp-footer-brand">
-            <Image src="/logo.png" alt="Logo" width={24} height={24} style={{ objectFit: 'cover', transform: 'scale(1.25) translateY(-5%)', borderRadius: '50%' }} />
-            <span>KathaKitaab.ai</span>
+            <Image src="/logo.png" alt="Logo" width={24} height={24} style={{ objectFit: 'contain' }} />
+            <span>KathaKitaab</span>
           </div>
           <p className="lp-footer-text">Not a Flipbook. A Living Story Engine. &copy; 2026</p>
         </div>
