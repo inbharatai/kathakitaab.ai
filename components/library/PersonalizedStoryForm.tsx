@@ -21,6 +21,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { StylePresetPicker } from './StylePresetPicker';
+import type { StylePreset } from '@/lib/types/style';
 
 const RESUME_KEY = 'katha:active-generation';
 type Status = 'idle' | 'generating' | 'polling' | 'done' | 'error';
@@ -45,6 +47,11 @@ export default function PersonalizedStoryForm() {
   const [prompt, setPrompt] = useState('');
   const [moral, setMoral] = useState('');
   const [tone, setTone] = useState(TONES[0]);
+  // Personalized children's stories default to watercolour storybook
+  // — soft register that works at any age. Parents can switch to
+  // animation, photoreal, or comic_book (for older kids). Universal
+  // across all 4 presets, same as the other two modes.
+  const [stylePreset, setStylePreset] = useState<StylePreset>('storybook_watercolor');
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [progress, setProgress] = useState<{ step: string; percent: number }>({ step: '', percent: 0 });
@@ -86,6 +93,7 @@ export default function PersonalizedStoryForm() {
             tone,
             consent: true,
           },
+          stylePreset,
         }),
       });
       // 401 = caller isn't signed in. Redirect to /signin and back
@@ -253,6 +261,10 @@ export default function PersonalizedStoryForm() {
       </div>
       <div style={{ marginBottom: 18 }}>
         <FieldText label="Moral / lesson (optional)" value={moral} onChange={setMoral} placeholder="kindness, courage, honesty" />
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <StylePresetPicker value={stylePreset} onChange={setStylePreset} disabled={busy} />
       </div>
 
       <label

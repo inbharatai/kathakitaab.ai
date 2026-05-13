@@ -17,6 +17,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { StylePresetPicker } from './StylePresetPicker';
+import type { StylePreset } from '@/lib/types/style';
 
 const RESUME_KEY = 'katha:active-generation';
 type Status = 'idle' | 'generating' | 'polling' | 'done' | 'error';
@@ -41,6 +43,11 @@ export default function ClassroomStoryForm() {
   const [learningGoal, setLearningGoal] = useState('');
   const [language, setLanguage] = useState(LANGUAGES[0]);
   const [tone, setTone] = useState(TONES[0]);
+  // Classroom defaults to photoreal cinematic — feels like the
+  // textbook-illustration register. Users can switch to watercolour
+  // (Panchatantra), animation (modern adaptations), or comic_book
+  // (action / mythology). Universal across all 4 presets.
+  const [stylePreset, setStylePreset] = useState<StylePreset>('photoreal_cinematic');
   const [status, setStatus] = useState<Status>('idle');
   const [progress, setProgress] = useState<{ step: string; percent: number }>({ step: '', percent: 0 });
   const [error, setError] = useState('');
@@ -72,6 +79,7 @@ export default function ClassroomStoryForm() {
             language,
             tone,
           },
+          stylePreset,
         }),
       });
       // 401 = caller isn't signed in. Bounce to /signin and come back
@@ -213,6 +221,10 @@ export default function ClassroomStoryForm() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 18 }}>
         <FieldSelect label="Language" value={language} options={LANGUAGES} onChange={setLanguage} />
         <FieldSelect label="Tone" value={tone} options={TONES} onChange={setTone} />
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <StylePresetPicker value={stylePreset} onChange={setStylePreset} disabled={busy} />
       </div>
 
       <motion.button
