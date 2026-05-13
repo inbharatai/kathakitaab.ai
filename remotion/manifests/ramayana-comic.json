@@ -127,17 +127,27 @@
       "dialogue": [
         {
           "speaker": "dasharatha",
-          "text": "In Ayodhya, we shall protect our realm with wisdom and love.",
+          "text": "My sons, our kingdom thrives, but darkness looms. We must protect our sacred rituals!",
           "kind": "speech"
         },
         {
           "speaker": "rama",
-          "text": "I will stand by my brother and protect the sacred from darkness.",
+          "text": "Fear not, Father. Lakshmana and I will stand against any threat to Ayodhya.",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "Together, we are stronger! Let us face whatever comes!",
+          "text": "Together, we are unstoppable! Let them come!",
+          "kind": "shout"
+        },
+        {
+          "speaker": "vibhishana",
+          "text": "Even the mightiest can falter; choose dharma over power, dear brother.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "I shall carry your message to Sita! She must know of your resolve!",
           "kind": "speech"
         }
       ]
@@ -259,27 +269,27 @@
       "dialogue": [
         {
           "speaker": "sita",
-          "text": "At last, a worthy champion! May our destinies intertwine.",
+          "text": "At last, a true hero stands before us! May he be the one to win my heart.",
           "kind": "speech"
         },
         {
           "speaker": "rama",
-          "text": "This bow is but a trifle compared to my love for you, Sita.",
+          "text": "With this bow, I pledge my strength and honor to protect you, Sita.",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "Look at him! Rama's strength knows no bounds!",
+          "text": "Look at him lift that bow! No one can match our brother's might!",
           "kind": "speech"
         },
         {
           "speaker": "dasharatha",
-          "text": "My son has proven himself! A true ruler is born!",
-          "kind": "shout"
+          "text": "My son, you have proven yourself worthy of the greatest prize!",
+          "kind": "speech"
         },
         {
           "speaker": "",
-          "text": "The assembly erupted in joy as Sita garlanded Rama, sealing their fates.",
+          "text": "The crowd erupts in cheers as love blossoms in the air.",
           "kind": "caption"
         }
       ]
@@ -404,22 +414,22 @@
       "dialogue": [
         {
           "speaker": "rama",
-          "text": "I will honor my duty, no matter the cost. Exile is a path I must walk.",
+          "text": "Duty and truth must always be honored, even in exile.",
           "kind": "speech"
         },
         {
           "speaker": "sita",
-          "text": "I will not let you face this alone, Rama. Wherever you go, I will follow.",
+          "text": "I will not let you face this alone, my love.",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "Brother, I stand with you. Together, we shall face whatever comes.",
+          "text": "Where you go, I follow. We are brothers in this journey.",
           "kind": "speech"
         },
         {
           "speaker": "dasharatha",
-          "text": "My heart breaks to see you go, my son. This is a cruel fate.",
+          "text": "My heart shatters at this decision, my son.",
           "kind": "speech"
         }
       ]
@@ -544,22 +554,22 @@
       "dialogue": [
         {
           "speaker": "rama",
-          "text": "This golden deer is unlike any I've seen! I must catch it for you, Sita.",
+          "text": "That golden deer... its beauty is mesmerizing. I must catch it for you, Sita.",
           "kind": "speech"
         },
         {
           "speaker": "sita",
-          "text": "Oh, Rama! It's so beautiful! Please bring it to me!",
+          "text": "Oh Rama, look at that deer! Please, bring it to me!",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "Wait, brother! Something feels off about this chase.",
+          "text": "Be cautious, brother. The forest holds many secrets.",
           "kind": "speech"
         },
         {
           "speaker": "",
-          "text": "Little did they know, it was a trap laid by Ravana.",
+          "text": "Little did they know, it was a trap set by the cunning Ravana.",
           "kind": "caption"
         }
       ]
@@ -676,28 +686,23 @@
       "dialogue": [
         {
           "speaker": "jatayu",
-          "text": "I may be old, but I will not let you take her without a fight!",
+          "text": "I may be old, but I won't let you take her, demon!",
           "kind": "shout"
         },
         {
           "speaker": "ravana",
-          "text": "Foolish bird! You think you can stop me? Stand aside!",
+          "text": "Foolish bird! Your courage is no match for my power!",
           "kind": "speech"
         },
         {
           "speaker": "rama",
-          "text": "Jatayu! No! You fought valiantly, my friend. I will avenge you!",
+          "text": "Jatayu! You fought bravely. I honor you as my father.",
           "kind": "speech"
         },
         {
           "speaker": "sita",
-          "text": "Help me, noble Jatayu! Do not let him take me!",
+          "text": "Help me, great bird! You are my only hope!",
           "kind": "shout"
-        },
-        {
-          "speaker": "",
-          "text": "In his final moments, Jatayu revealed the truth to Rama.",
-          "kind": "caption"
         }
       ]
     },
@@ -813,22 +818,22 @@
       "dialogue": [
         {
           "speaker": "rama",
-          "text": "We will find Sita, no matter the cost. I swear it by my honor!",
+          "text": "I will not rest until Sita is safe. We must find her, no matter the cost.",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "Together, brother, we will not rest until she is safe!",
-          "kind": "speech"
-        },
-        {
-          "speaker": "hanuman",
-          "text": "I pledge my life to your cause, Rama. I will help you find Sita!",
+          "text": "Brother, together we will face any challenge. I will not leave your side.",
           "kind": "speech"
         },
         {
           "speaker": "sugriva",
-          "text": "With your strength and my knowledge, we shall reclaim what is lost!",
+          "text": "You have my loyalty, Rama. Together, we shall reclaim what is lost.",
+          "kind": "speech"
+        },
+        {
+          "speaker": "hanuman",
+          "text": "I pledge my life to your cause, Rama. I will be your messenger and your strength!",
           "kind": "speech"
         }
       ]
@@ -961,22 +966,22 @@
       "dialogue": [
         {
           "speaker": "hanuman",
-          "text": "With Rama's love as my strength, I will leap across this ocean!",
+          "text": "With the strength of devotion, I shall leap across this ocean for my Lord!",
           "kind": "shout"
         },
         {
           "speaker": "sita",
-          "text": "Rama's ring! Hope is not lost!",
+          "text": "Rama's ring! Hope is not lost! My heart still beats for him!",
           "kind": "speech"
         },
         {
           "speaker": "ravana",
-          "text": "You dare invade my kingdom? You will pay for this, monkey!",
-          "kind": "shout"
+          "text": "What audacity! A mere monkey dares to challenge me?",
+          "kind": "speech"
         },
         {
           "speaker": "hanuman",
-          "text": "Let this fire be a warning, Ravana! Your tyranny ends now!",
+          "text": "Let this fire be a warning, Ravana! I will not rest until Sita is free!",
           "kind": "shout"
         }
       ]
@@ -993,6 +998,18 @@
         },
         {
           "imagePath": "/images/comic/scene_bridge_to_lanka_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_bridge_to_lanka_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_bridge_to_lanka_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_bridge_to_lanka_beat_5.png",
           "motion": "slow_zoom_in"
         }
       ],
@@ -1081,18 +1098,23 @@
         },
         {
           "speaker": "hanuman",
-          "text": "With each stone, we honor your name, Rama! Let the ocean tremble beneath our resolve!",
-          "kind": "shout"
+          "text": "With each stone, we honor your name, Rama! Let the ocean witness our devotion!",
+          "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "The path to Lanka is clear! We will not falter!",
+          "text": "The path to Lanka is forged by our unity. We will not falter!",
           "kind": "speech"
         },
         {
           "speaker": "sita",
-          "text": "My heart awaits your return, my beloved Rama. Build your bridge with courage.",
+          "text": "I believe in you, my love. Bring me home, Rama.",
           "kind": "thought"
+        },
+        {
+          "speaker": "ravana",
+          "text": "Foolish vanaras! You think you can challenge me with mere stones?",
+          "kind": "shout"
         }
       ]
     },
@@ -1100,7 +1122,29 @@
       "sceneId": "battle_lanka",
       "title": "The Battle in Lanka",
       "narration": "The great battle began. Ravana's mighty army faced Rama's vanara forces. Warriors clashed on both sides. Ravana's brother Vibhishana, unable to support injustice, chose to leave Lanka and join Rama — choosing dharma over blind family loyalty. After fierce battles, Rama faced Ravana in single combat. The demon king fell, and Rama mourned even his enemy, recognizing Ravana's greatness corrupted by pride.",
-      "imagePath": "/images/scene_battle_lanka.png",
+      "imagePath": "/images/comic/scene_battle_lanka_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_battle_lanka_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_battle_lanka_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_battle_lanka_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_battle_lanka_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_battle_lanka_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
       "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/battle_lanka.wav",
       "durationSeconds": 27,
       "mood": "dramatic",
@@ -1188,13 +1232,41 @@
           "height": 50
         }
       ],
-      "dialogue": []
+      "dialogue": [
+        {
+          "speaker": "",
+          "text": "Even in defeat, Ravana's pride was his downfall.",
+          "kind": "caption"
+        }
+      ]
     },
     {
       "sceneId": "return_ayodhya",
       "title": "Return to Ayodhya",
       "narration": "With Sita rescued and the battle won, Rama, Sita, Lakshmana, and Hanuman flew back to Ayodhya in the Pushpaka Vimana. Bharata, who had faithfully kept Rama's sandals on the throne for fourteen years, welcomed his brother with tears of joy. The people of Ayodhya lit thousands of lamps to celebrate Rama's return. The city shone like a constellation on earth. Rama was crowned king, and a golden era of justice began.",
-      "imagePath": "/images/scene_return_ayodhya.png",
+      "imagePath": "/images/comic/scene_return_ayodhya_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_return_ayodhya_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_return_ayodhya_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_return_ayodhya_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_return_ayodhya_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_return_ayodhya_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
       "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/return_ayodhya.wav",
       "durationSeconds": 31,
       "mood": "dramatic",
@@ -1303,28 +1375,28 @@
       ],
       "dialogue": [
         {
-          "speaker": "",
-          "text": "With Sita safe, the heavens rejoice! Ayodhya awaits its rightful king!",
-          "kind": "caption"
-        },
-        {
-          "speaker": "bharata",
-          "text": "Brother, I kept your sandals safe! The throne is yours, as it should be!",
+          "speaker": "rama",
+          "text": "At last, I return to Ayodhya! The throne awaits, and so does justice!",
           "kind": "speech"
         },
         {
-          "speaker": "rama",
-          "text": "Together, we shall usher in a golden era for our people!",
+          "speaker": "bharata",
+          "text": "Brother, your sandals have been my only crown these long years!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "sita",
+          "text": "Together, we will bring light and hope to our kingdom once more.",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "The battle is over, but our journey of justice has just begun!",
-          "kind": "speech"
+          "text": "Let the celebrations begin! Ayodhya shall rejoice!",
+          "kind": "shout"
         },
         {
           "speaker": "hanuman",
-          "text": "Let the lamps of Ayodhya shine as bright as our victory!",
+          "text": "A golden era dawns! Long live Rama, our true king!",
           "kind": "shout"
         }
       ]
@@ -1333,7 +1405,29 @@
       "sceneId": "lessons",
       "title": "What the Ramayana Teaches",
       "narration": "The Ramayana is not just a story — it is a guide for life. Rama teaches us about duty and selfless leadership. Sita teaches dignity and inner courage. Lakshmana teaches unwavering loyalty. Hanuman teaches that devotion and humility make us truly strong. Bharata teaches that power without righteousness has no value. Jatayu teaches that courage has no age. Vibhishana teaches that truth must come before blind loyalty. And Ravana reminds us that knowledge without humility can become dangerous.",
-      "imagePath": "/images/scene_lessons.png",
+      "imagePath": "/images/comic/scene_lessons_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_lessons_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_lessons_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_lessons_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_lessons_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_lessons_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
       "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/lessons.wav",
       "durationSeconds": 34,
       "mood": "dramatic",
@@ -1448,28 +1542,28 @@
       "dialogue": [
         {
           "speaker": "",
-          "text": "The Ramayana is not just a story — it is a guide for life.",
+          "text": "The Ramayana teaches us the essence of duty, courage, and righteousness.",
           "kind": "caption"
         },
         {
           "speaker": "rama",
-          "text": "Duty and selfless leadership are the true marks of a ruler.",
+          "text": "A true ruler leads with selflessness, not just power.",
           "kind": "speech"
         },
         {
           "speaker": "sita",
-          "text": "Dignity and inner courage will always triumph over adversity.",
+          "text": "Dignity and inner strength are the true measures of a warrior.",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "Loyalty is my bond; I stand by my brother without falter.",
-          "kind": "speech"
+          "text": "Loyalty is not just a bond; it’s a vow I will honor till my last breath!",
+          "kind": "shout"
         },
         {
           "speaker": "hanuman",
-          "text": "Devotion and humility are the roots of true strength!",
-          "kind": "shout"
+          "text": "In devotion, we find our greatest strength!",
+          "kind": "speech"
         }
       ]
     },
@@ -1477,7 +1571,29 @@
       "sceneId": "closing",
       "title": "The Light of Dharma",
       "narration": "The Ramayana has been told and retold for thousands of years across countless cultures and languages. Its power lies not just in its epic events, but in the timeless questions it raises: What does it mean to do the right thing? How do we stay strong when the world tests us? What is true courage, true love, true loyalty? Every generation finds its own answers inside this ancient story. The light of dharma continues to shine.",
-      "imagePath": "/images/scene_lessons.png",
+      "imagePath": "/images/comic/scene_closing_beat_1.png",
+      "beats": [
+        {
+          "imagePath": "/images/comic/scene_closing_beat_1.png",
+          "motion": "slow_zoom_out"
+        },
+        {
+          "imagePath": "/images/comic/scene_closing_beat_2.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_closing_beat_3.png",
+          "motion": "battle_push"
+        },
+        {
+          "imagePath": "/images/comic/scene_closing_beat_4.png",
+          "motion": "slow_zoom_in"
+        },
+        {
+          "imagePath": "/images/comic/scene_closing_beat_5.png",
+          "motion": "slow_zoom_in"
+        }
+      ],
       "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/closing.wav",
       "durationSeconds": 33,
       "mood": "dramatic",
@@ -1534,32 +1650,32 @@
       "dialogue": [
         {
           "speaker": "",
-          "text": "What does it mean to do the right thing? The light of dharma continues to shine.",
+          "text": "The light of dharma continues to shine through the ages.",
           "kind": "caption"
         },
         {
           "speaker": "rama",
-          "text": "True strength lies in our choices, even when the world tests us.",
+          "text": "In the face of darkness, we must choose the path of righteousness.",
           "kind": "speech"
         },
         {
           "speaker": "sita",
-          "text": "In the face of darkness, we must find our inner light.",
+          "text": "Strength lies not in power, but in unwavering faith and love.",
           "kind": "speech"
         },
         {
           "speaker": "lakshmana",
-          "text": "Together, we will uphold dharma and protect our honor!",
+          "text": "Together, we will uphold dharma against all odds!",
           "kind": "shout"
         },
         {
-          "speaker": "hanuman",
-          "text": "With unwavering loyalty, I stand by you, my prince!",
+          "speaker": "ravana",
+          "text": "You may have won this battle, but the war for hearts endures!",
           "kind": "speech"
         }
       ]
     }
   ],
-  "generatedAt": "2026-05-13T16:14:04.092Z",
+  "generatedAt": "2026-05-13T16:48:12.683Z",
   "stylePreset": "comic_book"
 }
