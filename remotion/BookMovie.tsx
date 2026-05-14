@@ -520,15 +520,19 @@ const SceneShot: React.FC<{
         display: 'flex', alignItems: 'center', gap: 16, opacity: headerAppear,
       }}>
         <div style={{
-          padding: '7px 18px', borderRadius: 999,
+          padding: '10px 24px', borderRadius: 999,
           background: 'linear-gradient(135deg, #FF9933 0%, #FFD700 100%)',
-          color: '#0C0806', fontSize: 16, fontWeight: 800, letterSpacing: 1.5,
+          // Scene counter badge — bumped 16 → 26 so it stays legible
+          // when the 1920px composition CSS-scales onto a 360px phone.
+          color: '#0C0806', fontSize: 26, fontWeight: 800, letterSpacing: 1.5,
           boxShadow: '0 4px 16px rgba(255,153,51,0.35)',
         }}>
           Scene {index + 1} / {total}
         </div>
         <div style={{
-          fontSize: 42, fontWeight: 800, color: '#FFD700',
+          // Scene title — bumped 42 → 64 for the same reason. Still
+          // sits comfortably alongside the badge on desktop.
+          fontSize: 64, fontWeight: 800, color: '#FFD700',
           textShadow: '0 3px 16px rgba(0,0,0,0.85), 0 0 24px rgba(255,215,0,0.25)',
           fontFamily: 'serif', letterSpacing: 0.5,
         }}>
@@ -763,7 +767,13 @@ const RemotionBubbleLayer: React.FC<{
       }}>
         <span style={{
           fontFamily: '"Bangers", "Comic Sans MS", serif',
-          fontSize: 34, lineHeight: 1.25, color: '#0d0a08',
+          // Sizes are tuned so the 1920px composition stays elegant
+          // on a 13" laptop AND readable on a 360px phone where
+          // Remotion's player CSS-scales the frame to ~19% size.
+          // Old fixed 34px rendered at ~6px on phone — unreadable.
+          // 72px → ~13.5px on phone, full size on laptop.
+          fontSize: 72,
+          lineHeight: 1.25, color: '#0d0a08',
           fontStyle: 'italic', letterSpacing: 0.4,
         }}>{revealed}</span>
       </div>
@@ -783,7 +793,11 @@ const RemotionBubbleLayer: React.FC<{
 
   const bubbleBg = kind === 'shout' ? '#ffe23d' : '#fdfaf2';
   const fontFamily = '"Bangers", "Comic Sans MS", serif';
-  const fontSize = kind === 'shout' ? 38 : 30;
+  // Bubble fonts sized to read on a 360px-wide mobile player where
+  // Remotion's frame is CSS-scaled to ~19%. Tuned alongside the
+  // CaptionBox 72px so the whole comic track has a consistent feel
+  // — large on desktop, legible on phone.
+  const fontSize = kind === 'shout' ? 84 : 64;
   const fontWeight = kind === 'shout' ? 800 : 600;
   const textTransform = kind === 'shout' ? 'uppercase' : 'none';
 
@@ -864,7 +878,12 @@ const SubtitlePanel: React.FC<{
         boxShadow: '0 12px 36px rgba(0,0,0,0.45)',
       }}>
         <p style={{
-          fontSize: 38,
+          // Bumped from 38 to 60 so the panel stays readable when
+          // Remotion's player CSS-scales the 1920px composition down
+          // to a 360px phone (38 → ~7px, 60 → ~11px). Desktop view
+          // grows slightly but still reads as a tasteful caption,
+          // not a TV closed-caption track.
+          fontSize: 60,
           lineHeight: 1.42,
           color: '#FFF7DA',
           fontFamily: 'serif',

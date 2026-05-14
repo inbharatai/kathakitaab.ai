@@ -45,7 +45,7 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
   }, [slug]);
 
   return (
-    <main style={{ minHeight: '100vh', padding: '20px 18px 52px' }}>
+    <main className="lp-movie-page-main" style={{ minHeight: '100vh', padding: '20px 18px 52px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

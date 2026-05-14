@@ -413,16 +413,21 @@ body {
    ============================================================ */
 @media (max-width: 768px) {
   .drawer-panel { width: 100vw; border-left: none; }
-  /* On tablet-ish viewports keep the cinematic feel but ensure the
-     scene-container has enough vertical space for FlipbookPage to
-     render its visual header + content + ask bar without crushing
-     the action input. min-height also covers the case where the
-     parent flexbox would otherwise collapse the scene. */
+  /* Mobile reader: drop the desktop 16:9 letterbox in favour of a
+     near-full-viewport canvas so the scene image dominates the
+     screen instead of becoming a small banner above the narration.
+     The image inside still uses `object-fit: cover`, so the
+     hand-painted 3:2 art crops naturally to fit a taller frame —
+     and hotspot percentages keep working because they're relative
+     to the container, not the image's intrinsic dimensions. */
   .scene-container {
-    aspect-ratio: 4 / 3;
-    border-radius: 8px;
-    min-height: 56vh;
+    aspect-ratio: auto;
+    border-radius: 10px;
+    min-height: 78vh;
+    min-height: 78dvh;
   }
+  /* Tap targets — Apple HIG / Material both want 44-48px minimum
+     to avoid mis-taps on dense hotspot layouts. */
   .hotspot-marker { min-width: 44px; min-height: 44px; }
 
   .lp-nav-links { gap: 12px; }
@@ -462,21 +467,51 @@ body {
   .lp-compare-old-h { display: none; }
   .lp-compare-old { display: none; }
 
-  /* Phone: 3:2 keeps a cinematic shape but enforce a generous
-     min-height so the FlipbookPage's visual header (~36% of
-     container) plus content + sticky input bar all stay readable.
-     Without this, on 360x640 the inner flipbook compresses to a
-     point where the answer text overflows behind the input. */
+  /* Phone: scene canvas effectively fills the visible viewport so
+     the painted scene reads as a cinematic frame, not a banner.
+     `dvh` accounts for the iOS / Android dynamic toolbar that eats
+     a chunk of `vh`. The FlipbookPage overlay still has room because
+     it absolute-positions inside this taller container. */
   .scene-container {
-    aspect-ratio: 3 / 2;
+    aspect-ratio: auto;
     border-radius: 6px;
-    min-height: 64vh;
+    min-height: 82vh;
+    min-height: 82dvh;
   }
   .glass-card { border-radius: 14px; }
   .btn-primary { padding: 10px 20px; font-size: 0.9rem; }
   .btn-secondary { padding: 8px 16px; font-size: 0.82rem; }
   .narration-text { font-size: 0.88rem; line-height: 1.7; }
   .book-page::before { width: 10px; }
+}
+
+/* ============================================================
+   MOBILE: scene image / hotspot tuning
+   ============================================================ */
+@media (max-width: 768px) {
+  /* The scene <img> inside .scene-container should cover-fit so a
+     landscape 1536x1024 painting fills our taller mobile canvas
+     without black bars. Hotspot bboxes are positioned by % of the
+     container, so the crop only loses a thin sliver from the
+     left/right edges — characters and key composition stay framed. */
+  .scene-container img,
+  .scene-container [data-scene-bg],
+  .scene-container [data-scene-beat] {
+    object-fit: cover !important;
+    object-position: center 30% !important;
+  }
+}
+
+/* ============================================================
+   MOBILE: movie page edge-to-edge
+   ============================================================ */
+@media (max-width: 768px) {
+  /* The book/[slug]/movie page wraps the Player in container padding
+     by default; on phone that wastes valuable width. Strip side
+     padding so the Player fills the viewport, matching the reader's
+     full-bleed treatment. The Player itself is responsive — only
+     the wrapping container needs to step aside. */
+  .lp-movie-page-main { padding-left: 0 !important; padding-right: 0 !important; }
 }
 
 /* ---- Loading ---- */
