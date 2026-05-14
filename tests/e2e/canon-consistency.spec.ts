@@ -49,7 +49,7 @@ test.describe('visualPromptBuilder injects canon correctly', () => {
     // Per-book style bible was applied
     expect(built.styleApplied).toBe(true);
     expect(built.prompt).toMatch(/saffron orange/i);
-    expect(built.prompt).toMatch(/hand-painted 2D animation/i);
+    expect(built.prompt).toMatch(/Photorealistic cinematic still/i);
     // Negative clause closes the prompt
     expect(built.prompt).toMatch(/Avoid:/);
     expect(built.negative).toMatch(/no text, captions/i);
@@ -92,7 +92,7 @@ test.describe('visualPromptBuilder injects canon correctly', () => {
     expect(built.charactersInjected.sort()).toEqual(['arjuna', 'krishna']);
     expect(built.prompt).toMatch(/cobalt-blue/i);
     expect(built.prompt).toMatch(/peacock feather/i);
-    expect(built.prompt).toMatch(/Bronze-and-indigo war epic/i); // Mahabharata style
+    expect(built.prompt).toMatch(/Photorealistic cinematic still/i); // Mahabharata style
   });
 
   test('Panchatantra — Pingalaka watercolour storybook style', () => {
@@ -117,8 +117,8 @@ test.describe('visualPromptBuilder injects canon correctly', () => {
 
     expect(built.charactersInjected).toEqual([]);
     expect(built.styleApplied).toBe(false);
-    // Should still produce a usable prompt with a generic style fallback
-    expect(built.prompt).toMatch(/Cinematic 2D illustration/i);
+    // Should still produce a usable prompt with the universal photoreal fallback
+    expect(built.prompt).toMatch(/photorealistic cinematic still/i);
   });
 
   test('Word-boundary safety — "ram" inside "rampart" must not match', () => {
@@ -142,6 +142,64 @@ test.describe('visualPromptBuilder injects canon correctly', () => {
     expect(built.charactersInjected).toContain('ravana');
     // Negatives are joined into the closing "Avoid:" clause.
     expect(built.negative).toMatch(/never naked|never with sita touching/i);
+  });
+
+  test('Style preset overrides canon — watercolour on Ramayana', () => {
+    const built = buildVisualPrompt({
+      description: 'Rama stands at the throne of Ayodhya.',
+      bookSlug: 'ramayana',
+      mood: 'serene',
+      stylePreset: 'storybook_watercolor',
+    });
+
+    // Preset clause should appear, overriding the Ramayana photoreal canon
+    expect(built.prompt).toMatch(/watercolour-and-ink storybook illustration/i);
+    expect(built.prompt).toMatch(/cream paper/i);
+    // Preset negatives should be present
+    expect(built.negative).toMatch(/photorealism|photographic faces/i);
+    // Canon character appearance still gets injected
+    expect(built.charactersInjected).toContain('rama');
+  });
+
+  test('Style preset overrides canon — comic on Ramayana', () => {
+    const built = buildVisualPrompt({
+      description: 'Rama draws the bow at the battle of Lanka.',
+      bookSlug: 'ramayana',
+      mood: 'dramatic',
+      stylePreset: 'comic_book',
+    });
+
+    // Preset clause should appear
+    expect(built.prompt).toMatch(/comic-book panel illustration/i);
+    expect(built.prompt).toMatch(/Ben-Day halftone/i);
+    // Preset negatives
+    expect(built.negative).toMatch(/photorealism|soft watercolor|3D animation/i);
+    // Canon negatives should NOT appear when preset overrides
+    expect(built.negative).not.toMatch(/Cartoon, anime, or flat 2D illustration/i);
+  });
+
+  test('Style preset — photoreal cinematic explicit', () => {
+    const built = buildVisualPrompt({
+      description: 'A warrior prince rides a chariot through a desert canyon.',
+      mood: 'triumphant',
+      stylePreset: 'photoreal_cinematic',
+    });
+
+    expect(built.prompt).toMatch(/photorealistic cinematic still/i);
+    expect(built.prompt).toMatch(/Bollywood mythological epic/i);
+    expect(built.negative).toMatch(/cartoon style|anime|flat illustration/i);
+  });
+
+  test('Style preset — cinematic animation', () => {
+    const built = buildVisualPrompt({
+      description: 'A young hero discovers a glowing sword in a cave.',
+      mood: 'wonder',
+      stylePreset: 'cinematic_animation',
+    });
+
+    expect(built.prompt).toMatch(/Pixar \/ Dreamworks register/i);
+    expect(built.prompt).toMatch(/stylised volumetric characters/i);
+    expect(built.negative).toMatch(/photorealism|photographic film grain/i);
   });
 });
 
