@@ -83,6 +83,26 @@ const SCENE_CHOICES: Record<string, StoryChoice[]> = {
 
 function makeEntryId() { return `fp-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 
+async function fetchWithRetry(input: RequestInfo | URL, init?: RequestInit, attempts = 3) {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(input, init);
+      if (response.ok) return response;
+      lastError = new Error(`Request failed with status ${response.status}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Request failed');
+    }
+
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 800 * (attempt + 1)));
+    }
+  }
+
+  throw lastError ?? new Error('Request failed');
+}
+
 interface Props {
   bookSlug: string;
   initialSceneId: string;
@@ -348,27 +368,24 @@ export default function SceneViewer({
     try {
       // Fetch scene and book data
       const [sceneRes, bookRes] = await Promise.all([
-        fetch(`/api/books/${bookSlug}/scenes/${sceneId}`),
-        fetch(`/api/books/${bookSlug}`),
+        fetchWithRetry(`/api/books/${bookSlug}/scenes/${sceneId}`),
+        fetchWithRetry(`/api/books/${bookSlug}`),
       ]);
-      if (!sceneRes.ok) throw new Error('Failed to load scene');
       const sceneData = await sceneRes.json();
       const loadedScene: SceneWithHotspots = sceneData.scene;
 
-      let bookCharacters: Character[] = [];
-      let bookStylePreset:
+      const bookData = await bookRes.json();
+
+      const bookCharacters: Character[] = bookData.characters ?? [];
+      const bookStylePreset:
         | 'photoreal_cinematic'
         | 'storybook_watercolor'
         | 'cinematic_animation'
         | 'comic_book'
-        | undefined;
-      if (bookRes.ok) {
-        const bookData = await bookRes.json();
-        bookCharacters = bookData.characters ?? [];
-        // Surface the book-level style preset so the canvas can mount
-        // the comic-bubble overlay layer only for comic books.
-        bookStylePreset = bookData.stylePreset ?? bookData.book?.stylePreset;
-      }
+        | undefined
+        = bookData.stylePreset ?? bookData.book?.stylePreset;
+      // Surface the book-level style preset so the canvas can mount
+      // the comic-bubble overlay layer only for comic books.
 
       // Store raw data for legacy compatibility
       setRawScene(loadedScene);
@@ -1125,21 +1142,14 @@ export default function SceneViewer({
                 branch image up top while the panel below still reads
                 the previous static scene — looks broken. */}
             {!flipOpen && (
-              <div style={{ maxWidth: 820, margin: '0 auto' }}>
+              <div className="scene-reader-controls" style={{ maxWidth: 820, margin: '0 auto' }}>
                 {/* Toggle bar — always visible */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 0', marginTop: 8, gap: 12,
-                }}>
+                <div className="scene-reader-toggle-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', marginTop: 8, gap: 12 }}>
                   {/* Preview text */}
-                  <p className="font-serif" style={{
-                    fontSize: '0.85rem', color: 'var(--color-text-dim)', margin: 0,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                    opacity: textExpanded ? 0.4 : 1,
-                  }}>
+                  <p className="font-serif scene-reader-preview" style={{ fontSize: '0.85rem', color: 'var(--color-text-dim)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, opacity: textExpanded ? 0.4 : 1 }}>
                     {(activeBranch?.narration ?? rawScene?.narration ?? storyScene.story_text ?? '').slice(0, 100)}...
                   </p>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <div className="scene-reader-toggle-actions" style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
                     {showModeSwitcher && (
                       <ModeSwitcher currentMode={mode} onModeChange={setMode} hasQuizzes={(storyScene.quiz_questions?.length ?? 0) > 0} />
                     )}

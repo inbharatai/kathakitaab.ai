@@ -41,9 +41,10 @@ interface Props {
    *  caller-supplied content (typically <SceneLayers ...>) with the
    *  cross-fade animation. */
   renderBeat: (beat: Beat, index: number) => React.ReactNode;
+  onActiveBeatChange?: (beat: Beat, index: number) => void;
 }
 
-export default function BeatCrossFade({ beats, durationSeconds, renderBeat }: Props) {
+export default function BeatCrossFade({ beats, durationSeconds, renderBeat, onActiveBeatChange }: Props) {
   // Active beat index. Drives which child mounts; the previous one
   // fades out via AnimatePresence-equivalent cross-fade.
   const [active, setActive] = useState(0);
@@ -73,6 +74,12 @@ export default function BeatCrossFade({ beats, durationSeconds, renderBeat }: Pr
     startedAtRef.current = null;
   }, [beats]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    const beat = beats[active];
+    if (!beat) return;
+    onActiveBeatChange?.(beat, active);
+  }, [active, beats, onActiveBeatChange]);
 
   useEffect(() => {
     if (beats.length < 2) return; // single beat: nothing to advance

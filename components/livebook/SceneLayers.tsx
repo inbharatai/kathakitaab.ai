@@ -65,6 +65,8 @@ interface SceneLayersProps {
   motions?: Record<string, CharacterMotion>;
   /** Pause every layer animation for accessibility. */
   reducedMotion?: boolean;
+  /** Background fitting mode. Desktop keeps cover, mobile reader can use contain. */
+  fitMode?: 'cover' | 'contain';
 }
 
 // Stable per-id phase, mirrors AmbientFigure.phaseFor so the cutout
@@ -85,6 +87,7 @@ export function SceneLayers({
   cutouts,
   motions,
   reducedMotion = false,
+  fitMode = 'cover',
 }: SceneLayersProps) {
   // Only character hotspots get cutouts in v3. Place/object types
   // are part of the bg plate. (HotspotTargetType doesn't include
@@ -98,8 +101,9 @@ export function SceneLayers({
         style={{
           position: 'absolute', inset: 0,
           backgroundImage: `url(${plateUrl})`,
-          backgroundSize: 'cover',
+          backgroundSize: fitMode,
           backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
           filter: bgPlateUrl ? 'none' : 'blur(0.5px) brightness(0.92)',
         }}
       />
@@ -116,6 +120,7 @@ export function SceneLayers({
             bgImageUrl={bgImageUrl}
             charMotion={charMotion}
             reducedMotion={reducedMotion}
+            fitMode={fitMode}
           />
         );
       })}
@@ -135,9 +140,10 @@ interface FigureLayerProps {
   bgImageUrl: string;
   charMotion?: CharacterMotion;
   reducedMotion: boolean;
+  fitMode: 'cover' | 'contain';
 }
 
-function FigureLayer({ hotspot, phase, cutoutUrl, bgImageUrl, charMotion, reducedMotion }: FigureLayerProps) {
+function FigureLayer({ hotspot, phase, cutoutUrl, bgImageUrl, charMotion, reducedMotion, fitMode }: FigureLayerProps) {
   // When a verb burst is firing, hand control to the verb motion —
   // the cutout snaps to the burst pose and back. Otherwise idle
   // puppet motion: chest-rise breath + slow body sway, anchored
@@ -244,8 +250,9 @@ function FigureLayer({ hotspot, phase, cutoutUrl, bgImageUrl, charMotion, reduce
           width: `${100 * bgScaleX}%`,
           height: `${100 * bgScaleY}%`,
           backgroundImage: `url(${bgImageUrl})`,
-          backgroundSize: 'cover',
+          backgroundSize: fitMode,
           backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
           filter: 'saturate(1.05) brightness(1.02)',
         }}
       />

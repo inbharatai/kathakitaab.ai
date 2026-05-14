@@ -5,9 +5,9 @@ import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ slug: string; sceneId: string }> }
+  { params }: { params: Promise<unknown> }
 ) {
-  const { slug, sceneId } = await params;
+  const { slug, sceneId } = await params as { slug: string; sceneId: string };
 
   // 1. Try the Ramayana seed (built-in). Always public.
   if (slug === 'ramayana') {

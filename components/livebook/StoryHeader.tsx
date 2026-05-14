@@ -16,6 +16,9 @@ export default function StoryHeader({
   onToggleMute,
   onToggleNarration,
 }: Props) {
+  const [isCompact, setIsCompact] = useState<boolean>(() => (
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  ));
   // Single music control: a slider appears inline when the user clicks
   // the music icon. Dragging to 0 effectively mutes; clicking the icon
   // again hides the slider. Removes the previous duplicate "Mute"
@@ -31,6 +34,12 @@ export default function StoryHeader({
       if (!cancelled) setVolume(v);
     });
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsCompact(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   // Close the slider when clicking outside.
@@ -58,9 +67,13 @@ export default function StoryHeader({
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.2, type: 'spring', damping: 20 }}
       style={{
-        position: 'fixed',
-        top: 14,
-        right: 18,
+        position: isCompact ? 'sticky' : 'fixed',
+        top: isCompact ? 'calc(env(safe-area-inset-top, 0px) + 8px)' : 14,
+        right: isCompact ? 'auto' : 18,
+        left: isCompact ? 0 : 'auto',
+        width: isCompact ? '100%' : 'auto',
+        display: 'flex',
+        justifyContent: isCompact ? 'center' : 'flex-end',
         zIndex: 120,
         pointerEvents: 'auto',
       }}
@@ -68,8 +81,11 @@ export default function StoryHeader({
       <div style={{
         display: 'flex',
         alignItems: 'center',
+        flexWrap: isCompact ? 'wrap' : 'nowrap',
         gap: 6,
         padding: 6,
+        maxWidth: isCompact ? 'calc(100% - 16px)' : 'none',
+        margin: isCompact ? '0 8px 6px' : 0,
         borderRadius: 999,
         background: 'rgba(12,8,6,0.82)',
         border: '1px solid rgba(255,255,255,0.08)',

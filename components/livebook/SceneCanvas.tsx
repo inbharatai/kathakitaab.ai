@@ -15,7 +15,7 @@
  * unified, layered canvas that supports the StoryScene contract.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   StoryScene,
@@ -265,8 +265,80 @@ export default function SceneCanvas({
   const prefersReducedMotion = usePrefersReducedMotion();
   const { frame: effectFrame, fps: effectFps } = useFrameTicker({ reducedMotion: prefersReducedMotion });
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const [hoveredHotspot, setHoveredHotspot] = useState<string | null>(null);
   const [actionPopup, setActionPopup] = useState<ActionMenuPopup | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [sceneAspectRatio, setSceneAspectRatio] = useState(3 / 2);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const defaultBackgroundUrl = scene.background.image_url ?? scene.background.beats?.[0]?.image_url ?? null;
+  const [activeBackgroundUrl, setActiveBackgroundUrl] = useState(() => defaultBackgroundUrl);
+  const handleActiveBeatChange = useCallback((beat: { image_url: string }) => {
+    setActiveBackgroundUrl((current) => (current === beat.image_url ? current : beat.image_url));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobileViewport(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      setContainerSize({ width: rect.width, height: rect.height });
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const src = activeBackgroundUrl ?? defaultBackgroundUrl;
+    if (!src) return;
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setSceneAspectRatio(img.naturalWidth / img.naturalHeight);
+      }
+    };
+    img.src = src;
+  }, [activeBackgroundUrl, defaultBackgroundUrl]);
+
+  const useMobileContain = isMobileViewport;
+  const mobileContainHeight = useMemo(() => {
+    if (!useMobileContain || containerSize.width <= 0 || sceneAspectRatio <= 0) {
+      return undefined;
+    }
+    return `${Math.round(containerSize.width / sceneAspectRatio)}px`;
+  }, [containerSize.width, sceneAspectRatio, useMobileContain]);
+
+  const stageStyle = useMemo(() => {
+    if (!useMobileContain || containerSize.width <= 0 || containerSize.height <= 0) {
+      return { position: 'absolute' as const, inset: 0 };
+    }
+    const containerAspect = containerSize.width / containerSize.height;
+    let stageWidth = containerSize.width;
+    let stageHeight = containerSize.width / sceneAspectRatio;
+    if (containerAspect > sceneAspectRatio) {
+      stageHeight = containerSize.height;
+      stageWidth = containerSize.height * sceneAspectRatio;
+    }
+    return {
+      position: 'absolute' as const,
+      width: stageWidth,
+      height: stageHeight,
+      left: '50%',
+      top: '50%',
+      transform: 'translate(-50%, -50%)',
+    };
+  }, [containerSize.height, containerSize.width, sceneAspectRatio, useMobileContain]);
 
   // ── Verb camera burst ──
   // Brief transform applied to the parallax wrapper when a verb is
@@ -296,8 +368,8 @@ export default function SceneCanvas({
   // Pixel-snapshot of the canvas at burst-trigger time, so aim biasing
   // resolves to real coordinates. Read from the container ref's bbox.
   const triggerBurst = useCallback((verb: HotspotClickAction, hotspot: SceneHotspot) => {
-    if (prefersReducedMotion) return;
-    const rect = containerRef.current?.getBoundingClientRect();
+    if (prefersReducedMotion || useMobileContain) return;
+    const rect = stageRef.current?.getBoundingClientRect() ?? containerRef.current?.getBoundingClientRect();
     const w = rect?.width ?? 0;
     const h = rect?.height ?? 0;
     // Aim the dolly toward the hotspot's center (% → px).
@@ -317,7 +389,7 @@ export default function SceneCanvas({
     lastInteractedRef.current = hotspot.target_id;
     if (burstTimer.current) window.clearTimeout(burstTimer.current);
     burstTimer.current = window.setTimeout(() => setBurst(null), aimed.durationMs + 100);
-  }, [prefersReducedMotion, characterStates]);
+  }, [prefersReducedMotion, characterStates, useMobileContain]);
   useEffect(() => () => { if (burstTimer.current) window.clearTimeout(burstTimer.current); }, []);
 
   // ── Audio-driven lip-pulse ──
@@ -428,8 +500,8 @@ export default function SceneCanvas({
   }, []);
 
   const handleParallaxMove = useCallback((e: React.MouseEvent) => {
-    if (reducedMotion.current) return;
-    const rect = containerRef.current?.getBoundingClientRect();
+    if (reducedMotion.current || useMobileContain) return;
+    const rect = stageRef.current?.getBoundingClientRect() ?? containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
@@ -440,7 +512,7 @@ export default function SceneCanvas({
         y: Math.max(-1, Math.min(1, ny)),
       });
     });
-  }, []);
+  }, [useMobileContain]);
 
   const handleParallaxLeave = useCallback(() => {
     if (parallaxRaf.current) cancelAnimationFrame(parallaxRaf.current);
@@ -450,7 +522,7 @@ export default function SceneCanvas({
   // ── Click handlers ──
 
   const getPctFromEvent = useCallback((e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = stageRef.current?.getBoundingClientRect() ?? containerRef.current?.getBoundingClientRect();
     if (!rect) return { xPct: 50, yPct: 50 };
     return {
       xPct: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
@@ -524,6 +596,7 @@ export default function SceneCanvas({
     <div
       ref={containerRef}
       className="scene-container"
+      data-fit-mode={useMobileContain ? 'contain' : 'cover'}
       onClick={handleBackgroundClick}
       onDoubleClick={handleBackgroundDoubleClick}
       onMouseMove={handleParallaxMove}
@@ -534,6 +607,8 @@ export default function SceneCanvas({
         userSelect: 'none',
         overflow: 'hidden',
         perspective: 1400,
+        height: mobileContainHeight,
+        minHeight: useMobileContain ? 0 : undefined,
       }}
     >
       {/* SVG filter for hotspot glow */}
@@ -545,9 +620,12 @@ export default function SceneCanvas({
           mouse movement. Hint bar and badges sit outside so they
           stay flat to the screen. */}
       <div
+        ref={stageRef}
         style={{
-          position: 'absolute', inset: 0,
-          transform: `rotateX(${-parallax.y * 2}deg) rotateY(${parallax.x * 3}deg)`,
+          ...stageStyle,
+          transform: useMobileContain
+            ? 'translate(-50%, -50%)'
+            : `rotateX(${-parallax.y * 2}deg) rotateY(${parallax.x * 3}deg)`,
           transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
           willChange: 'transform',
           transformStyle: 'preserve-3d',
@@ -631,21 +709,21 @@ export default function SceneCanvas({
       <div style={{ position: 'absolute', inset: 0 }}>
         {scene.background.image_url ? (
           <motion.div
-            initial={{ scale: 1.08, opacity: 0 }}
+            initial={{ scale: useMobileContain ? 1 : 1.08, opacity: 0 }}
             animate={{
-              scale: [1.08, 1.12, 1.08],
+              scale: useMobileContain ? [1, 1.01, 1] : [1.08, 1.12, 1.08],
               opacity: 1,
-              x: [0, -15, 0],
-              y: [0, -8, 0],
+              x: useMobileContain ? [0, 0, 0] : [0, -15, 0],
+              y: useMobileContain ? [0, 0, 0] : [0, -8, 0],
             }}
             transition={{
-              scale: { duration: 25, repeat: Infinity, ease: 'easeInOut' },
+              scale: { duration: useMobileContain ? 16 : 25, repeat: Infinity, ease: 'easeInOut' },
               x: { duration: 30, repeat: Infinity, ease: 'easeInOut' },
               y: { duration: 20, repeat: Infinity, ease: 'easeInOut' },
               opacity: { duration: 1.2, ease: 'easeOut' },
             }}
             style={{
-              position: 'absolute', inset: -20,
+              position: 'absolute', inset: useMobileContain ? 0 : -20,
               filter: 'brightness(0.82) saturate(1.15)',
             }}
           >
@@ -659,6 +737,7 @@ export default function SceneCanvas({
               <BeatCrossFade
                 beats={scene.background.beats}
                 durationSeconds={Math.max(8, Math.round((scene.story_text.split(/\s+/).filter(Boolean).length / 150) * 60 + 2.5))}
+                onActiveBeatChange={handleActiveBeatChange}
                 renderBeat={(beat) => (
                   <SceneLayers
                     bgImageUrl={beat.image_url}
@@ -671,6 +750,7 @@ export default function SceneCanvas({
                         : undefined
                     }
                     reducedMotion={prefersReducedMotion}
+                    fitMode={useMobileContain ? 'contain' : 'cover'}
                   />
                 )}
               />
@@ -686,6 +766,7 @@ export default function SceneCanvas({
                     : undefined
                 }
                 reducedMotion={prefersReducedMotion}
+                fitMode={useMobileContain ? 'contain' : 'cover'}
               />
             )}
           </motion.div>

@@ -51,8 +51,19 @@ body {
   background: var(--color-dark-earth);
   color: var(--color-text-light);
   min-height: 100vh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.reader-page-main {
+  min-height: 100vh;
+}
+
+@supports (min-height: 100dvh) {
+  .reader-page-main {
+    min-height: 100dvh;
+  }
 }
 
 .font-serif {
@@ -215,6 +226,29 @@ body {
   background: var(--color-dark-surface);
   border: 1px solid rgba(212, 168, 71, 0.2);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(212,168,71,0.1);
+}
+
+.scene-reader-controls {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.scene-reader-toggle-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scene-reader-preview {
+  min-width: 0;
+}
+
+.scene-reader-toggle-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 /* ---- Book Page Flip ---- */
@@ -413,18 +447,44 @@ body {
    ============================================================ */
 @media (max-width: 768px) {
   .drawer-panel { width: 100vw; border-left: none; }
-  /* Mobile reader: drop the desktop 16:9 letterbox in favour of a
-     near-full-viewport canvas so the scene image dominates the
-     screen instead of becoming a small banner above the narration.
-     The image inside still uses `object-fit: cover`, so the
-     hand-painted 3:2 art crops naturally to fit a taller frame —
-     and hotspot percentages keep working because they're relative
-     to the container, not the image's intrinsic dimensions. */
-  .scene-container {
+  .reader-page-topbar {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+  }
+  .reader-page-actions {
+    flex-wrap: wrap;
+  }
+  .reader-page-meta {
+    width: 100%;
+    justify-content: space-between;
+    align-items: flex-start !important;
+  }
+  .reader-page-meta > div:last-child {
+    text-align: left !important;
+  }
+  .scene-reader-controls {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .scene-reader-toggle-bar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .scene-reader-preview {
+    min-width: 100%;
+    white-space: normal !important;
+  }
+  .scene-reader-toggle-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+  /* Mobile reader: reserve a bounded viewport-aware card so the
+    full artwork can fit without cover-cropping. */
+  .book-page .scene-container {
     aspect-ratio: auto;
     border-radius: 10px;
-    min-height: 78vh;
-    min-height: 78dvh;
+   min-height: min(62vh, 62dvh);
+   max-height: calc(100dvh - 240px - env(safe-area-inset-bottom, 0px));
   }
   /* Tap targets — Apple HIG / Material both want 44-48px minimum
      to avoid mis-taps on dense hotspot layouts. */
@@ -447,6 +507,10 @@ body {
    RESPONSIVE: PHONE (max-width: 480px)
    ============================================================ */
 @media (max-width: 480px) {
+  html, body { overflow-x: hidden; }
+  .book-page {
+    padding-top: 18px !important;
+  }
   .lp-nav { padding: 10px 14px; }
   .lp-nav-name { font-size: 0.95rem; }
   .lp-btn-glow { padding: 6px 14px; font-size: 0.75rem; }
@@ -467,16 +531,11 @@ body {
   .lp-compare-old-h { display: none; }
   .lp-compare-old { display: none; }
 
-  /* Phone: scene canvas effectively fills the visible viewport so
-     the painted scene reads as a cinematic frame, not a banner.
-     `dvh` accounts for the iOS / Android dynamic toolbar that eats
-     a chunk of `vh`. The FlipbookPage overlay still has room because
-     it absolute-positions inside this taller container. */
-  .scene-container {
+  .book-page .scene-container {
     aspect-ratio: auto;
     border-radius: 6px;
-    min-height: 82vh;
-    min-height: 82dvh;
+    min-height: min(58vh, 58dvh);
+    max-height: calc(100dvh - 255px - env(safe-area-inset-bottom, 0px));
   }
   .glass-card { border-radius: 14px; }
   .btn-primary { padding: 10px 20px; font-size: 0.9rem; }
@@ -489,16 +548,12 @@ body {
    MOBILE: scene image / hotspot tuning
    ============================================================ */
 @media (max-width: 768px) {
-  /* The scene <img> inside .scene-container should cover-fit so a
-     landscape 1536x1024 painting fills our taller mobile canvas
-     without black bars. Hotspot bboxes are positioned by % of the
-     container, so the crop only loses a thin sliver from the
-     left/right edges — characters and key composition stay framed. */
-  .scene-container img,
-  .scene-container [data-scene-bg],
-  .scene-container [data-scene-beat] {
-    object-fit: cover !important;
-    object-position: center 30% !important;
+  /* Reader mobile-fit path: keep full generated artwork visible. */
+  .book-page .scene-container img,
+  .book-page .scene-container [data-scene-bg],
+  .book-page .scene-container [data-scene-beat] {
+    object-fit: contain !important;
+    object-position: center center !important;
   }
 }
 
