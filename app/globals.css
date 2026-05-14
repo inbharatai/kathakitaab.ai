@@ -353,9 +353,21 @@ body {
 .lp-nav-logo { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; border: 1.5px solid rgba(255,153,51,0.4); }
 .lp-nav-name { font-size: 1.1rem; font-weight: 800; color: var(--color-gold-light); }
 .lp-nav-ai { color: var(--color-saffron); }
-.lp-nav-links { display: flex; align-items: center; gap: 20px; }
-.lp-nav-link { font-size: 0.82rem; color: var(--color-text-dim); text-decoration: none; font-weight: 500; transition: color 0.2s; }
-.lp-nav-link:hover { color: var(--color-gold-light); }
+.lp-nav-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lp-nav-links { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lp-nav-link { font-size: 0.78rem; color: var(--color-text-dim); text-decoration: none; font-weight: 600; transition: all 0.25s; display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; min-height: 44px; min-width: 44px; }
+.lp-nav-link:hover { color: var(--color-gold-light); transform: translateY(-1px); }
+
+/* Tricolour-inspired premium nav pills */
+.lp-nav-pill-saffron { color: var(--color-saffron-light); background: rgba(255,153,51,0.08); border-color: rgba(255,153,51,0.35); box-shadow: 0 0 12px rgba(255,153,51,0.12); }
+.lp-nav-pill-saffron:hover { background: rgba(255,153,51,0.18); border-color: rgba(255,153,51,0.6); box-shadow: 0 0 20px rgba(255,153,51,0.35); color: #fff; }
+
+.lp-nav-pill-white { color: var(--color-gold-light); background: rgba(255,255,255,0.05); border-color: rgba(255,215,0,0.25); box-shadow: 0 0 12px rgba(255,215,0,0.08), inset 0 0 8px rgba(19,136,8,0.06); }
+.lp-nav-pill-white:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,215,0,0.5); box-shadow: 0 0 20px rgba(255,215,0,0.2), inset 0 0 12px rgba(19,136,8,0.12); color: #fff; }
+
+.lp-nav-pill-signin { font-size: 0.78rem; font-weight: 700; padding: 10px 16px; border-radius: 999px; text-decoration: none; color: var(--color-dark-earth); background: linear-gradient(135deg, var(--color-green), var(--color-saffron)); box-shadow: 0 0 16px rgba(19,136,8,0.25); transition: all 0.25s; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; border: 1px solid rgba(255,153,51,0.3); min-height: 44px; min-width: 44px; }
+.lp-nav-pill-signin:hover { box-shadow: 0 0 24px rgba(19,136,8,0.45); transform: translateY(-1px); filter: brightness(1.1); }
+
 .lp-btn-glow { font-size: 0.8rem; font-weight: 700; padding: 8px 18px; border-radius: 10px; text-decoration: none; color: var(--color-dark-earth); background: linear-gradient(135deg, var(--color-saffron), var(--color-gold)); box-shadow: 0 0 20px rgba(255,153,51,0.25); transition: box-shadow 0.3s, transform 0.2s; }
 .lp-btn-glow:hover { box-shadow: 0 0 30px rgba(255,153,51,0.45); transform: translateY(-1px); }
 
@@ -491,7 +503,6 @@ body {
   .hotspot-marker { min-width: 44px; min-height: 44px; }
 
   .lp-nav-links { gap: 12px; }
-  .lp-nav-link { display: none; }
   .lp-hero { padding: 80px 18px 40px; }
   .lp-hero-scenes { display: none; }
   .lp-hero-h1 { font-size: clamp(2.2rem, 8vw, 3.5rem); }
@@ -511,8 +522,13 @@ body {
   .book-page {
     padding-top: 18px !important;
   }
-  .lp-nav { padding: 10px 14px; }
-  .lp-nav-name { font-size: 0.95rem; }
+  .lp-nav { padding: 10px 12px; align-items: center; }
+  .lp-nav-name { font-size: 0.85rem; }
+  .lp-nav-logo { width: 30px; height: 30px; }
+  .lp-nav-actions { gap: 6px; flex: 1; justify-content: flex-end; flex-wrap: nowrap; }
+  .lp-nav-links { gap: 6px; flex-wrap: nowrap; }
+  .lp-nav-link { padding: 6px 10px; font-size: 0.68rem; min-height: 44px; min-width: 44px; }
+  .lp-nav-pill-signin { padding: 6px 10px !important; font-size: 0.68rem !important; min-height: 44px !important; min-width: 44px !important; }
   .lp-btn-glow { padding: 6px 14px; font-size: 0.75rem; }
 
   /* Phone: collapse the FlipbookPage Show/Hide-text label so the
@@ -520,7 +536,7 @@ body {
      overflow on a 360px-wide viewport. The icon stays visible. */
   .flipbook-ctrl-label { display: none; }
 
-  .lp-hero { padding: 70px 14px 32px; min-height: auto; }
+  .lp-hero { padding: 90px 14px 32px; min-height: auto; }
   .lp-hero-badge { font-size: 0.62rem; padding: 5px 12px; }
   .lp-hero-ctas { flex-direction: column; align-items: stretch; }
   .lp-btn-primary, .lp-btn-outline { width: 100%; justify-content: center; text-align: center; }

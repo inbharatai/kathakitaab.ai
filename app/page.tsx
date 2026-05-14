@@ -264,11 +264,12 @@ export default function HomePage() {
           </div>
           <span className="lp-nav-name">KathaKitaab</span>
         </Link>
-        <div className="lp-nav-links">
-          <Link href="/books" className="lp-nav-link">Stories</Link>
-          <Link href="/educator" className="lp-nav-link">Studio</Link>
-          <AuthNavButton next="/books#create-story" compact />
-          <Link href="/books/ramayana" className="lp-btn-glow">Enter Ramayana</Link>
+        <div className="lp-nav-actions">
+          <div className="lp-nav-links">
+            <Link href="/books" className="lp-nav-link lp-nav-pill-saffron">Stories</Link>
+            <Link href="/educator" className="lp-nav-link lp-nav-pill-white">Studio</Link>
+          </div>
+          <AuthNavButton next="/books#create-story" compact className="lp-nav-pill-signin" />
         </div>
       </nav>
 

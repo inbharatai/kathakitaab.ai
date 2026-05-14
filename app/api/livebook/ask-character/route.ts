@@ -4,7 +4,7 @@ import { askCharacter } from '@/lib/openai/livebookAgent';
 import { getCharacterBySlug, getSceneById, getBook as getSeedBook } from '@/lib/data/ramayanaSeed';
 import { getBook as getRegistryBook, getScene as getRegistryScene, getCharacter as getRegistryCharacter } from '@/lib/data/bookRegistry';
 import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
-import { getTextModel, isGeminiConfigured } from '@/lib/openai/client';
+import { getOpenAIModel, isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 
@@ -100,12 +100,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ...(cached as object), cached: true });
     }
 
-    // Check if Gemini is configured
-    if (!isGeminiConfigured()) {
+    // Check if OpenAI is configured
+    if (!isOpenAIConfigured()) {
       const fallback = {
         label: 'EXPLANATION' as const,
-        answer: `As ${character.name}, I would love to answer your question, but the AI service is not configured yet. Please set your GEMINI_API_KEY in the .env.local file. In the meantime, you can explore my character profile and learn about the Ramayana through the scenes and narration.`,
-        source_note: 'Fallback response — Gemini API key not configured.',
+        answer: `As ${character.name}, I would love to answer your question, but the AI service is not configured yet. Please set your OPENAI_API_KEY in the .env.local file. In the meantime, you can explore my character profile and learn about the Ramayana through the scenes and narration.`,
+        source_note: 'Fallback response — OpenAI API key not configured.',
         next_options: ['Explore my character profile', 'Read the scene narration', 'Continue to the next scene'],
         safety_note: 'This is a fallback response because the AI is not configured.'
       };
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     });
 
     // Cache the response
-    await setCachedResponse(cacheKey, response, getTextModel());
+    await setCachedResponse(cacheKey, response, getOpenAIModel());
 
     return NextResponse.json(response);
   } catch (error: unknown) {

@@ -1,33 +1,20 @@
-import { getGeminiClient, getTextModel } from './client';
+import { getOpenAIClient, getOpenAIModel } from './openaiClient';
 import { LIVEBOOK_SYSTEM_PROMPT, buildCharacterPrompt } from './prompts';
 import { LiveBookAgentInput, AskCharacterResponse } from './types';
-import { Type, Schema } from '@google/genai';
 import { parseStructuredAgentResponse } from './structuredResponse';
 
 const FALLBACK_RESPONSE: AskCharacterResponse = {
   label: 'EXPLANATION',
-  answer: 'I am unable to answer right now. The AI service may not be configured. Please check that the GEMINI_API_KEY is set in your environment.',
+  answer: 'I am unable to answer right now. The AI service may not be configured. Please check that the OPENAI_API_KEY is set in your environment.',
   source_note: 'System message — no AI model was called.',
   next_options: ['Try again later', 'Explore other characters', 'Continue the story'],
   safety_note: 'This is a fallback response.'
 };
 
-const responseSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    label: { type: Type.STRING },
-    answer: { type: Type.STRING },
-    source_note: { type: Type.STRING },
-    next_options: { type: Type.ARRAY, items: { type: Type.STRING } },
-    safety_note: { type: Type.STRING }
-  },
-  required: ['label', 'answer', 'source_note', 'next_options']
-};
-
 export async function askCharacter(input: LiveBookAgentInput): Promise<AskCharacterResponse> {
   try {
-    const ai = getGeminiClient();
-    const model = getTextModel();
+    const client = getOpenAIClient();
+    const model = getOpenAIModel();
 
     const userPrompt = buildCharacterPrompt({
       characterName: input.character.name,
@@ -41,26 +28,25 @@ export async function askCharacter(input: LiveBookAgentInput): Promise<AskCharac
       question: input.userQuestion,
     });
 
-    const response = await ai.models.generateContent({
+    const completion = await client.chat.completions.create({
       model,
-      contents: [
-        { role: 'user', parts: [{ text: userPrompt }] }
+      messages: [
+        { role: 'system', content: LIVEBOOK_SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
       ],
-      config: {
-        systemInstruction: LIVEBOOK_SYSTEM_PROMPT,
-        temperature: 0.7,
-        maxOutputTokens: 1000,
-        responseMimeType: 'application/json',
-        responseSchema: responseSchema,
-      }
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+      max_tokens: 1000,
     });
 
-    const parsed = parseStructuredAgentResponse(response.text, {
+    const raw = completion.choices[0]?.message?.content ?? '';
+
+    const parsed = parseStructuredAgentResponse(raw, {
       ...FALLBACK_RESPONSE,
       answer: 'The AI returned a malformed response. Please try again.',
       safety_note: 'Structured response recovery fallback.',
     }) as AskCharacterResponse;
-    
+
     // Validate label
     const validLabels = ['CANON', 'EXPLANATION', 'INTERPRETATION', 'CREATIVE'];
     if (!validLabels.includes(parsed.label)) {
@@ -77,11 +63,11 @@ export async function askCharacter(input: LiveBookAgentInput): Promise<AskCharac
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('LiveBook Agent Error:', errorMessage);
-    
+
     if (errorMessage.includes('API_KEY')) {
-      return { ...FALLBACK_RESPONSE, answer: 'Gemini API key is not configured. Please set GEMINI_API_KEY in your .env.local file to enable character conversations.' };
+      return { ...FALLBACK_RESPONSE, answer: 'OpenAI API key is not configured. Please set OPENAI_API_KEY in your .env.local file to enable character conversations.' };
     }
-    
+
     return { ...FALLBACK_RESPONSE, answer: `An error occurred while talking to ${input.character.name}. Please try again. (${errorMessage})` };
   }
 }

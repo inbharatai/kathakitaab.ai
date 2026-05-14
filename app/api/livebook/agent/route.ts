@@ -53,7 +53,7 @@ interface CharacterLike {
   character_bible?: { speech_tone?: string };
 }
 import { buildCacheKey, getCachedResponse, setCachedResponse, getCacheStats } from '@/lib/cache/responseCache';
-import { isGeminiConfigured, getTextModel } from '@/lib/openai/client';
+import { isOpenAIConfigured, getOpenAIModel } from '@/lib/openai/openaiClient';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 
 export async function POST(request: Request) {
@@ -61,8 +61,8 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   try {
-    if (!isGeminiConfigured()) {
-      return NextResponse.json({ error: 'AI engine not configured. Set GEMINI_API_KEY in .env.local.' }, { status: 503 });
+    if (!isOpenAIConfigured()) {
+      return NextResponse.json({ error: 'AI engine not configured. Set OPENAI_API_KEY in .env.local.' }, { status: 503 });
     }
 
     const body = await request.json();
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     const result = await runAgent(ctx);
 
     // ---- Cache & Return ----
-    await setCachedResponse(cacheKey, result, getTextModel());
+    await setCachedResponse(cacheKey, result, getOpenAIModel());
 
     // Include portrait URL for character interactions
     let portrait_url: string | undefined;

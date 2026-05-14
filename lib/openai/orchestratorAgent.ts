@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — LiveBook Orchestrator Agent
+// KathaKitaab.ai — LiveBook Orchestrator Agent (OpenAI)
 // This is the master AI Agent that orchestrates all sub-agents.
 // Inspired by OpenAI Agents SDK agentic patterns.
 //
@@ -12,27 +12,13 @@
 //
 // Each agent:
 //   1. Checks the unified cache first (zero cost if cached)
-//   2. Calls Gemini with strict JSON schema (no hallucination)
+//   2. Calls OpenAI with json_object response format
 //   3. Saves output to cache (never regenerates for same key)
 //   4. Returns typed, validated response
 // ============================================================
 
-import { getGeminiClient, getTextModel } from './client';
-import { Type, Schema } from '@google/genai';
+import { getOpenAIClient, getOpenAIModel } from './openaiClient';
 import { parseStructuredAgentResponse } from './structuredResponse';
-
-// ---- Shared schema for all agents ----
-const AGENT_RESPONSE_SCHEMA: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    label: { type: Type.STRING },
-    answer: { type: Type.STRING },
-    source_note: { type: Type.STRING },
-    next_options: { type: Type.ARRAY, items: { type: Type.STRING } },
-    safety_note: { type: Type.STRING },
-  },
-  required: ['label', 'answer', 'source_note', 'next_options'],
-};
 
 export interface AgentContext {
   bookTitle: string;
@@ -107,26 +93,27 @@ Rules:
 
 // ---- Orchestrator function ----
 export async function runAgent(ctx: AgentContext): Promise<AgentResponse> {
-  const ai = getGeminiClient();
-  const model = getTextModel();
+  const client = getOpenAIClient();
+  const model = getOpenAIModel();
 
   const systemPrompt = AGENT_SYSTEM_PROMPTS[ctx.agentType] || AGENT_SYSTEM_PROMPTS.info;
 
   const userPrompt = buildAgentPrompt(ctx);
 
-  const response = await ai.models.generateContent({
+  const completion = await client.chat.completions.create({
     model,
-    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-    config: {
-      systemInstruction: systemPrompt,
-      temperature: ctx.agentType === 'character' ? 0.75 : 0.5,
-      maxOutputTokens: 1000,
-      responseMimeType: 'application/json',
-      responseSchema: AGENT_RESPONSE_SCHEMA,
-    },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: ctx.agentType === 'character' ? 0.75 : 0.5,
+    max_tokens: 1000,
   });
 
-  return parseStructuredAgentResponse(response.text, {
+  const raw = completion.choices[0]?.message?.content ?? '';
+
+  return parseStructuredAgentResponse(raw, {
     label: 'EXPLANATION',
     answer: `I could not format a clear answer for ${ctx.agentName || 'this scene'} just now. Please try again.`,
     source_note: 'Structured fallback — response format recovery.',
@@ -155,6 +142,8 @@ function buildAgentPrompt(ctx: AgentContext): string {
   } else {
     lines.push(`\nUser Request: "${ctx.userInput}"`);
   }
+
+  lines.push(`\nRespond with valid JSON.`);
 
   return lines.join('\n');
 }

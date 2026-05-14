@@ -14,9 +14,11 @@ interface Props {
   next?: string;
   /** Compact styling for tight navs. */
   compact?: boolean;
+  /** Optional className for the anonymous sign-in link wrapper. */
+  className?: string;
 }
 
-export function AuthNavButton({ next = '/books', compact = false }: Props) {
+export function AuthNavButton({ next = '/books', compact = false, className }: Props) {
   const { user, loading, signOut } = useAuth();
   if (loading) return null;
 
@@ -28,7 +30,8 @@ export function AuthNavButton({ next = '/books', compact = false }: Props) {
     return (
       <Link
         href={href}
-        style={{
+        className={className || undefined}
+        style={className ? undefined : {
           padding,
           borderRadius: 999,
           background: 'linear-gradient(135deg, #FF9933, #FFD700)',
