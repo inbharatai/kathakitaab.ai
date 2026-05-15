@@ -460,6 +460,28 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Supported Worlds ── */}
+      <section className="lp-worlds">
+        <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+          One Engine. Any Story.
+        </motion.h2>
+        <p className="lp-section-sub">Type any title. The AI builds a complete interactive illustrated book.</p>
+        <div className="lp-worlds-grid">
+          {SUPPORTED_WORLDS.map((w, i) => (
+            <motion.span
+              key={w}
+              className="lp-world-tag"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.03 }}
+            >
+              {w}
+            </motion.span>
+          ))}
+        </div>
+      </section>
+
       {/* ── How It Works ── */}
       <section className="lp-steps">
         <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
@@ -746,28 +768,6 @@ export default function HomePage() {
                 </div>
               </div>
             </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Supported Worlds ── */}
-      <section className="lp-worlds">
-        <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-          One Engine. Any Story.
-        </motion.h2>
-        <p className="lp-section-sub">Type any title. The AI builds a complete interactive illustrated book.</p>
-        <div className="lp-worlds-grid">
-          {SUPPORTED_WORLDS.map((w, i) => (
-            <motion.span
-              key={w}
-              className="lp-world-tag"
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.03 }}
-            >
-              {w}
-            </motion.span>
           ))}
         </div>
       </section>
