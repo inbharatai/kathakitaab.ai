@@ -482,96 +482,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── How It Works ── */}
-      <section className="lp-steps">
-        <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-          How It Works
-        </motion.h2>
-        <div className="lp-steps-grid">
-          {STEPS.map((step, i) => (
-            <motion.div
-              key={step.num}
-              className="lp-step"
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.5 }}
-            >
-              <span className="lp-step-num">{step.num}</span>
-              <div>
-                <h3 className="lp-step-title">{step.title}</h3>
-                <p className="lp-step-desc">{step.desc}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Flipbook vs KathaKitaab ── */}
-      <section className="lp-compare">
-        <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-          Normal Flipbook vs Living Story Engine
-        </motion.h2>
-        <div className="lp-compare-table">
-          <div className="lp-compare-header">
-            <span className="lp-compare-old-h">Traditional Flipbook</span>
-            <span className="lp-compare-new-h">KathaKitaab</span>
-          </div>
-          {COMPARISON.map((row, i) => (
-            <motion.div
-              key={i}
-              className="lp-compare-row"
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.06 }}
-            >
-              <span className="lp-compare-old">{row.old}</span>
-              <span className="lp-compare-new">{row.new}</span>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── What's inside every book — capability pills ──
-          The old movie section was the home of these bullets. Now
-          that the Player lives in the dual-experience block above,
-          this small ribbon stays as the proof-of-engine moment. */}
-      <section className="lp-worlds" style={{ paddingTop: 32, paddingBottom: 32 }}>
-        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 22 }}>
-          <span className="lp-hero-badge">
-            <span className="lp-hero-badge-dot" />
-            What lives inside every book + movie
-          </span>
-        </motion.div>
-        <ul style={{
-          display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap',
-          margin: '0 auto', padding: 0, listStyle: 'none', maxWidth: 1080,
-        }}>
-          {[
-            ['🎥', 'Per-scene motion — battle push, divine glow, slow pan'],
-            ['🌬️', 'Ambient idle — figures breathe, sway, blink, look around'],
-            ['🎭', 'Puppet states — Talk speeds breath, Fight quickens sway'],
-            ['🗣️', 'Emotional Sarvam narration — pace + pitch shaped per mood'],
-            ['💬', 'Sentence cues with explicit ms timing in the manifest'],
-            ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
-            ['✨', 'Universal effects DSL — particles, dust shafts, fog, rim light'],
-            ['👁', 'Audio-driven mouth pulse + geometric gaze toward addressees'],
-            ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
-            ['📥', 'Downloadable MP4 export — coming soon'],
-          ].map(([icon, text]) => (
-            <li key={text} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '7px 13px', borderRadius: 999,
-              background: 'rgba(43,27,21,0.6)', border: '1px solid rgba(255,215,0,0.12)',
-              fontSize: '0.8rem', color: 'var(--color-gold-light)',
-            }}>
-              <span aria-hidden>{icon}</span>{text}
-            </li>
-          ))}
-        </ul>
-      </section>
-
       {/* ── Visual style presets ── */}
       <section className="lp-worlds" id="visual-styles">
         <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -770,6 +680,96 @@ export default function HomePage() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* ── How It Works ── */}
+      <section className="lp-steps">
+        <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+          How It Works
+        </motion.h2>
+        <div className="lp-steps-grid">
+          {STEPS.map((step, i) => (
+            <motion.div
+              key={step.num}
+              className="lp-step"
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
+            >
+              <span className="lp-step-num">{step.num}</span>
+              <div>
+                <h3 className="lp-step-title">{step.title}</h3>
+                <p className="lp-step-desc">{step.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Flipbook vs KathaKitaab ── */}
+      <section className="lp-compare">
+        <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+          Normal Flipbook vs Living Story Engine
+        </motion.h2>
+        <div className="lp-compare-table">
+          <div className="lp-compare-header">
+            <span className="lp-compare-old-h">Traditional Flipbook</span>
+            <span className="lp-compare-new-h">KathaKitaab</span>
+          </div>
+          {COMPARISON.map((row, i) => (
+            <motion.div
+              key={i}
+              className="lp-compare-row"
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.06 }}
+            >
+              <span className="lp-compare-old">{row.old}</span>
+              <span className="lp-compare-new">{row.new}</span>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── What's inside every book — capability pills ──
+          The old movie section was the home of these bullets. Now
+          that the Player lives in the dual-experience block above,
+          this small ribbon stays as the proof-of-engine moment. */}
+      <section className="lp-worlds" style={{ paddingTop: 32, paddingBottom: 32 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 22 }}>
+          <span className="lp-hero-badge">
+            <span className="lp-hero-badge-dot" />
+            What lives inside every book + movie
+          </span>
+        </motion.div>
+        <ul style={{
+          display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap',
+          margin: '0 auto', padding: 0, listStyle: 'none', maxWidth: 1080,
+        }}>
+          {[
+            ['🎥', 'Per-scene motion — battle push, divine glow, slow pan'],
+            ['🌬️', 'Ambient idle — figures breathe, sway, blink, look around'],
+            ['🎭', 'Puppet states — Talk speeds breath, Fight quickens sway'],
+            ['🗣️', 'Emotional Sarvam narration — pace + pitch shaped per mood'],
+            ['💬', 'Sentence cues with explicit ms timing in the manifest'],
+            ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
+            ['✨', 'Universal effects DSL — particles, dust shafts, fog, rim light'],
+            ['👁', 'Audio-driven mouth pulse + geometric gaze toward addressees'],
+            ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
+            ['📥', 'Downloadable MP4 export — coming soon'],
+          ].map(([icon, text]) => (
+            <li key={text} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '7px 13px', borderRadius: 999,
+              background: 'rgba(43,27,21,0.6)', border: '1px solid rgba(255,215,0,0.12)',
+              fontSize: '0.8rem', color: 'var(--color-gold-light)',
+            }}>
+              <span aria-hidden>{icon}</span>{text}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ── Final CTA ── */}
