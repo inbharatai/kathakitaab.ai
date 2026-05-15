@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Click-Anywhere Scene Understanding
+// KathaKitaab — Click-Anywhere Scene Understanding
 //
 // When user clicks a spot that has no pre-defined hotspot:
 //   1. Send image + click coordinates to GPT-4o vision

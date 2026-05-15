@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Unified Agent API Route
+// KathaKitaab — Unified Agent API Route
 // POST /api/livebook/agent
 //
 // This single route handles ALL agent interactions:

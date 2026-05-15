@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — OpenAI Client
+// KathaKitaab — OpenAI Client
 //
 // Primary AI engine for:
 //   - Story generation (gpt-4o with structured outputs)

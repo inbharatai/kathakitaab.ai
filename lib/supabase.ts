@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Supabase Clients
+// KathaKitaab — Supabase Clients
 //
 // Two clients exposed:
 //   - getSupabaseAnon():    safe for browser/server reads, scoped

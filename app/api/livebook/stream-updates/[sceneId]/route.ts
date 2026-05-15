@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — SceneStream Live Updates (SSE)
+// KathaKitaab — SceneStream Live Updates (SSE)
 // GET /api/livebook/stream-updates/[sceneId]?bookSlug=ramayana
 //
 // A Server-Sent Events stream that emits `branch_ready` events as

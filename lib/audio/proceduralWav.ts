@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Procedural WAV synthesizer (Node-side)
+// KathaKitaab — Procedural WAV synthesizer (Node-side)
 //
 // Emits raw PCM 16-bit mono WAV bytes for short ambient mood beds.
 // Used by `scripts/build-mood-music.ts` at build time so the

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — WAV concatenator
+// KathaKitaab — WAV concatenator
 //
 // Splices multiple PCM WAV files into a single output file. Used by
 // the per-cue TTS pipeline (Wave 3.1) to render each sentence with

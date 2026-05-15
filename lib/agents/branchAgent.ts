@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Branch Agent
+// KathaKitaab — Branch Agent
 //
 // Generates a single interaction branch for one (entity, action)
 // pair. Used by:

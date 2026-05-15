@@ -4,7 +4,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Terms of Service — KathaKitaab.ai',
+  title: 'Terms of Service — KathaKitaab',
 };
 
 export default function TermsPage() {
@@ -15,12 +15,12 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p style={{ fontSize: '0.85rem', color: 'var(--color-text-dim)', marginBottom: 32 }}>
-        Effective 11 May 2026. By using KathaKitaab.ai you agree to these terms.
+        Effective 11 May 2026. By using KathaKitaab you agree to these terms.
       </p>
 
       <h2>1. What KathaKitaab is</h2>
       <p>
-        KathaKitaab.ai is an AI storybook engine. You type a title and prompt; we use third-party AI models (currently OpenAI for text and images, Sarvam AI for narration) to generate an interactive storybook and a cinematic movie cut.
+        KathaKitaab is an AI storybook engine. You type a title and prompt; we use third-party AI models (currently OpenAI for text and images, Sarvam AI for narration) to generate an interactive storybook and a cinematic movie cut.
       </p>
 
       <h2>2. Eligibility</h2>
@@ -66,7 +66,7 @@ export default function TermsPage() {
 
       <h2>8. Termination</h2>
       <p>
-        We may suspend or terminate your account if you breach these terms or use the service in a way that imposes unreasonable cost on us. You can delete your account anytime via <a href="mailto:hello@kathakitaab.ai">hello@kathakitaab.ai</a>.
+        We may suspend or terminate your account if you breach these terms or use the service in a way that imposes unreasonable cost on us. You can delete your account anytime via <a href="mailto:hello@kathakitaab.com">hello@kathakitaab.com</a>.
       </p>
 
       <h2>9. Indemnity</h2>
@@ -91,7 +91,7 @@ export default function TermsPage() {
 
       <h2>Contact</h2>
       <p>
-        <a href="mailto:hello@kathakitaab.ai">hello@kathakitaab.ai</a>
+        <a href="mailto:hello@kathakitaab.com">hello@kathakitaab.com</a>
       </p>
 
       <hr style={{ margin: '40px 0', borderColor: 'rgba(255,215,140,0.15)' }} />

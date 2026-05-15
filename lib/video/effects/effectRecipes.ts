@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal effect recipes
+// KathaKitaab — Universal effect recipes
 //
 // Maps a topic vector + a mood tag to a concrete effects[] array
 // that the renderer can apply directly. The output is the value

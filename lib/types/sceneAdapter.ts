@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Scene Adapter
+// KathaKitaab — Scene Adapter
 //
 // Converts the existing Scene/SceneWithHotspots/Hotspot types
 // into the new StoryScene contract. This ensures backward

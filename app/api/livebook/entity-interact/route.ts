@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Entity Interaction API
+// KathaKitaab — Entity Interaction API
 // POST /api/livebook/entity-interact
 //
 // When user clicks a character, object, or location:

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Subtitle planner
+// KathaKitaab — Subtitle planner
 //
 // Splits a scene's narration text into sentence cues with explicit
 // startMs/endMs timings. Two callers consume this:

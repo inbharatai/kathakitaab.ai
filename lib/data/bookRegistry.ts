@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Book Registry (Redis-backed)
+// KathaKitaab — Book Registry (Redis-backed)
 //
 // Holds AI-generated books and their in-flight generation
 // progress. Redis is the source of truth so that the POST that

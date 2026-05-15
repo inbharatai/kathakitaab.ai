@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Branch Pre-Generation Engine
+// KathaKitaab — Branch Pre-Generation Engine
 //
 // When a scene loads, this engine pre-generates interaction
 // branches for every entity (character, object, location).

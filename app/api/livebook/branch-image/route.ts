@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Branch Image Poll Endpoint
+// KathaKitaab — Branch Image Poll Endpoint
 // GET /api/livebook/branch-image?branchId=...
 //
 // entity-interact returns narration immediately and kicks image

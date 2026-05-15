@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Sound Engine
+// KathaKitaab — Sound Engine
 //
 // TTS: OpenAI tts-1 (primary) → Browser Web Speech (fallback)
 // SFX: Web Audio API (zero dependencies, zero cost)

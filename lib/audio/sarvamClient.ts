@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Sarvam Bulbul v3 TTS Client
+// KathaKitaab — Sarvam Bulbul v3 TTS Client
 //
 // Native Hindi + English (and 11 Indic languages). Bulbul v3 has
 // 8 speakers and handles Hinglish code-switching cleanly. Cheap

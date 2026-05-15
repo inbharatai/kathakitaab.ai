@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     captureMessage('content_report_insert_failed', 'warning', {
       extra: { error: error.message, slug: body.bookSlug },
     });
-    return NextResponse.json({ error: 'Could not record the report. Please email hello@kathakitaab.ai.' }, { status: 500 });
+    return NextResponse.json({ error: 'Could not record the report. Please email hello@kathakitaab.com.' }, { status: 500 });
   }
 
   // Operator-side breadcrumb in Sentry so a triage spike is visible

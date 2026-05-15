@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — SceneStream Manifest API
+// KathaKitaab — SceneStream Manifest API
 // GET /api/livebook/scene-stream/[sceneId]?bookSlug=ramayana
 //
 // The single read endpoint a live reader needs. Returns the full

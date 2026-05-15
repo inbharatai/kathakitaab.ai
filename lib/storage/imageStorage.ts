@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Generated-image storage (Supabase Storage)
+// KathaKitaab — Generated-image storage (Supabase Storage)
 //
 // gpt-image-1 returns ~2-3MB base64 PNGs. Caching those raw in Upstash
 // Redis (1MB REST limit) silently fails, which is why every scene

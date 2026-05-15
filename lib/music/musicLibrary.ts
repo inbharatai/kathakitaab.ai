@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal Music Library
+// KathaKitaab — Universal Music Library
 //
 // Generic (genre, mood) → MusicProfile mapping that works for
 // any book the user generates, not just Ramayana. Each profile

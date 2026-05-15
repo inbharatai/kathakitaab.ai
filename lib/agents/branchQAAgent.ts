@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Branch QA Validator
+// KathaKitaab — Branch QA Validator
 //
 // Catches the failure mode where the LLM generates a generic branch
 // that ignores the user's chosen verb. After branchAgent produces a

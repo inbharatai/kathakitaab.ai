@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Verb-keyed camera moves
+// KathaKitaab — Verb-keyed camera moves
 //
 // When a user picks an action verb on a hotspot (Talk, Fight,
 // Leap, Comfort, Honor, …), the camera reacts. This is the

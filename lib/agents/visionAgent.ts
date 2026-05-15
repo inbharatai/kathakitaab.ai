@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Vision Agent
+// KathaKitaab — Vision Agent
 //
 // Analyzes generated scene images using GPT-4o vision to find
 // where characters and objects actually are in the image.

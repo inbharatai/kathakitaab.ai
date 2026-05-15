@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Per-IP Rate Limiter
+// KathaKitaab — Per-IP Rate Limiter
 //
 // Uses Upstash Ratelimit (Redis sliding window) when configured —
 // required on Vercel since each function instance has its own

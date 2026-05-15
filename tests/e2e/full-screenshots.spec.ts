@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * KathaKitaab.ai — A-to-Z Full Flow Test with Screenshots
+ * KathaKitaab — A-to-Z Full Flow Test with Screenshots
  *
  * Tests EVERY function and takes a screenshot at EVERY step.
  * Screenshots saved to test-results/full-screenshots/

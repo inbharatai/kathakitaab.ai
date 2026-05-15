@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Per-scene motion vocabulary
+// KathaKitaab — Per-scene motion vocabulary
 //
 // Each scene declares a `motion` token in the manifest. The
 // Remotion composition reads it and applies the matching camera

@@ -1,4 +1,4 @@
-# KathaKitaab.ai
+# KathaKitaab
 
 **Not a flipbook. A Living AI Story Engine.**
 

@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================
-// KathaKitaab.ai — SceneLayers
+// KathaKitaab — SceneLayers
 //
 // Renders a scene as separated background + character cutout
 // layers so figures can move independently of the painted bg.

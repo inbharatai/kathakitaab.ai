@@ -65,7 +65,7 @@ function TitleCard() {
       <div style={{ width: 140, height: 140, borderRadius: '50%', overflow: 'hidden', border: '4px solid #FFD700', boxShadow: '0 0 60px rgba(255,215,0,0.4)', marginBottom: 36, transform: `scale(${s})` }}>
         <Img src={staticFile('logo.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.25) translateY(-5%)' }} />
       </div>
-      <div style={{ fontSize: 72, fontWeight: 800, color: '#FFD700', textShadow: '0 4px 30px rgba(255,215,0,0.3)', transform: `scale(${s})` }}>KathaKitaab.ai</div>
+      <div style={{ fontSize: 72, fontWeight: 800, color: '#FFD700', textShadow: '0 4px 30px rgba(255,215,0,0.3)', transform: `scale(${s})` }}>KathaKitaab</div>
       <div style={{ fontSize: 28, color: '#FFF0B3', marginTop: 16, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: interpolate(frame, [30, 60], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }) }}>
         A Living Story Engine
       </div>
@@ -150,7 +150,7 @@ function EndCard() {
         <div style={{ fontSize: 56, fontWeight: 800, color: '#FFD700', marginBottom: 14 }}>Touch the Story</div>
         <div style={{ fontSize: 22, color: '#FFF0B3', marginBottom: 12 }}>Every character, object, and scene responds.</div>
         <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.4)', marginBottom: 32 }}>AI narration. Pre-generated branches. Instant clicks.</div>
-        <div style={{ fontSize: 22, color: '#0C0806', fontWeight: 700, background: 'linear-gradient(135deg, #FF9933, #FFD700)', padding: '16px 48px', borderRadius: 14, display: 'inline-block' }}>kathakitaab.ai</div>
+        <div style={{ fontSize: 22, color: '#0C0806', fontWeight: 700, background: 'linear-gradient(135deg, #FF9933, #FFD700)', padding: '16px 48px', borderRadius: 14, display: 'inline-block' }}>https://www.kathakitaab.com</div>
       </div>
     </AbsoluteFill>
   );

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Server-side session helpers
+// KathaKitaab — Server-side session helpers
 //
 // One entry point each for the two server contexts:
 //   - getSessionFromRouteRequest(): inside Route Handlers (req: Request)

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Pre-Generate Branches API
+// KathaKitaab — Pre-Generate Branches API
 // POST /api/livebook/pregenerate-branches
 //
 // Called when a scene loads. Generates interaction branches

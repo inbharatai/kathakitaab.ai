@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Visual style presets
+// KathaKitaab — Visual style presets
 //
 // A book is "locked" to one preset at generation time. The choice
 // drives the prompt builder's style clause for every scene image

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Upstash Redis Client (singleton)
+// KathaKitaab — Upstash Redis Client (singleton)
 //
 // One client for the whole app. When UPSTASH_REDIS_REST_URL +
 // UPSTASH_REDIS_REST_TOKEN are set, modules that need shared

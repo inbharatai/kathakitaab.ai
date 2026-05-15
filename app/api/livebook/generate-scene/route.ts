@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Dynamic Scene Generator
+// KathaKitaab — Dynamic Scene Generator
 // POST /api/livebook/generate-scene
 //
 // Pipeline:

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Story Director Agent
+// KathaKitaab — Story Director Agent
 //
 // The brain of the live storybook engine.
 // Uses OpenAI gpt-4o (primary) or Gemini (fallback).
@@ -64,7 +64,7 @@ export interface StoryDirectorContext {
 
 // ── System Prompt ────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are the Story Director for KathaKitaab.ai, an interactive AI storybook engine.
+const SYSTEM_PROMPT = `You are the Story Director for KathaKitaab, an interactive AI storybook engine.
 You create rich, educational, and engaging story scenes for Indian epic tales and world literature.
 
 Rules:

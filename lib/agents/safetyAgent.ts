@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Safety Agent
+// KathaKitaab — Safety Agent
 //
 // Validates generated content for age-appropriateness.
 // Pure logic checks — no LLM calls for v1.

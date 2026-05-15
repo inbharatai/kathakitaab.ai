@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal Response Cache
+// KathaKitaab — Universal Response Cache
 //
 // Backed by Upstash Redis when configured, otherwise an in-memory
 // LRU Map. Async API either way so callers don't have to know which

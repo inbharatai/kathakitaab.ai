@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Server-side MP4 export for BookMovie
+// KathaKitaab — Server-side MP4 export for BookMovie
 // POST /api/livebook/render-movie
 //
 // Body: { bookSlug }

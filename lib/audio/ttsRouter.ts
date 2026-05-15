@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — TTS Router
+// KathaKitaab — TTS Router
 //
 // One entry point for all narration. Picks the best provider
 // based on language, character voice, and provider availability.

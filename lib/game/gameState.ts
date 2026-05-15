@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Game State Engine
+// KathaKitaab — Game State Engine
 // Persisted to localStorage. Tracks XP, Dharma Score,
 // achievements, character bonds, scene exploration, and streaks.
 // Think: Duolingo XP + Assassin's Creed Discovery Tour progress.

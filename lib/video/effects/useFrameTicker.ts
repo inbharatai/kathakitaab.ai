@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Frame ticker hook for the live reader
+// KathaKitaab — Frame ticker hook for the live reader
 //
 // The Remotion compositions get `frame` from `useCurrentFrame()`.
 // The live reader doesn't have that, so it needs an equivalent

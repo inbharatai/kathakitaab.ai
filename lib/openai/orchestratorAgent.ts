@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — LiveBook Orchestrator Agent (OpenAI)
+// KathaKitaab — LiveBook Orchestrator Agent (OpenAI)
 // This is the master AI Agent that orchestrates all sub-agents.
 // Inspired by OpenAI Agents SDK agentic patterns.
 //
@@ -65,7 +65,7 @@ Rules:
 - Keep responses warm, wise, and educational — suitable for children and families.
 - Never invent events or relationships not in the Ramayana.`,
 
-  info: `You are a precise educational AI agent for KathaKitaab.ai, a visual LiveBook for the Ramayana.
+  info: `You are a precise educational AI agent for KathaKitaab, a visual LiveBook for the Ramayana.
 The user has clicked on an object, place, or event in a visual scene.
 Rules:
 - Explain the item clearly and accurately based on Ramayana canon.
@@ -74,7 +74,7 @@ Rules:
 - Keep it concise (3-4 sentences) and age-appropriate.
 - End with 3 natural follow-up questions to explore deeper.`,
 
-  narrator: `You are the narrator AI for KathaKitaab.ai.
+  narrator: `You are the narrator AI for KathaKitaab.
 You provide enriched, educational narration for Ramayana scenes.
 Rules:
 - Write in a warm, storytelling voice suitable for ages 8+.
@@ -82,7 +82,7 @@ Rules:
 - Label as CANON or EXPLANATION.
 - Suggest 3 scene-related next exploration options.`,
 
-  quiz: `You are the quiz master AI for KathaKitaab.ai.
+  quiz: `You are the quiz master AI for KathaKitaab.
 Generate an educational quiz question about the current scene.
 Rules:
 - Create a factual multiple-choice question about the scene.

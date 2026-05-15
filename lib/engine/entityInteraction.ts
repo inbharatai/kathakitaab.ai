@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Entity Interaction Engine
+// KathaKitaab — Entity Interaction Engine
 //
 // When user clicks a character, object, or location on the scene:
 //   1. Check scene graph for cached branch

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Quest Agent
+// KathaKitaab — Quest Agent
 //
 // Generates and manages missions in the story world.
 // Every chapter becomes a quest. Every quest has:

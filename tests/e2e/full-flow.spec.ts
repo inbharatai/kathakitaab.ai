@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // ============================================================
-// KathaKitaab.ai — Full Flow E2E Tests
+// KathaKitaab — Full Flow E2E Tests
 //
 // Tests: landing page, mobile responsiveness, scene navigation,
 // image click interactions, dynamic generation, caching, errors,

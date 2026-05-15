@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Branch Image Job Tracker
+// KathaKitaab — Branch Image Job Tracker
 //
 // Tracks pending background image generations for branches so the
 // /branch-image polling endpoint can answer "is it ready yet?".

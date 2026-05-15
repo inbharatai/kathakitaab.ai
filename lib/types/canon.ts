@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Canon Registry Types
+// KathaKitaab — Canon Registry Types
 //
 // Universal contract for per-book canon JSON files. Every
 // supported book lives at lib/data/canon/{slug}.json and conforms

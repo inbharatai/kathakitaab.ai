@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal Emotion / Tone Tagger
+// KathaKitaab — Universal Emotion / Tone Tagger
 //
 // Pure-function classifier that maps a piece of narration text to
 // a coarse emotional tone, then translates the tone into TTS

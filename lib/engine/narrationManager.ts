@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Narration Manager
+// KathaKitaab — Narration Manager
 //
 // Central TTS controller tied to scene lifecycle.
 // Every scene change → stop old → speak new → duck music.

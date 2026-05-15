@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal Canon Lookup
+// KathaKitaab — Universal Canon Lookup
 //
 // A book-agnostic registry of canonical entries for entities
 // (characters, objects, places, events). Two sources:

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal topic tagger
+// KathaKitaab — Universal topic tagger
 //
 // Maps narration text to a weighted topic vector. The vector drives
 // effect recipes (which particles, glow, tint, shake, etc. should

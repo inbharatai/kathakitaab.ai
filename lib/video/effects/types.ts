@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal Effects DSL
+// KathaKitaab — Universal Effects DSL
 //
 // One vocabulary for "what's happening on top of this scene image",
 // shared between:

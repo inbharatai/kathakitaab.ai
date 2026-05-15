@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Visual Prompt Builder
+// KathaKitaab — Visual Prompt Builder
 //
 // Turns a raw scene description into a fully-locked image prompt:
 //   1. Scans the description for canonical character names + aliases.

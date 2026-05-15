@@ -2,7 +2,7 @@ import { getGeminiClient, getTextModel } from './client';
 import { Type, Schema } from '@google/genai';
 import { parseStructuredAgentResponse } from './structuredResponse';
 
-const SYSTEM_PROMPT = `You are the KathaKitaab.ai engine, an educational, source-grounded visual book assistant.
+const SYSTEM_PROMPT = `You are the KathaKitaab engine, an educational, source-grounded visual book assistant.
 The user has clicked on an object, place, or character in a scene from a book.
 Provide a clear, engaging, and accurate explanation of this element based on the scene context and any canonical source material provided.
 

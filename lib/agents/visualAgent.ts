@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Visual Agent
+// KathaKitaab — Visual Agent
 //
 // Generates cinematic illustrations for story scenes.
 // Uses OpenAI gpt-image-1 as primary, Gemini Imagen as fallback.

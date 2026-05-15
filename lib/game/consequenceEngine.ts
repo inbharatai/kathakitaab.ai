@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Consequence Engine
+// KathaKitaab — Consequence Engine
 //
 // The user's choice MUST matter. This engine:
 //   · Maps player choices → concrete world state changes

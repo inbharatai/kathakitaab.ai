@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Agent Swarm (Fixed)
+// KathaKitaab — Agent Swarm (Fixed)
 //
 // Key fix: preloadSceneHotspots now calls the SAME API endpoint
 // with the SAME default question used by SceneViewer's openFlipbook,

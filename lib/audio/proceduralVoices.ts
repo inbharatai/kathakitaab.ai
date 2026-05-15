@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Procedural Music Voices
+// KathaKitaab — Procedural Music Voices
 //
 // Web Audio API synthesis only. Zero external assets, zero
 // licensing, zero network. Each voice is a small DSP graph

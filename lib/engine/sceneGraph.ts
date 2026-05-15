@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Scene Graph
+// KathaKitaab — Scene Graph
 //
 // Tracks the story as a graph, not a linear list.
 // Each scene can have branches (character clicks, object clicks,

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Living Book Brain
+// KathaKitaab — Living Book Brain
 //
 // The central orchestrator. Coordinates all specialist agents
 // to prepare a complete interactive scene BEFORE the user clicks.

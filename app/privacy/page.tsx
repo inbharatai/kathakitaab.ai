@@ -6,7 +6,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Privacy Policy — KathaKitaab.ai',
+  title: 'Privacy Policy — KathaKitaab',
 };
 
 export default function PrivacyPage() {
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
       <p>You can at any time:</p>
       <ul>
         <li>Delete any book you own from inside the app.</li>
-        <li>Email <a href="mailto:privacy@kathakitaab.ai">privacy@kathakitaab.ai</a> to request deletion of your account and all associated data within 30 days.</li>
+        <li>Email <a href="mailto:privacy@kathakitaab.com">privacy@kathakitaab.com</a> to request deletion of your account and all associated data within 30 days.</li>
         <li>Export your books on request (we will provide JSON of the book record).</li>
       </ul>
 
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
 
       <h2>Contact</h2>
       <p>
-        Questions: <a href="mailto:hello@kathakitaab.ai">hello@kathakitaab.ai</a>. Data requests: <a href="mailto:privacy@kathakitaab.ai">privacy@kathakitaab.ai</a>.
+        Questions: <a href="mailto:hello@kathakitaab.com">hello@kathakitaab.com</a>. Data requests: <a href="mailto:privacy@kathakitaab.com">privacy@kathakitaab.com</a>.
       </p>
 
       <hr style={{ margin: '40px 0', borderColor: 'rgba(255,215,140,0.15)' }} />

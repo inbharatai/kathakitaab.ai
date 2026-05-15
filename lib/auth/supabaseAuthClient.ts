@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Supabase Auth clients (browser + server)
+// KathaKitaab — Supabase Auth clients (browser + server)
 //
 // Cookie-backed Supabase auth. The session lives in cookies (set by
 // the SSR helpers) so server components and API routes see the same

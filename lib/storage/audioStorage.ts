@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Generated-narration storage (Supabase Storage)
+// KathaKitaab — Generated-narration storage (Supabase Storage)
 //
 // Sarvam returns ~150KB-500KB WAV buffers per scene. Inline-caching
 // those in Upstash Redis silently fails near the 1MB REST limit, so

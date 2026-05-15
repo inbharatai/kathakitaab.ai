@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================
-// KathaKitaab.ai — AmbientFigure
+// KathaKitaab — AmbientFigure
 //
 // Idle-life animation overlay that sits on top of each character
 // (and to a lesser extent, object) hotspot bbox. Books arrive as

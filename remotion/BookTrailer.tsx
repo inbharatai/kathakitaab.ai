@@ -203,7 +203,7 @@ const TrailerEndCard: React.FC = () => {
         padding: '18px 56px', borderRadius: 14, display: 'inline-block',
         boxShadow: '0 12px 36px rgba(255,153,51,0.4)',
       }}>
-        kathakitaab.ai
+        https://www.kathakitaab.com
       </div>
     </AbsoluteFill>
   );

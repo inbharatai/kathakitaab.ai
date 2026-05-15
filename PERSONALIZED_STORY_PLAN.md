@@ -27,7 +27,7 @@ The fastest honest version. No photo upload. The child's name, age, and language
 ### User flow
 
 1. User picks "Personalized Story" mode from the Studio's mode selector (the selector itself doesn't exist yet — V2 ships it)
-2. **Consent gate** blocks the form until checked: "I am the parent or legal guardian of the child this story is about. I understand KathaKitaab.ai stores only the data I provide here, marks the story private by default, and lets me delete it at any time."
+2. **Consent gate** blocks the form until checked: "I am the parent or legal guardian of the child this story is about. I understand KathaKitaab stores only the data I provide here, marks the story private by default, and lets me delete it at any time."
 3. Form fields (in order):
    - Child first name (required, ≤30 chars, no last name input)
    - Age (3–12, drives reading-level + content-strictness tier)

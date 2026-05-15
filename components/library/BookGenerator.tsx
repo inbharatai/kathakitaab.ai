@@ -268,7 +268,7 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
           Name the world you want to enter.
         </h2>
         <p style={{ color: 'var(--color-text-dim)', fontSize: '0.95rem', marginBottom: 24, lineHeight: 1.7, maxWidth: 680 }}>
-          Start with an epic, folktale, or theme. KathaKitaab.ai turns it into a playable AI storybook.
+          Start with an epic, folktale, or theme. KathaKitaab turns it into a playable AI storybook.
         </p>
 
         <form

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Click Classification API
+// KathaKitaab — Click Classification API
 // POST /api/livebook/classify-click
 //
 // Classifies what the user clicked on in a scene image.

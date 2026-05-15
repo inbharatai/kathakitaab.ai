@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Visual Page Image Generator
+// KathaKitaab — Visual Page Image Generator
 // POST /api/livebook/generate-image
 //
 // Generates cinematic illustrations using:

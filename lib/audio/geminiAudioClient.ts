@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Gemini 2.5 Native Audio TTS Client
+// KathaKitaab — Gemini 2.5 Native Audio TTS Client
 //
 // Fallback path for the TTS router when Sarvam is unavailable.
 // Native multilingual including Hindi. Returns 16-bit PCM at

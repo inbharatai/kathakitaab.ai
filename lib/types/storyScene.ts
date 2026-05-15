@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Live StoryScene Contract
+// KathaKitaab — Live StoryScene Contract
 //
 // This is the core data model for the live scene engine.
 // Every scene is a composable set of layers:

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal Character Voice Map
+// KathaKitaab — Universal Character Voice Map
 //
 // Book-agnostic character→voice mapping. Each archetype maps to
 // a (sarvam, gemini) voice pair so the TTS router can pick the

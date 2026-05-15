@@ -493,7 +493,7 @@ export default function HomePage() {
         <div className="lp-compare-table">
           <div className="lp-compare-header">
             <span className="lp-compare-old-h">Traditional Flipbook</span>
-            <span className="lp-compare-new-h">KathaKitaab.ai</span>
+            <span className="lp-compare-new-h">KathaKitaab</span>
           </div>
           {COMPARISON.map((row, i) => (
             <motion.div

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal Music Orchestrator
+// KathaKitaab — Universal Music Orchestrator
 //
 // Plays scene music for any book genre + scene mood. Picks a
 // MusicProfile via the universal library and synthesizes the music

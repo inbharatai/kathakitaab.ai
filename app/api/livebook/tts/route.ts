@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Text-to-Speech API
+// KathaKitaab — Text-to-Speech API
 // POST /api/livebook/tts
 //
 // Routes through Sarvam Bulbul v3 → Gemini 2.5 Native Audio fallback

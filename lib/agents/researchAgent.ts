@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Research Agent
+// KathaKitaab — Research Agent
 //
 // Grounds story content in real web sources before generation.
 // Uses OpenAI responses API with web_search tool.

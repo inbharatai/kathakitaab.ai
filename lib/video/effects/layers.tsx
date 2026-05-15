@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Universal effect layers
+// KathaKitaab — Universal effect layers
 //
 // One React layer per effect type. Each component takes a `frame`
 // number (current frame at fps) and renders a deterministic visual

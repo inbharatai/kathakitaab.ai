@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Book Generator Agent
+// KathaKitaab — Book Generator Agent
 //
 // The user types ANY book name → a complete illustrated LiveBook.
 //

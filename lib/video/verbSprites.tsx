@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================
-// KathaKitaab.ai — Verb sprite overlays
+// KathaKitaab — Verb sprite overlays
 //
 // Pure-SVG decorative animations triggered when a verb fires on
 // a hotspot. Universal — same vocabulary plays for any book.

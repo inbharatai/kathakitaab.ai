@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Continuity Agent
+// KathaKitaab — Continuity Agent
 //
 // Tracks world state across dynamically generated scenes.
 // Maintains: who is where, what happened, plot threads, mood.

@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — World Master Agent
+// KathaKitaab — World Master Agent
 //
 // Controls the entire story world. Every user action passes
 // through this agent, which decides:

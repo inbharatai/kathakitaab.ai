@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab.ai — Verb → character-layer motion
+// KathaKitaab — Verb → character-layer motion
 //
 // When a verb fires on a hotspot in the live reader, the camera
 // burst (verbCamera.ts) reacts on the whole canvas. This file
