@@ -19,13 +19,14 @@ import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { createBrowserAuthClient } from '@/lib/auth/supabaseAuthClient';
+import { createBrowserAuthClient, getPublicSiteOrigin } from '@/lib/auth/supabaseAuthClient';
 
 function SignInForm() {
   const params = useSearchParams();
   const next = params.get('next') || '/books';
   const errorParam = params.get('error');
   const client = useMemo(() => createBrowserAuthClient(), []);
+  const siteOrigin = useMemo(() => getPublicSiteOrigin(), []);
 
   const [email, setEmail] = useState('');
   const [accepted, setAccepted] = useState(false);
@@ -62,10 +63,12 @@ function SignInForm() {
     if (!email || !accepted || !client) return;
     setStatus('sending');
     setErrorMsg('');
+    const emailRedirectTo = new URL('/auth/callback', siteOrigin);
+    emailRedirectTo.searchParams.set('next', next);
     const { error } = await client.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        emailRedirectTo: emailRedirectTo.toString(),
         shouldCreateUser: true,
       },
     });
@@ -80,10 +83,12 @@ function SignInForm() {
   async function signInWithGoogle() {
     if (!accepted || !client) return;
     setErrorMsg('');
+    const redirectTo = new URL('/auth/callback', siteOrigin);
+    redirectTo.searchParams.set('next', next);
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: redirectTo.toString(),
       },
     });
     if (error) {

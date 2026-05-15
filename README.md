@@ -108,6 +108,7 @@ OPENAI_API_KEY=...
 OPENAI_TEXT_MODEL=gpt-4o-mini
 
 # Optional but recommended for production:
+NEXT_PUBLIC_SITE_URL=https://www.kathakitaab.com
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
@@ -127,7 +128,7 @@ Open [http://localhost:5009](http://localhost:5009).
 
 ### 4. The full user journey (from landing page to finished movie)
 
-The same flow that runs in production at [kathakitaab-ai.vercel.app](https://kathakitaab-ai.vercel.app):
+The same flow that runs in production at [www.kathakitaab.com](https://www.kathakitaab.com):
 
 **Step 1 — Pick a book or type a new one.**
 - Open `/books`. The featured world is **Ramayana** (curated, pre-baked manifest).

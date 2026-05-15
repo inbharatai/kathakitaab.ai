@@ -21,7 +21,7 @@
 // Total cost on a fresh run: ~$2.40 image gen, ~$0.06 LLM, ~$2.50 total.
 
 import './_loadEnv';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import OpenAI from 'openai';
 import { ramayanaScenes } from '../lib/data/scenes';

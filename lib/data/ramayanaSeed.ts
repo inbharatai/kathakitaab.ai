@@ -13,7 +13,8 @@ export const ramayanaBook: Book = {
   status: 'mvp',
   cover_image_url: '',
   created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
+  updated_at: new Date().toISOString(),
+  accuracyLabel: 'CANONICAL',
 };
 
 // ---- Quiz Questions ----

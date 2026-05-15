@@ -41,6 +41,10 @@ export function useComicDialogueDriver(
 
   useEffect(() => {
     if (!enabled || beatCount <= 0) {
+      // Reset state when driver is disabled — ESLint rule flags this
+      // but there is no external system to sync with; this is a deliberate
+      // state reset on dependency change.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({ activeIndex: -1, typingProgress: 0 });
       return;
     }

@@ -19,6 +19,7 @@ import { registerRuntimeCanon } from '@/lib/data/canonLookup';
 import type { CanonEntry } from '@/lib/types/canon';
 import { inferArchetypeFromRole, type CharacterArchetype } from '@/lib/audio/characterVoices';
 import type { StylePreset } from '@/lib/types/style';
+import { scoreBook, type QualityReport } from '@/lib/engine/qualityScorer';
 
 // Universal moods + themes that downstream modules already consume.
 // Keep these in sync with lib/video/manifestSchema.ts and the
@@ -361,6 +362,17 @@ export interface GeneratedBook {
    *  Optional so books created before the preset shipped still read
    *  fine — they fall back to the universal photoreal default. */
   stylePreset?: StylePreset;
+  /** Post-generation quality score. Added by the quality scorer so
+   *  the UI can surface a "preview quality" warning when the score
+   *  is low. Optional so legacy books without scoring still read. */
+  qualityScore?: QualityReport;
+  /** Accuracy / canon classification label.
+   *    CANONICAL          → backed by a static canon JSON file
+   *    CREATIVE_RETELLING → AI-generated, openly creative
+   *    EDUCATIONAL_SUMMARY → classroom/education mode
+   *    UNVERIFIED         → AI-generated, no web research grounding
+   *  Optional so legacy books still read. */
+  accuracyLabel?: 'CANONICAL' | 'CREATIVE_RETELLING' | 'EDUCATIONAL_SUMMARY' | 'UNVERIFIED';
 }
 
 /** Optional knobs for non-world generation modes. The pipeline is
@@ -708,7 +720,7 @@ motion guide:
 
   onProgress?.('Book complete!', 100);
 
-  return {
+  const book: GeneratedBook = {
     id: `book-${slug}`,
     slug,
     title: bookTitle,
@@ -719,5 +731,27 @@ motion guide:
     characters,
     generatedAt: Date.now(),
   };
+
+  // ── Quality scoring ──
+  try {
+    book.qualityScore = scoreBook(book);
+    if (!book.qualityScore.isSafeToShow) {
+      console.warn('[BookGenerator] Quality score below threshold:', book.qualityScore.totalScore, book.qualityScore.warnings);
+    }
+  } catch (err) {
+    console.warn('[BookGenerator] Quality scoring failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
+
+  // ── Accuracy / canon label ──
+  // AI-generated world books are creative retellings unless they
+  // collide with a static canon slug (Ramayana, Mahabharata, Panchatantra).
+  const staticCanonSlugs = new Set(['ramayana', 'mahabharata', 'panchatantra']);
+  if (staticCanonSlugs.has(slug)) {
+    book.accuracyLabel = 'CANONICAL';
+  } else {
+    book.accuracyLabel = 'CREATIVE_RETELLING';
+  }
+
+  return book;
 }
 

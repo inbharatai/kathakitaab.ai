@@ -16,6 +16,7 @@
 import { listCanonIds, getCanonEntry, getCanonBookMeta } from '@/lib/data/canonLookup';
 import type { CanonEntry, CanonStyle } from '@/lib/types/canon';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
+import { detectGenreProfile, buildGenreAwareStyleClause } from '@/lib/engine/genreDetector';
 
 const MOOD_LIGHTING: Record<string, string> = {
   serene: 'Soft golden sunrise light, peaceful warm shadows, gentle aerial haze.',
@@ -139,9 +140,13 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
   } else if (style) {
     positiveParts.push(buildStyleClause(style));
   } else {
-    positiveParts.push(
-      'Style: photorealistic cinematic still from a high-budget Bollywood mythological epic film — real actors in ornate ancient Vedic-era costume, authentic period setting, dramatic golden-hour lighting, rich saturated color grading, shallow depth of field, subtle film grain, anamorphic widescreen composition, hyper-detailed painterly realism. NOT cartoon, NOT anime, NOT flat illustration.',
+    // Universal fallback: detect genre/region/era from the book title
+    // (carried in bookSlug or inferred from the description) and build a
+    // culturally-neutral style clause instead of hardcoding Bollywood.
+    const genreProfile = detectGenreProfile(
+      bookSlug?.replace(/-/g, ' ') ?? description.slice(0, 80),
     );
+    positiveParts.push(buildGenreAwareStyleClause(genreProfile));
   }
 
   positiveParts.push(`Lighting and mood: ${moodLine}`);

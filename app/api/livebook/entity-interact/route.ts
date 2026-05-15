@@ -22,6 +22,7 @@ import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 import { startBranchImageJob } from '@/lib/engine/branchImageJobs';
 import { getBookStylePreset } from '@/lib/data/bookStyle';
+import { sanitiseFields } from '@/lib/safety/promptInjectionGuard';
 
 // gpt-image-1 cold gens regularly run 25-45s. Vercel's default 10s
 // (Hobby) and 60s (Pro Node) gates would kill the background image
@@ -118,11 +119,24 @@ export async function POST(request: Request) {
     }
 
     const body: EntityInteractRequest = await request.json();
-    const { bookTitle, sceneId, sceneTitle, sceneNarration, entityId, entityType, entityLabel, characterNames } = body;
+
+    const fieldGuard = sanitiseFields({
+      bookTitle: body.bookTitle,
+      sceneTitle: body.sceneTitle,
+      sceneNarration: body.sceneNarration,
+      entityLabel: body.entityLabel,
+      theme: body.theme,
+    });
+    if (!fieldGuard.ok) {
+      return NextResponse.json({ error: fieldGuard.error }, { status: fieldGuard.status });
+    }
+    const {
+      bookTitle, sceneTitle, sceneNarration, entityLabel, theme,
+    } = fieldGuard.cleaned;
+    const { sceneId, entityId, entityType, characterNames } = body;
     // Normalise the action axis. Older clients won't send this — we
     // default to a sentinel ("auto") so the cache key shape is stable.
     const actionType = (body.actionType || 'auto').toLowerCase();
-    const theme = body.theme;
     // Resolve the book's style preset ONCE per request so both image
     // gen paths below (pregen ensureImageJob + fresh result.imagePrompt)
     // render in the right visual world. Comic books stay comic when
@@ -193,7 +207,7 @@ export async function POST(request: Request) {
     }
 
     // Also check the content-level cache (brain uses this key format)
-    const brainKey = buildCacheKey({ type: 'entity-branch-content', book: body.bookTitle, scene: body.sceneTitle, entity: entityId });
+    const brainKey = buildCacheKey({ type: 'entity-branch-content', book: bookTitle, scene: sceneTitle, entity: entityId });
     const brainCached = await getCachedResponse(brainKey);
     if (brainCached && typeof brainCached === 'object' && (brainCached as Record<string, unknown>).narration) {
       const bc = brainCached as Record<string, unknown>;

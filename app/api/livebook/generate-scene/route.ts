@@ -26,6 +26,7 @@ import { getCachedResponse, setCachedResponse, buildCacheKey } from '@/lib/cache
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { getBookStylePreset } from '@/lib/data/bookStyle';
+import { sanitiseFields } from '@/lib/safety/promptInjectionGuard';
 import type { StoryScene, SceneHotspot, SceneCharacter, SceneObject } from '@/lib/types/storyScene';
 
 interface GenerateSceneRequest {
@@ -83,20 +84,31 @@ export async function POST(request: Request) {
     }
 
     const body: GenerateSceneRequest = await request.json();
+
+    const fieldGuard = sanitiseFields({
+      bookTitle: body.bookTitle,
+      bookDescription: body.bookDescription,
+      previousSceneTitle: body.previousSceneTitle,
+      previousSceneText: body.previousSceneText,
+      previousSceneSummary: body.previousSceneSummary,
+      userInstruction: body.userInstruction,
+      theme: body.theme,
+      worldStateSummary: body.worldStateSummary,
+    });
+    if (!fieldGuard.ok) {
+      return NextResponse.json({ error: fieldGuard.error }, { status: fieldGuard.status });
+    }
+    const {
+      bookTitle, bookDescription, previousSceneTitle, previousSceneText,
+      previousSceneSummary, userInstruction, theme, worldStateSummary,
+    } = fieldGuard.cleaned;
+
     const {
       bookSlug,
-      bookTitle,
-      bookDescription,
       previousSceneId,
-      previousSceneTitle,
-      previousSceneText,
-      previousSceneSummary,
       characterNames,
-      userInstruction,
       actionType = 'continue',
-      worldStateSummary,
       sceneIndex,
-      theme,
       characterBonds,
       userChoices,
       previousActions,

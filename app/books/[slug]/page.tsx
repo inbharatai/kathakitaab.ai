@@ -33,6 +33,9 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
     ?? (params.slug === 'ramayana' ? RAMAYANA_DEFAULT_SCENE : null);
   const [resolvedSceneId, setResolvedSceneId] = useState<string | null>(initialSceneId);
   const [error, setError] = useState<string | null>(null);
+  const [accuracyLabel, setAccuracyLabel] = useState<string | null>(
+    params.slug === 'ramayana' ? 'CANONICAL' : null,
+  );
 
   useEffect(() => {
     // If we already know the scene id (URL param or Ramayana default),
@@ -60,6 +63,7 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
           return;
         }
         const data = await res.json();
+        if (!cancelled) setAccuracyLabel(data.book?.accuracyLabel ?? null);
         const scenes: Array<{ scene_id: string; order_index?: number }> = data.scenes ?? [];
         if (scenes.length === 0) {
           if (!cancelled) setError('This book has no scenes yet.');
@@ -99,7 +103,48 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
     );
   }
 
-  return <SceneViewer bookSlug={params.slug} initialSceneId={resolvedSceneId} />;
+  const labelColors: Record<string, string> = {
+    CANONICAL: '#2ecc71',
+    CREATIVE_RETELLING: '#3498db',
+    EDUCATIONAL_SUMMARY: '#9b59b6',
+    UNVERIFIED: '#f39c12',
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {accuracyLabel && (
+        <div
+          style={{
+            position: 'absolute',
+            top: -28,
+            right: 0,
+            fontSize: '0.6rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: 1.5,
+            color: labelColors[accuracyLabel] || 'var(--color-text-dim)',
+            background: 'rgba(0,0,0,0.45)',
+            padding: '3px 10px',
+            borderRadius: 999,
+            zIndex: 10,
+            backdropFilter: 'blur(4px)',
+          }}
+          title={
+            accuracyLabel === 'CANONICAL'
+              ? 'This book is drawn from verified source material.'
+              : accuracyLabel === 'CREATIVE_RETELLING'
+                ? 'This is an AI retelling — not verified against a single source.'
+                : accuracyLabel === 'EDUCATIONAL_SUMMARY'
+                  ? 'Simplified educational summary.'
+                  : 'Accuracy status unknown.'
+          }
+        >
+          {accuracyLabel.replace(/_/g, ' ')}
+        </div>
+      )}
+      <SceneViewer bookSlug={params.slug} initialSceneId={resolvedSceneId} />
+    </div>
+  );
 }
 
 export default function BookPage({ params }: { params: Promise<{ slug: string }> }) {

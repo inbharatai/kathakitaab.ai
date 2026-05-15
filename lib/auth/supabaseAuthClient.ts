@@ -29,6 +29,17 @@ function env() {
   };
 }
 
+export function getPublicSiteOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return 'http://localhost:5009';
+}
+
 export function isSupabaseAuthConfigured(): boolean {
   const { url, key } = env();
   return !!(url && key);

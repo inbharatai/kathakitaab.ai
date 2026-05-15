@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { generateBook, type GeneratedBook, type GenerationMode, type BookMetadata } from '@/lib/openai/bookGeneratorAgent';
 import type { StylePreset } from '@/lib/types/style';
 import { defaultPresetForBook, STYLE_PRESETS, slugSuffixForPreset } from '@/lib/types/style';
+import { detectGenreProfile } from '@/lib/engine/genreDetector';
 import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
@@ -14,6 +15,7 @@ import { checkFreeEraGate, bookGenerationConsumed, bookGenerationRefund } from '
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { captureException } from '@/lib/observability/sentry';
 import { capture as trackEvent } from '@/lib/observability/analytics';
+import { guardPromptInput, sanitiseFields } from '@/lib/safety/promptInjectionGuard';
 import {
   worldOutlinePrompt,
   classroomOutlinePrompt,
@@ -52,12 +54,27 @@ interface PersonalizedTextBody {
 type GenerateBody = WorldBody | ClassroomBody | PersonalizedTextBody;
 
 /** Resolve the style preset for this request — explicit client choice
- *  wins, otherwise we suggest a sensible default based on the title /
- *  tradition (fables → watercolour, everything else → photoreal). */
+ *  wins, otherwise we suggest a sensible default based on genre
+ *  detection from the title so sci-fi doesn't default to photoreal
+ *  mythology and folktales default to watercolour.
+ *
+ *  Falls back to the legacy title heuristic when genre detection
+ *  yields generic (no strong signals). */
 function resolveStylePreset(body: GenerateBody, bookTitle: string): StylePreset {
   const explicit = body.stylePreset;
   if (explicit && explicit in STYLE_PRESETS) return explicit;
+
   const isChildrenStory = body.mode === 'personalized_text';
+
+  // Genre-aware override: when the title carries strong signals,
+  // pick the preset that matches the detected genre rather than
+  // the legacy "fables → watercolour, everything else → photoreal"
+  // rule that forced Vedic aesthetics on every title.
+  const profile = detectGenreProfile(bookTitle);
+  if (profile.genre !== 'generic') {
+    return profile.recommendedPreset;
+  }
+
   return defaultPresetForBook({ title: bookTitle, isChildrenStory });
 }
 
@@ -145,6 +162,54 @@ export async function POST(request: Request) {
     body = (await request.json()) as GenerateBody;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  // ── Prompt injection guard ──
+  // Sanitise every user-supplied text field before it reaches the LLM.
+  if (!body.mode || body.mode === 'world') {
+    const titleGuard = guardPromptInput((body as WorldBody).title, { maxLength: 200, strict: false, context: 'story_title' });
+    if (!titleGuard.ok) {
+      return NextResponse.json({ error: titleGuard.error }, { status: 400 });
+    }
+    (body as WorldBody).title = titleGuard.clean;
+  }
+  if (body.mode === 'classroom') {
+    const p = (body as ClassroomBody).payload;
+    const fields = {
+      gradeBand: p.gradeBand,
+      subject: p.subject,
+      chapter: p.chapter,
+      learningGoal: p.learningGoal,
+      tone: p.tone,
+    };
+    const guard = sanitiseFields(fields, { maxLength: 300, strict: false });
+    if (!guard.ok) {
+      return NextResponse.json({ error: guard.error }, { status: 400 });
+    }
+    p.gradeBand = guard.cleaned.gradeBand;
+    p.subject = guard.cleaned.subject;
+    p.chapter = guard.cleaned.chapter;
+    p.learningGoal = guard.cleaned.learningGoal;
+    p.tone = guard.cleaned.tone;
+  }
+  if (body.mode === 'personalized_text') {
+    const p = (body as PersonalizedTextBody).payload;
+    const fields = {
+      childName: p.childName,
+      interests: p.interests,
+      prompt: p.prompt,
+      moral: p.moral,
+      tone: p.tone,
+    };
+    const guard = sanitiseFields(fields, { maxLength: 300, strict: false });
+    if (!guard.ok) {
+      return NextResponse.json({ error: guard.error }, { status: 400 });
+    }
+    p.childName = guard.cleaned.childName;
+    p.interests = guard.cleaned.interests;
+    p.prompt = guard.cleaned.prompt;
+    p.moral = guard.cleaned.moral;
+    p.tone = guard.cleaned.tone;
   }
 
   // Validate per-mode shape before any expensive work.

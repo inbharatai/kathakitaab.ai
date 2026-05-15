@@ -97,6 +97,7 @@ export async function GET(
         // can choose subtitle vs comic-bubble overlay layer per book.
         // Missing on legacy books → renderer treats as non-comic.
         stylePreset: generated.stylePreset,
+        accuracyLabel: generated.accuracyLabel ?? 'CREATIVE_RETELLING',
       },
       scenes: generated.scenes,
       characters: generated.characters,

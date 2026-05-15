@@ -3,6 +3,8 @@
 // ============================================================
 
 // ---- Book ----
+export type AccuracyLabel = 'CANONICAL' | 'CREATIVE_RETELLING' | 'EDUCATIONAL_SUMMARY' | 'UNVERIFIED';
+
 export interface Book {
   id: string;
   slug: string;
@@ -13,6 +15,9 @@ export interface Book {
   cover_image_url: string;
   created_at: string;
   updated_at: string;
+  /** Canon accuracy label — AI-generated books are 'CREATIVE_RETELLING' by default;
+   *  static canon books are 'CANONICAL'. */
+  accuracyLabel?: AccuracyLabel;
 }
 
 // ---- Book Source ----
