@@ -49,6 +49,7 @@ interface Props {
   onXpEarned: (amount: number, x: number, y: number) => void;
   historyDepth: number;
   onBack: () => void;
+  panelMode?: boolean;
 }
 
 // Colour system per label
@@ -86,7 +87,7 @@ const CHARACTER_EMBLEMS: Record<string, string> = {
   sugriva: '🌿', vibhishana: '☯️',
 };
 
-export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned, historyDepth, onBack }: Props) {
+export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned, historyDepth, onBack, panelMode }: Props) {
   const [customQ, setCustomQ] = useState('');
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   // Explicit image-fetch state so the user actually sees "generating",
@@ -187,7 +188,14 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -30, scale: 0.97 }}
         transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-        style={{
+        style={panelMode ? {
+          position: 'relative', width: '100%',
+          display: 'flex', flexDirection: 'column',
+          background: '#0C0806',
+          borderRadius: 12,
+          overflow: 'hidden',
+          maxHeight: '55vh',
+        } : {
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column',
           background: '#0C0806',

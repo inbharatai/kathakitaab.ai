@@ -25,6 +25,7 @@ The result lands in Redis (`kk:book:<slug>`, 30-day TTL) and is immediately play
 - **Background atmosphere** — Ken Burns drift, 2.5D parallax tilt, ambient fireflies/dust motes, plus a universal **Effects DSL** (particles / glow / dust shaft / vignette / rim-light / shake / ripple / parallax / desaturation / bloom / **fog**) baked per-scene from topic + mood at manifest-build time.
 - **Ambient figure life** — every character hotspot is wrapped in an **AmbientFigure** layer that breathes, sways, blinks, and does a soft idle "look-around" every 8–14 seconds. Reduced-motion users get a still frame.
 - **Layered scenes** — `SceneLayers` renders the bg plate plus per-character cutouts as separate motion layers. Two modes share one component: virtual ellipse-clip (no asset cost, runs immediately) and sliced PNG cutouts (opt-in, pulled from `public/images/layers/{slug}/{sceneId}/` when `npm run slice:layers` has been run).
+- **Bottom interaction panel** — Flipbook deep-dive and entity-branch responses render in a dedicated panel below the scene image, not as absolute overlays. The scene canvas stays fully visible; generated text, input boxes, and AI responses scroll inside the panel (`max-height: 55vh`). Auto-scrolls into view on mobile when a response arrives.
 - **Verb-keyed camera** — picking *Talk*, *Fight*, *Leap*, *Honor*, *Comfort* etc. fires a short scaled+translated camera burst aimed at the chosen hotspot, with optional shake and a color-flash for impact verbs.
 - **Verb-keyed character motion** — the same verb also flips the chosen figure's per-character motion (Leap arcs upward, Honor bows, Fight lunges forward, Comfort softens). Driven by a small per-character state machine (`useCharacterStates`) — exposed as `data-character-state` on each `AmbientFigure` for tests and downstream renderers.
 - **Verb sprite overlays** — inline-SVG flash effects: sword-flash for Fight, leap-chevrons for Leap, speech-ripples for Talk/Ask, divine-rays for Honor, warmth-pulse for Comfort, footprint-trail for Move, insight-pulse for Learn/Observe. Universal vocabulary, zero asset weight.
@@ -157,7 +158,8 @@ The same flow that runs in production at [www.kathakitaab.com](https://www.katha
 # Priority sweep — runs serially, no flakes. ~45s warm.
 npx playwright test --project=chromium --workers=1 \
   character-state.spec.ts hotspot-branch.spec.ts \
-  cache-hit.spec.ts landing-truth.spec.ts movie-cues.spec.ts
+  cache-hit.spec.ts landing-truth.spec.ts movie-cues.spec.ts \
+  reader-panel-layout.spec.ts
 
 # Specific specs
 npx playwright test tests/e2e/character-state.spec.ts   # data-character-state flips on verb burst
@@ -165,6 +167,9 @@ npx playwright test tests/e2e/landing-truth.spec.ts     # truth-first copy guard
 npx playwright test tests/e2e/cache-hit.spec.ts         # per-action cache contract
 npx playwright test tests/e2e/movie-cues.spec.ts        # subtitle cue advancement
 npx playwright test tests/e2e/mp4-exists.spec.ts        # MP4 export end-to-end (~6 min)
+npx playwright test tests/e2e/reader-panel-layout.spec.ts # layout regression: panel below image, never overlay
+npx playwright test tests/e2e/mobile-reader-layout.spec.ts # mobile viewport image + control alignment
+npx playwright test tests/e2e/universality.spec.ts       # genre detector, visual prompt builder, quality scorer, prompt-injection guard
 ```
 
 ### 6. Build a curated book's manifest (advanced — only when you want hand-tuning)
@@ -270,8 +275,8 @@ components/livebook/
   SceneCanvas.tsx                         Layered scene runtime — bg + cutouts + effects + ambient + lip-pulse
   SceneLayers.tsx                         Bg plate + character cutouts (virtual or sliced)
   AmbientFigure.tsx                       Per-hotspot breath / sway / blink / look-around layer
-  FlipbookPage.tsx                        Deep-dive panel with branch narration + image
-  SceneViewer.tsx                         Reader controller — narration, branch state, scene navigation
+  FlipbookPage.tsx                        Deep-dive panel with branch narration + image; supports `panelMode` for embeddable bottom-panel layout
+  SceneViewer.tsx                         Reader controller — narration, branch state, scene navigation; split into scene-wrapper + interaction-panel layout
 
 lib/
   agents/
@@ -348,6 +353,9 @@ tests/e2e/
   movie-cues.spec.ts                      data-cue-index advances during playback
   mp4-exists.spec.ts                      End-to-end render → HEAD → cache hit on rerun
   mobile-tap.spec.ts                      Mobile Safari touch event chain
+  mobile-reader-layout.spec.ts            Mobile viewport image + control alignment across key scenes
+  reader-panel-layout.spec.ts             Layout regression: interaction panel renders below scene image, never as overlay
+  universality.spec.ts                    Genre detector, visual prompt builder, quality scorer, prompt-injection guard, CANONICAL badge
   human-walkthrough.spec.ts               Full reader → branch → movie → export with screenshots
   v2-screenshots.spec.ts                  Visual evidence snapshots
   book-movie.spec.ts                      Live Player playback through scene 1

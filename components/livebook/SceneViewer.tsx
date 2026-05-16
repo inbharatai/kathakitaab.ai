@@ -197,6 +197,7 @@ export default function SceneViewer({
   const manifestFetchRef = useRef<AbortController | null>(null);
   const isMutedRef = useRef(false);
   const sceneContainerRef = useRef<HTMLDivElement>(null);
+  const interactionPanelRef = useRef<HTMLDivElement>(null);
 
   // ── Unified game mutator ──
   const mutateGame = useCallback((
@@ -633,6 +634,17 @@ export default function SceneViewer({
     return () => window.clearTimeout(t);
   }, [activeSceneId, loadScene, storyScene?.scene_id]);
 
+  // Auto-scroll the interaction panel into view when it opens so
+  // mobile users don't have to hunt for the response below the scene.
+  useEffect(() => {
+    if ((flipOpen || activeBranch || branchLoading) && interactionPanelRef.current) {
+      const t = window.setTimeout(() => {
+        interactionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 120);
+      return () => window.clearTimeout(t);
+    }
+  }, [flipOpen, activeBranch, branchLoading]);
+
   // Close background menu when flipbook opens (handled in handleHotspotAction instead)
 
   // ── Hotspot action handler — Entity Interaction Engine ──
@@ -680,10 +692,6 @@ export default function SceneViewer({
 
       const result = await handleEntityClick(entityCtx);
       setActiveBranch(result.branch);
-      // Auto-expand the text panel so the user sees the fresh branch
-      // narration right away. The collapsed preview ellipsis-truncates
-      // the first ~100 chars and reads as "old text" if not expanded.
-      setTextExpanded(true);
 
       // Speak the BRANCH narration, not the scene's. Without this,
       // whatever scene-level TTS is mid-playback keeps going and the
@@ -798,9 +806,6 @@ export default function SceneViewer({
 
       const result = await handleEntityClick(entityCtx);
       setActiveBranch(result.branch);
-      // Match the hotspot path — expand the text panel so the fresh
-      // branch narration is visible alongside the new image.
-      setTextExpanded(true);
 
       // Speak the BRANCH narration so audio matches the branch image
       // (see handleHotspotAction for the same fix).
@@ -961,7 +966,7 @@ export default function SceneViewer({
             </div>
 
             {/* ── Scene Canvas — the layered interactive visual ── */}
-            <div ref={sceneContainerRef} style={{ position: 'relative' }}>
+            <div ref={sceneContainerRef} data-testid="scene-wrapper" style={{ position: 'relative' }}>
               <SceneCanvas
                 scene={storyScene}
                 sceneState={sceneState ?? undefined}
@@ -975,10 +980,11 @@ export default function SceneViewer({
                 onBackgroundDoubleClick={handleBackgroundDoubleClick}
                 disabled={flipOpen}
               />
+            </div>
 
-              {/* Click-anywhere handles background clicks directly — no action menu needed */}
-
-              {/* ── FlipbookPage — fills the scene canvas ── */}
+            {/* ── Bottom Interaction Panel ── */}
+            <div ref={interactionPanelRef} data-testid="interaction-panel" style={{ marginTop: 12, position: 'relative' }}>
+              {/* ── FlipbookPage — embeddable interaction panel ── */}
               <AnimatePresence>
                 {flipOpen && currentFlip && (
                   <FlipbookPage
@@ -989,28 +995,28 @@ export default function SceneViewer({
                     onXpEarned={(amt) => mutateGame(s => s, amt)}
                     historyDepth={flipHistory.length - 1}
                     onBack={handleFlipBack}
+                    panelMode
                   />
                 )}
               </AnimatePresence>
 
-              {/* Entity Interaction Branch — full-cover replace.
-                  When the user clicks something, the branch becomes
-                  the new stage: image fills the canvas where the
-                  scene image was, narration sits below. Closing
-                  returns to the parent scene. */}
+              {/* Entity Interaction Branch — bottom panel replace.
+                  When the user clicks something, the branch renders
+                  below the scene image so the image stays visible. */}
               <AnimatePresence>
                 {(activeBranch || branchLoading) && !flipOpen && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20, scale: 0.98 }}
                     transition={{ duration: 0.4, ease: [0.645, 0.045, 0.355, 1.0] }}
                     style={{
-                      position: 'absolute', inset: 0, zIndex: 30,
+                      position: 'relative',
                       background: 'rgba(12,8,6,0.96)',
                       borderRadius: 12,
                       display: 'flex', flexDirection: 'column',
                       overflow: 'hidden',
+                      maxHeight: '55vh',
                     }}
                   >
                     {/* Back to scene */}
@@ -1028,7 +1034,7 @@ export default function SceneViewer({
                     >{'\u2190'} Back</button>
 
                     {branchLoading && !activeBranch ? (
-                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
@@ -1045,12 +1051,13 @@ export default function SceneViewer({
                       </div>
                     ) : activeBranch ? (
                       <>
-                        {/* Branch image fills the canvas in place of the scene image */}
+                        {/* Branch image — constrained height so parent scene stays visible */}
                         <div style={{
                           position: 'relative', flex: '1 1 auto', minHeight: 0,
                           background: 'linear-gradient(135deg, rgba(40,28,20,0.85), rgba(15,10,8,0.95))',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           overflow: 'hidden',
+                          maxHeight: '35vh',
                         }}>
                           {activeBranch.imageUrl ? (
                             <motion.img
@@ -1135,19 +1142,16 @@ export default function SceneViewer({
             </div>
 
             {/* Collapsible text panel below scene.
-                When a branch overlay is active, the panel mirrors the
-                branch's narration so the text below the image always
-                matches what's on screen. Otherwise it shows the parent
-                scene's narration. Without this the user sees a fresh
-                branch image up top while the panel below still reads
-                the previous static scene — looks broken. */}
+                Always shows the parent scene's narration so the user
+                has story context while the interaction panel above
+                displays the generated branch response. */}
             {!flipOpen && (
               <div className="scene-reader-controls" style={{ maxWidth: 820, margin: '0 auto' }}>
                 {/* Toggle bar — always visible */}
                 <div className="scene-reader-toggle-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', marginTop: 8, gap: 12 }}>
                   {/* Preview text */}
                   <p className="font-serif scene-reader-preview" style={{ fontSize: '0.85rem', color: 'var(--color-text-dim)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, opacity: textExpanded ? 0.4 : 1 }}>
-                    {(activeBranch?.narration ?? rawScene?.narration ?? storyScene.story_text ?? '').slice(0, 100)}...
+                    {(rawScene?.narration ?? storyScene.story_text ?? '').slice(0, 100)}...
                   </p>
                   <div className="scene-reader-toggle-actions" style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
                     {showModeSwitcher && (
@@ -1176,17 +1180,7 @@ export default function SceneViewer({
                       transition={{ duration: 0.3 }}
                       style={{ overflow: 'hidden' }}
                     >
-                      {(mode === 'story' || mode === 'learn') && activeBranch && (
-                        <div style={{ padding: '12px 0' }}>
-                          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gold-light)', margin: '0 0 8px' }}>
-                            {activeBranch.title}
-                          </h4>
-                          <p className="narration-text font-serif" style={{ fontSize: '1rem', lineHeight: 1.8, color: 'var(--color-text-light)', margin: 0 }}>
-                            {activeBranch.narration}
-                          </p>
-                        </div>
-                      )}
-                      {(mode === 'story' || mode === 'learn') && !activeBranch && rawScene && (
+                      {(mode === 'story' || mode === 'learn') && rawScene && (
                         <NarrationPanel
                           scene={rawScene}
                           onReadAloud={handleToggleNarration}
@@ -1195,7 +1189,7 @@ export default function SceneViewer({
                           showReadAloudButton={showNarrationButton}
                         />
                       )}
-                      {(mode === 'story' || mode === 'learn') && !activeBranch && !rawScene && (
+                      {(mode === 'story' || mode === 'learn') && !rawScene && (
                         <div style={{ padding: '12px 0' }}>
                           <p className="narration-text font-serif" style={{ fontSize: '1rem', lineHeight: 1.8, color: 'var(--color-text-light)' }}>
                             {storyScene.story_text}
