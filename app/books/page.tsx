@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import BookGenerator from '@/components/library/BookGenerator';
+import LibraryHome from '@/components/library/LibraryHome';
 import { AuthNavButton } from '@/components/auth/AuthNavButton';
 
 interface LibraryBook {
@@ -13,42 +14,20 @@ interface LibraryBook {
   subtitle?: string;
   description?: string;
   mode?: 'world' | 'classroom' | 'personalized_text' | 'personalized_photo';
-  /** First scene's image — used as the card cover. When missing the
-   *  card falls back to the gradient + emoji placeholder. */
   coverImage?: string;
   visibility?: 'public' | 'private';
   isOwner?: boolean;
+  accuracyLabel?: string;
 }
 
-// Pulled when /api/books returns nothing (cold lambda before any
-// other route has warmed Redis). Ramayana is the curated seed so
-// the page is never empty. coverImage matches the static manifest.
 const FALLBACK: LibraryBook[] = [{
   slug: 'ramayana',
   title: 'Ramayana',
   subtitle: 'A classic epic retold as a living storybook',
   description: 'Read the Ramayana as a clean visual story, or step inside and shape the next turn through simple choices.',
   coverImage: '/images/scene_ayodhya_intro.png',
+  accuracyLabel: 'CANONICAL',
 }];
-
-// Small visual identity per book type. Used to pick a cover gradient
-// when the book record doesn't ship one.
-const COVER_ICONS: Record<string, string> = {
-  ramayana: '🏛️',
-  mahabharata: '⚔️',
-  panchatantra: '🦊',
-  'akbar-and-birbal': '👑',
-  'akbar-and-birbal-stories': '👑',
-  'tenali-raman': '🪔',
-  'vikram-and-betaal': '🌙',
-};
-
-function coverIconFor(slug: string): string {
-  if (COVER_ICONS[slug]) return COVER_ICONS[slug];
-  if (slug.startsWith('pv-')) return '🌟'; // personalized
-  if (slug.startsWith('cl-')) return '📚'; // classroom
-  return '📖';
-}
 
 export default function BooksPage() {
   const [books, setBooks] = useState<LibraryBook[]>(FALLBACK);
@@ -63,11 +42,7 @@ export default function BooksPage() {
         const data = await res.json() as { books: LibraryBook[] };
         if (cancelled) return;
         if (Array.isArray(data.books) && data.books.length > 0) {
-          // Sort so seed/world books come first, private modes last.
-          const order = (b: LibraryBook): number =>
-            b.mode === 'world' || !b.mode ? 0 :
-            b.mode === 'classroom' ? 1 : 2;
-          setBooks([...data.books].sort((a, b) => order(a) - order(b)));
+          setBooks(data.books);
         }
       } catch (err) {
         console.warn('[books] failed to fetch library, keeping fallback:',
@@ -106,7 +81,7 @@ export default function BooksPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', padding: '80px 24px 60px' }}>
+    <main style={{ minHeight: '100vh', padding: '80px 0 60px' }}>
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
         padding: '14px 24px',
@@ -126,149 +101,112 @@ export default function BooksPage() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontSize: '0.72rem', color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '0.24em', marginBottom: 10 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ textAlign: 'center', marginBottom: 32, padding: '0 8px' }}
+        >
+          <div style={{
+            fontSize: '0.72rem', color: 'var(--color-gold)', textTransform: 'uppercase',
+            letterSpacing: '0.24em', marginBottom: 10
+          }}>
             Story Worlds
           </div>
-          <h1 className="font-serif" style={{ fontSize: 'clamp(2.2rem, 4vw, 3.2rem)', fontWeight: 800, marginBottom: 10, color: 'var(--color-gold-light)' }}>
+          <h1 className="font-serif" style={{
+            fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, marginBottom: 10,
+            color: 'var(--color-gold-light)'
+          }}>
             Create a story or step inside one.
           </h1>
-          <p style={{ color: 'var(--color-text-dim)', marginBottom: 0, fontSize: '1rem', lineHeight: 1.75, maxWidth: 700, marginInline: 'auto' }}>
-            Keep the experience simple: pick a world, read the story beautifully, or open Play Mode and shape what happens next.
+          <p style={{
+            color: 'var(--color-text-dim)', marginBottom: 0, fontSize: '1rem',
+            lineHeight: 1.75, maxWidth: 700, marginInline: 'auto'
+          }}>
+            Swipe through stories, tap to read, or watch the cinematic movie.
           </p>
         </motion.div>
 
-        <section id="create-story" style={{ marginBottom: 42 }}>
+        <section id="create-story" style={{ marginBottom: 32 }}>
           <BookGenerator existingBooks={books.map(b => b.slug)} />
         </section>
+      </div>
 
-        <h2 style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 2.4, marginBottom: 18 }}>
-          {loaded ? `Explore Worlds · ${books.length} ready` : 'Explore Worlds'}
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
-          {books.map((book, i) => {
-            const icon = coverIconFor(book.slug);
-            const subtitle = book.subtitle
-              || (book.mode === 'classroom' ? 'Classroom story' :
-                  book.mode === 'personalized_text' ? 'Personalized story' :
-                  'AI-generated storybook');
-            const description = book.description
-              || 'Open the live reader to step into the scenes, or hop into Play Mode and pick an archetype.';
-            return (
-              <motion.div
+      {/* Netflix-style rails */}
+      <LibraryHome books={books} loading={!loaded} />
+
+      {/* Owner edit/delete for private books — inline rail cards handle this,
+          but keep a compact list view at the bottom for bulk management */}
+      {books.some(b => b.isOwner) && (
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px 40px' }}>
+          <h2 style={{
+            fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-dim)',
+            textTransform: 'uppercase', letterSpacing: 2.4, marginBottom: 18
+          }}>
+            Your Stories
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {books.filter(b => b.isOwner).map(book => (
+              <div
                 key={book.slug}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                whileHover={{ y: -6 }}
-                className="glass-card"
-                style={{ padding: 0, overflow: 'hidden', background: 'rgba(43,27,21,0.45)' }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 16px', borderRadius: 12,
+                  background: 'rgba(43,27,21,0.35)',
+                  border: '1px solid rgba(255,215,0,0.08)',
+                }}
               >
                 <div style={{
-                  height: 220,
-                  // Real scene image when available, gradient placeholder
-                  // when not. A darkened bottom gradient overlays the
-                  // image so the title and subtitle stay legible
-                  // regardless of how bright the underlying scene is.
-                  backgroundImage: book.coverImage
-                    ? `linear-gradient(180deg, rgba(12,8,6,0) 30%, rgba(12,8,6,0.55) 70%, rgba(12,8,6,0.92) 100%), url("${book.coverImage}")`
-                    : 'linear-gradient(135deg, #2A1810 0%, #6A3916 48%, #D4A847 100%)',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'flex-start', justifyContent: 'flex-end',
-                  padding: 18,
-                  position: 'relative', overflow: 'hidden',
-                }}>
-                  {!book.coverImage && (
-                    <span style={{
-                      position: 'absolute', top: '50%', left: '50%',
-                      transform: 'translate(-50%, -120%)',
-                      fontSize: '3.5rem',
-                      filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.5))',
-                    }}>{icon}</span>
-                  )}
-                  <span className="font-serif" style={{
-                    fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-gold-light)',
-                    textShadow: '0 2px 14px rgba(0,0,0,0.7)',
-                  }}>{book.title}</span>
-                  <span style={{
-                    fontSize: '0.76rem', color: 'rgba(255,255,255,0.86)', marginTop: 4,
-                    textShadow: '0 1px 8px rgba(0,0,0,0.6)',
-                  }}>{subtitle}</span>
-                </div>
-
-                <div style={{ padding: 20 }}>
-                  <p style={{ fontSize: '0.9rem', color: 'var(--color-text-dim)', marginBottom: 18, lineHeight: 1.7 }}>
-                    {description}
-                  </p>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <Link
-                      href={`/books/${book.slug}`}
-                      id={`read-${book.slug}`}
-                      className="btn-secondary"
-                      style={{ flex: 1, minWidth: 110, justifyContent: 'center', textDecoration: 'none', borderRadius: 999 }}
-                    >
-                      Read
-                    </Link>
-                    <Link
-                      href={`/play/${book.slug}`}
-                      id={`play-${book.slug}`}
-                      className="btn-primary"
-                      style={{ flex: 1, minWidth: 110, justifyContent: 'center', textDecoration: 'none', borderRadius: 999 }}
-                    >
-                      Play
-                    </Link>
-                    <Link
-                      href={`/books/${book.slug}/movie`}
-                      id={`movie-${book.slug}`}
-                      className="btn-secondary"
-                      style={{ flex: 1, minWidth: 110, justifyContent: 'center', textDecoration: 'none', borderRadius: 999 }}
-                    >
-                      Movie
-                    </Link>
+                  width: 40, height: 56, borderRadius: 6, flexShrink: 0,
+                  backgroundImage: book.coverImage ? `url(${book.coverImage})` : undefined,
+                  backgroundSize: 'cover', backgroundPosition: 'center',
+                  backgroundColor: 'rgba(12,8,6,0.6)',
+                }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--color-gold-light)', fontSize: '0.9rem' }}>
+                    {book.title}
                   </div>
-                  {book.isOwner && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                      <button
-                        className="btn-secondary"
-                        style={{ flex: 1, minWidth: 90, fontSize: '0.78rem', borderRadius: 999 }}
-                        onClick={async () => {
-                          const title = prompt('New title:', book.title);
-                          if (title === null) return;
-                          const subtitle = prompt('New subtitle:', book.subtitle || '');
-                          if (subtitle === null) return;
-                          const description = prompt('New description:', book.description || '');
-                          if (description === null) return;
-                          await handleEditSave(book.slug, {
-                            title: title.trim() || book.title,
-                            subtitle: subtitle.trim(),
-                            description: description.trim(),
-                          });
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="btn-secondary"
-                        style={{
-                          flex: 1, minWidth: 90, fontSize: '0.78rem', borderRadius: 999,
-                          color: '#ff6b6b', borderColor: 'rgba(255,107,107,0.35)',
-                        }}
-                        onClick={() => handleDelete(book.slug)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
+                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-dim)' }}>
+                    {book.subtitle || book.mode}
+                  </div>
                 </div>
-              </motion.div>
-            );
-          })}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: 999 }}
+                    onClick={async () => {
+                      const title = prompt('New title:', book.title);
+                      if (title === null) return;
+                      const subtitle = prompt('New subtitle:', book.subtitle || '');
+                      if (subtitle === null) return;
+                      const description = prompt('New description:', book.description || '');
+                      if (description === null) return;
+                      await handleEditSave(book.slug, {
+                        title: title.trim() || book.title,
+                        subtitle: subtitle.trim(),
+                        description: description.trim(),
+                      });
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{
+                      padding: '6px 12px', fontSize: '0.72rem', borderRadius: 999,
+                      color: '#ff6b6b', borderColor: 'rgba(255,107,107,0.35)',
+                    }}
+                    onClick={() => handleDelete(book.slug)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }

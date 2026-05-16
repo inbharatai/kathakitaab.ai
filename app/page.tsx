@@ -10,6 +10,7 @@ import { BookTrailer, TRAILER_FPS, computeTrailerFrames } from '@/remotion/BookT
 import { getManifestForSlug } from '@/lib/video/manifestRegistry';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
 import { AuthNavButton } from '@/components/auth/AuthNavButton';
+import StoryRail from '@/components/library/StoryRail';
 import { CinematicHeroBackground } from '@/components/landing/CinematicHeroBackground';
 import { DriftingMotes } from '@/components/landing/DriftingMotes';
 import { BookCardBackground } from '@/components/landing/BookCardBackground';
@@ -577,67 +578,20 @@ export default function HomePage() {
           One curated, three generated end-to-end by KathaKitaab from a typed title.
           All four read interactively. All four play as a cinematic cut in the browser.
         </p>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: 22, maxWidth: 1100, margin: '32px auto 0',
-        }}>
-          {FEATURED_BOOKS.map((b, i) => {
-            const previews = bookPreviews[b.slug] ?? [];
-            return (
-              <motion.div
-                key={b.slug}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08, duration: 0.5 }}
-                style={{
-                  position: 'relative',
-                  overflow: 'hidden',
-                  padding: 24, borderRadius: 16,
-                  background: 'rgba(43,27,21,0.55)',
-                  border: `1px solid ${b.accent}`,
-                  boxShadow: `0 18px 60px rgba(0,0,0,0.45), 0 0 0 1px ${b.accent} inset`,
-                  display: 'flex', flexDirection: 'column', gap: 14,
-                  minHeight: 320,
-                }}
-              >
-                <BookCardBackground images={previews} accent={b.accent} />
-                {/* Lift card content above the moving background. */}
-                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{
-                      fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: 2,
-                      padding: '4px 10px', borderRadius: 999,
-                      background: b.accent.replace('0.5', '0.28'), color: 'var(--color-gold-light)',
-                      backdropFilter: 'blur(6px)',
-                    }}>{b.badge}</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)' }}>{b.subtitle}</span>
-                  </div>
-                  <h3 className="font-serif" style={{
-                    fontSize: '1.6rem', color: 'var(--color-gold-light)', margin: 0,
-                    textShadow: '0 2px 12px rgba(0,0,0,0.85)',
-                  }}>
-                    {b.title}
-                  </h3>
-                  <p style={{
-                    color: 'rgba(232,219,196,0.92)', margin: 0, fontSize: '0.92rem', lineHeight: 1.6,
-                    textShadow: '0 1px 8px rgba(0,0,0,0.85)',
-                  }}>
-                    {b.blurb}
-                  </p>
-                  <div style={{ display: 'flex', gap: 10, marginTop: 'auto', paddingTop: 6, flexWrap: 'wrap' }}>
-                    <Link href={b.href} className="lp-btn-primary" style={{ textDecoration: 'none', flex: '1 1 140px' }}>
-                      <span>Read</span><span className="lp-btn-arrow">{'→'}</span>
-                    </Link>
-                    <Link href={b.movieHref} className="lp-btn-outline" style={{ textDecoration: 'none', flex: '1 1 140px' }}>
-                      Watch
-                    </Link>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+        <StoryRail
+          title=""
+          items={FEATURED_BOOKS.map(b => ({
+            slug: b.slug,
+            title: b.title,
+            subtitle: b.subtitle,
+            coverImage: bookPreviews[b.slug]?.[0],
+            previewImages: bookPreviews[b.slug],
+            hasMovie: true,
+            badge: b.badge,
+            accuracyLabel: b.slug === 'ramayana' ? 'CANONICAL' : undefined,
+          }))}
+          linkMode="read"
+        />
       </section>
 
       {/* ── How to make your own ── */}

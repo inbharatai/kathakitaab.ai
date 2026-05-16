@@ -45,9 +45,9 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
   }, [slug]);
 
   return (
-    <main className="lp-movie-page-main" style={{ minHeight: '100vh', padding: '20px 18px 52px' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
+    <main className="lp-movie-page-main movie-page-root">
+      <div className="movie-page-inner">
+        <div className="movie-page-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Link href={`/books/${slug}`} className="btn-secondary" style={{ textDecoration: 'none', borderRadius: 999 }}>
               ← Read the Book
@@ -69,11 +69,7 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
           </div>
         ) : manifest ? (
           <>
-            <div style={{
-              borderRadius: 16, overflow: 'hidden',
-              border: '1px solid rgba(255,215,0,0.1)',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-            }}>
+            <div className="movie-player-wrap">
               <Player
                 component={BookMovie}
                 inputProps={{ manifest }}
@@ -97,6 +93,7 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
                 or the CLI (documented in the README). */}
             <div
               data-testid="mp4-export-coming-soon"
+              className="movie-export-banner"
               style={{
                 marginTop: 18, padding: '14px 18px',
                 background: 'rgba(43,27,21,0.45)',

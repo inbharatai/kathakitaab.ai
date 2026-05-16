@@ -47,6 +47,16 @@ The result lands in Redis (`kk:book:<slug>`, 30-day TTL) and is immediately play
 - **Action-aware branch generation** — `lib/agents/branchAgent.ts` is the single owner of (verb → narration). Both the brain pipeline and `/api/livebook/pregenerate-branches` delegate to it.
 - **Canon-grounded** — each book has a JSON canon at `lib/data/canon/{slug}.json` listing allowed verbs, character bibles, and forbidden changes. Used by every agent prompt.
 
+### Library & Discovery (Netflix-style rails)
+- **Horizontal scroll rails** — CSS `scroll-snap-type: x mandatory` with `-webkit-overflow-scrolling: touch` for native-feeling mobile swipe. Six categorized rails on `/books`: Continue Reading, My Generated Books, Featured Stories (seeds), Watch as Movie, Mythology & Folktales, More Stories.
+- **Poster-style cards** — 2:3 aspect ratio with gradient fallback, emoji icon map for known slugs, lazy image loading via IntersectionObserver (overflow-safe, 200px rootMargin), skeleton shimmer placeholders while loading.
+- **Multi-image Ken-Burns crossfade** — cards with `previewImages >= 2` render a pure-CSS crossfade stack. Each image cycles with slow zoom + opacity crossfade, duration scales dynamically with image count (N * 7s). Falls back to single image or emoji icon. Reduced-motion users see a static first image.
+- **Play icon overlay** — movie-capable cards show a centered play button on hover/touch. Links to reader by default; movie link only when rail `linkMode="movie"`.
+- **Badge system** — per-card badges for `Private`, `Movie`, `Canon`, `AI`, and custom badges. Capped at 2 badges so 155px mobile cards never overflow.
+- **Landscape rotation** — on the movie page (`/books/[slug]/movie`), rotating a phone to landscape auto-hides chrome (header, export banner, padding) and fills the viewport edge-to-edge. Pure CSS `@media (orientation: landscape)` — no JS Fullscreen API gesture requirement.
+- **Owner controls** — private books show inline Edit/Delete in a compact list at the bottom of `/books`. Admin can delete any book. Non-owners get 404 (never 403) so private slug existence stays hidden.
+- **Accessibility** — keyboard tab traversal through cards, `focus-visible` outline, `role="list"`/`role="listitem"`, screen-reader-safe aria-labels, `prefers-reduced-motion` disables snap + zoom + Ken-Burns.
+
 ### Movie Mode v3
 - **Full Movie** (~6:46 for Ramayana): all scenes, sentence-by-sentence captions, per-scene camera motion, mood music ducked to 0.10 under narration, full effects DSL baked in.
 - **Cinematic Trailer** (43s, fixed): title (3s) + top-6 dramatic scenes (6s each) + end card (4s) = 1290 frames at 30fps. Scenes are scored by mood + motion, then chronologically ordered.
@@ -260,9 +270,10 @@ npm run flush:stale -- --apply
 
 ```
 app/
-  page.tsx                                Landing — truth-first copy + Movie Mode v3 with Trailer/Movie toggle
+  page.tsx                                Landing — truth-first copy + Netflix-style featured rail + Movie Mode v3 with Trailer/Movie toggle
+  books/page.tsx                          Library home — Netflix-style rails + book generator + owner controls
   books/[slug]/page.tsx                   Interactive reader entry
-  books/[slug]/movie/page.tsx             Movie page with live <Player> + dual export buttons
+  books/[slug]/movie/page.tsx             Movie page with live <Player> + landscape rotation + dual export buttons
   api/livebook/
     entity-interact/                      Per-action branch lookup with cache fallbacks
     pregenerate-branches/                 Fire-and-forget warmer; calls branchAgent
@@ -277,6 +288,12 @@ components/livebook/
   AmbientFigure.tsx                       Per-hotspot breath / sway / blink / look-around layer
   FlipbookPage.tsx                        Deep-dive panel with branch narration + image; supports `panelMode` for embeddable bottom-panel layout
   SceneViewer.tsx                         Reader controller — narration, branch state, scene navigation; split into scene-wrapper + interaction-panel layout
+
+components/library/
+  StoryCard.tsx                           Poster card — 2:3, Ken-Burns crossfade, badges, lazy IO, icon fallback
+  StoryRail.tsx                           Horizontal snap-scroll rail with skeleton + empty states
+  LibraryHome.tsx                         Categorized rail orchestrator (continue / generated / featured / movie / mythology / more)
+  BookGenerator.tsx                       Title input + style picker → /api/books/generate
 
 lib/
   agents/

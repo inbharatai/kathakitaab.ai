@@ -638,3 +638,485 @@ body {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   NETFLIX-STYLE MOBILE LIBRARY RAILS
+   ============================================================ */
+
+/* Horizontal scroll rail */
+.story-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 16px;
+  scroll-padding-right: 16px;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 16px 20px;
+  margin: 0 -16px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.story-rail::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Story card (poster style) */
+.story-card {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  width: 155px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  background: var(--color-dark-card);
+  border: 1px solid rgba(255, 215, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+}
+
+.story-card:hover {
+  transform: scale(1.04) translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 215, 0, 0.15);
+  z-index: 2;
+}
+
+.story-card:active {
+  transform: scale(0.98);
+}
+
+.story-card-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  background: linear-gradient(135deg, #2A1810 0%, #6A3916 48%, #D4A847 100%);
+}
+
+.story-card-poster > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.story-card:hover .story-card-poster > img {
+  transform: scale(1.06);
+}
+
+/* Ken-Burns crossfade stack for multi-image cards */
+.story-card-kenburns-stack {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.story-card-kenburns-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  animation: story-card-kenburns linear infinite;
+}
+
+@keyframes story-card-kenburns {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  8% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  33% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* Play overlay for movie cards */
+.story-card-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.story-card:hover .story-card-play,
+.story-card-play.visible {
+  opacity: 1;
+}
+
+.story-card-play-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.story-card-play-icon::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 14px solid var(--color-dark-earth);
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  margin-left: 3px;
+}
+
+/* Card info */
+.story-card-info {
+  padding: 10px 10px 12px;
+}
+
+.story-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-gold-light);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 0 4px;
+}
+
+.story-card-subtitle {
+  font-size: 0.68rem;
+  color: var(--color-text-dim);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Badges on poster */
+.story-card-badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.story-card-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.story-card-badge-generated {
+  background: rgba(19, 136, 8, 0.85);
+  color: #fff;
+}
+
+.story-card-badge-canon {
+  background: rgba(59, 125, 216, 0.85);
+  color: #fff;
+}
+
+.story-card-badge-movie {
+  background: rgba(255, 153, 51, 0.85);
+  color: #fff;
+}
+
+.story-card-badge-custom {
+  background: rgba(212, 168, 71, 0.85);
+  color: #0C0806;
+}
+
+.story-card-badge-private {
+  background: rgba(155, 89, 182, 0.85);
+  color: #fff;
+}
+
+/* Progress bar on poster */
+.story-card-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  z-index: 2;
+}
+
+.story-card-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-saffron), var(--color-gold));
+  transition: width 0.3s ease;
+}
+
+/* Empty state */
+.story-rail-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+}
+
+/* Rail section */
+.story-rail-section {
+  margin-bottom: 28px;
+}
+
+.story-rail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 16px;
+  margin-bottom: 4px;
+}
+
+.story-rail-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-gold-light);
+  letter-spacing: -0.01em;
+}
+
+.story-rail-view-all {
+  font-size: 0.75rem;
+  color: var(--color-saffron-light);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.story-rail-view-all:hover {
+  color: var(--color-gold);
+}
+
+/* Skeleton loading */
+.story-card-skeleton {
+  flex-shrink: 0;
+  width: 155px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(43, 27, 21, 0.4);
+  border: 1px solid rgba(255, 215, 0, 0.05);
+}
+
+.story-card-skeleton-poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: rgba(58, 36, 24, 0.5);
+}
+
+.story-card-skeleton-text {
+  padding: 10px;
+  height: 40px;
+}
+
+/* Responsive card sizing */
+@media (min-width: 430px) {
+  .story-card,
+  .story-card-skeleton {
+    width: 170px;
+  }
+}
+
+@media (min-width: 640px) {
+  .story-card,
+  .story-card-skeleton {
+    width: 185px;
+  }
+
+  .story-rail {
+    gap: 14px;
+    padding: 8px 24px 20px;
+    margin: 0 -24px;
+    scroll-padding-left: 24px;
+    scroll-padding-right: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .story-card,
+  .story-card-skeleton {
+    width: 210px;
+  }
+
+  .story-rail {
+    gap: 16px;
+    padding: 8px 32px 20px;
+    margin: 0 -32px;
+    scroll-padding-left: 32px;
+    scroll-padding-right: 32px;
+  }
+}
+
+/* Hover on desktop only */
+@media (hover: hover) {
+  .story-card:hover {
+    transform: scale(1.04) translateY(-2px);
+  }
+}
+
+/* Disable hover scale on touch devices */
+@media (hover: none) {
+  .story-card:hover {
+    transform: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .story-card:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Rail focus for keyboard accessibility */
+.story-rail:focus {
+  outline: none;
+}
+
+.story-rail:focus-visible {
+  outline: 2px solid var(--color-saffron);
+  outline-offset: 2px;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .story-rail {
+    scroll-snap-type: none;
+  }
+
+  .story-card {
+    transition: none;
+  }
+
+  .story-card-poster > img {
+    transition: none;
+  }
+
+  .story-card-kenburns-image {
+    animation: none !important;
+  }
+
+  .story-card-kenburns-image:first-child {
+    opacity: 1;
+  }
+
+  .story-card-kenburns-image:not(:first-child) {
+    opacity: 0;
+  }
+
+  .story-card-progress-fill {
+    transition: none;
+  }
+}
+
+/* ── Movie page: landscape fullscreen rotation ──
+   When a phone rotates to landscape, the player fills the entire
+   viewport edge-to-edge, hiding the header, export banner, and
+   page padding. This mimics Netflix's auto-fullscreen behaviour
+   without needing the JS Fullscreen API (which requires a user
+   gesture on most mobile browsers). */
+
+.movie-page-root {
+  min-height: 100vh;
+  padding: 20px 18px 52px;
+}
+
+.movie-page-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.movie-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.movie-player-wrap {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 215, 0, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .movie-page-root {
+    padding: 0;
+    min-height: auto;
+    height: 100vh; /* fallback */
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: #0C0806;
+  }
+
+  .movie-page-inner {
+    max-width: none;
+    margin: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .movie-page-header {
+    display: none;
+  }
+
+  .movie-player-wrap {
+    flex: 1;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .movie-player-wrap > div {
+    width: 100%;
+    height: 100%;
+  }
+
+  .movie-player-wrap video,
+  .movie-player-wrap canvas,
+  .movie-player-wrap > div > div {
+    width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: auto !important;
+  }
+
+  .movie-export-banner {
+    display: none !important;
+  }
+}
