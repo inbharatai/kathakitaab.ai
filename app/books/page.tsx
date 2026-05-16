@@ -16,6 +16,8 @@ interface LibraryBook {
   /** First scene's image — used as the card cover. When missing the
    *  card falls back to the gradient + emoji placeholder. */
   coverImage?: string;
+  visibility?: 'public' | 'private';
+  isOwner?: boolean;
 }
 
 // Pulled when /api/books returns nothing (cold lambda before any
@@ -76,6 +78,32 @@ export default function BooksPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  async function handleDelete(slug: string) {
+    if (!confirm('Delete this story? This cannot be undone.')) return;
+    const res = await fetch(`/api/books/${slug}`, { method: 'DELETE' });
+    if (res.ok) {
+      setBooks(prev => prev.filter(b => b.slug !== slug));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || 'Failed to delete story');
+    }
+  }
+
+  async function handleEditSave(slug: string, updates: { title?: string; subtitle?: string; description?: string }) {
+    const res = await fetch(`/api/books/${slug}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) {
+      setBooks(prev => prev.map(b => b.slug === slug ? { ...b, ...updates } : b));
+      return true;
+    }
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || 'Failed to update story');
+    return false;
+  }
 
   return (
     <main style={{ minHeight: '100vh', padding: '80px 24px 60px' }}>
@@ -202,6 +230,39 @@ export default function BooksPage() {
                       Movie
                     </Link>
                   </div>
+                  {book.isOwner && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                      <button
+                        className="btn-secondary"
+                        style={{ flex: 1, minWidth: 90, fontSize: '0.78rem', borderRadius: 999 }}
+                        onClick={async () => {
+                          const title = prompt('New title:', book.title);
+                          if (title === null) return;
+                          const subtitle = prompt('New subtitle:', book.subtitle || '');
+                          if (subtitle === null) return;
+                          const description = prompt('New description:', book.description || '');
+                          if (description === null) return;
+                          await handleEditSave(book.slug, {
+                            title: title.trim() || book.title,
+                            subtitle: subtitle.trim(),
+                            description: description.trim(),
+                          });
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        style={{
+                          flex: 1, minWidth: 90, fontSize: '0.78rem', borderRadius: 999,
+                          color: '#ff6b6b', borderColor: 'rgba(255,107,107,0.35)',
+                        }}
+                        onClick={() => handleDelete(book.slug)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             );

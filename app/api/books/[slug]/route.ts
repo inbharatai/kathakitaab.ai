@@ -3,7 +3,9 @@ import { getBook as getSeedBook, getScenesByBookId, getCharactersByBookId } from
 import { getBook as getRegistryBook, deleteBook } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { hydrateAndPersist } from '@/lib/video/manifestRegistry';
+import { saveGeneratedBook } from '@/lib/data/bookRegistry';
 
 // Anonymous visitors can only open the curated Ramayana seed. Every
 // other book (AI-generated mythology, fables, personalised stories)
@@ -138,19 +140,99 @@ export async function DELETE(
     return NextResponse.json({ error: 'Book not found' }, { status: 404 });
   }
 
-  // Public AI-generated books: not deletable by anonymous owner.
-  // We don't currently have a public/personal-public distinction;
-  // any book stored as visibility=public is treated as canon-ish.
-  if (generated.visibility !== 'private') {
-    return NextResponse.json({ error: 'This book cannot be deleted.' }, { status: 403 });
-  }
+  const session = await getSessionFromRouteRequest(request);
+  const isAdmin = isAdminSession(session);
 
-  const ownerId = getOwnerIdFromRequest(request);
-  if (!ownerId || generated.ownerId !== ownerId) {
-    // 404 not 403 — non-owner shouldn't even know the slug exists.
-    return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+  // Admin can delete any AI-generated book (public or private).
+  // Non-admin owners can only delete their own private books.
+  if (!isAdmin) {
+    if (generated.visibility !== 'private') {
+      return NextResponse.json({ error: 'This book cannot be deleted.' }, { status: 403 });
+    }
+    const ownerId = getOwnerIdFromRequest(request);
+    if (!ownerId || generated.ownerId !== ownerId) {
+      return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+    }
   }
 
   await deleteBook(slug);
   return NextResponse.json({ ok: true });
+}
+
+/** PATCH /api/books/[slug]
+ *
+ *  Owner (or admin) metadata edit for an AI-generated book.
+ *  Editable fields: title, subtitle, description, visibility.
+ *  Returns the updated book envelope.
+ */
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;
+
+  if (getSeedBook(slug)) {
+    return NextResponse.json({ error: 'Seed books cannot be edited.' }, { status: 403 });
+  }
+
+  const generated = await getRegistryBook(slug);
+  if (!generated) {
+    return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+  }
+
+  const session = await getSessionFromRouteRequest(request);
+  const isAdmin = isAdminSession(session);
+  const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+
+  if (!isAdmin) {
+    if (generated.visibility !== 'private') {
+      return NextResponse.json({ error: 'This book cannot be edited.' }, { status: 403 });
+    }
+    if (!ownerId || generated.ownerId !== ownerId) {
+      return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+    }
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const updates: Partial<Pick<typeof generated, 'title' | 'subtitle' | 'description' | 'visibility'>> = {};
+  if (typeof body.title === 'string' && body.title.trim().length > 0) {
+    updates.title = body.title.trim();
+  }
+  if (typeof body.subtitle === 'string') {
+    updates.subtitle = body.subtitle.trim();
+  }
+  if (typeof body.description === 'string') {
+    updates.description = body.description.trim();
+  }
+  if (body.visibility === 'public' || body.visibility === 'private') {
+    updates.visibility = body.visibility;
+  }
+
+  const updated = {
+    ...generated,
+    ...updates,
+    updatedAt: Date.now(),
+  };
+  await saveGeneratedBook(updated);
+
+  return NextResponse.json({
+    book: {
+      id: updated.id,
+      slug: updated.slug,
+      title: updated.title,
+      subtitle: updated.subtitle,
+      description: updated.description,
+      source_tradition: updated.source_tradition,
+      stylePreset: updated.stylePreset,
+      accuracyLabel: updated.accuracyLabel ?? 'CREATIVE_RETELLING',
+    },
+    scenes: updated.scenes,
+    characters: updated.characters,
+  });
 }

@@ -83,6 +83,9 @@ export async function GET(request: Request) {
         previewImages: orderedScenes.slice(0, 4)
           .map(s => s.beats?.[0]?.imageUrl || s.background_asset_url)
           .filter((u): u is string => Boolean(u)),
+        // So the UI can render owner-only edit/delete controls.
+        visibility: b.visibility ?? 'public',
+        isOwner: ownerId !== null && b.ownerId === ownerId,
       };
     });
 

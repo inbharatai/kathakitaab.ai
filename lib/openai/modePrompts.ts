@@ -48,7 +48,7 @@ const OUTLINE_JSON_SHAPE = `Return JSON with this structure:
 {
   "book_subtitle": "string",
   "book_description": "string",
-  "source_tradition": "string (e.g., Valmiki Ramayana, Mughal court chronicles, Aesop's Fables, Indian history textbook)",
+  "source_tradition": "string (e.g., Hindu epic, Mughal court chronicles, Aesop's Fables, Indian history textbook, original fable)",
   "scenes": [
     {
       "scene_id": "snake_case_id",
@@ -75,11 +75,13 @@ const OUTLINE_JSON_SHAPE = `Return JSON with this structure:
       ],
       "mood": "serene|dramatic|somber|joyful|sacred|mysterious|tense",
       "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection",
+      "characters_present": ["slug of every character physically visible in this scene"],
+      "characters_absent": ["slug of main characters who are NOT in this scene (kidnapped, off-screen, dead, elsewhere)"],
       "dialogue": [
         {
           "speaker": "character slug from the characters[] array below — must match exactly. Use empty string '' for narrator captions.",
-          "text": "one short in-character line, ideally under 140 characters. Quote the character themselves, not a description of them speaking. NO third-person prose like 'Rama said' — just the spoken words.",
-          "kind": "one of: speech | thought | caption | shout. Default to 'speech'. Use 'thought' for unspoken internal monologue, 'caption' for narrator framing like 'Years later, in Lanka...', 'shout' for action / yelling / battle cries."
+          "text": "one short in-character line, ideally under 140 characters. Quote the character themselves, not a description of them speaking. NO third-person prose like 'the king said' — just the spoken words.",
+          "kind": "one of: speech | thought | caption | shout. Default to 'speech'. Use 'thought' for unspoken internal monologue, 'caption' for narrator framing like 'Years later, in the distant kingdom...', 'shout' for action / yelling / battle cries."
         }
       ]
     }
@@ -129,12 +131,19 @@ Rules:
   BAD:  "Janaka warned the assembly that the bow was unbendable."
 - Each line under ~140 characters. Aim for punchy, in-character lines.
 - Open the scene with a 'caption' if location/time shifts ("Years later,
-  in Lanka...") so the reader is oriented.
+  in the distant kingdom...") so the reader is oriented.
 - Use 'thought' sparingly — for internal monologue only.
 - Use 'shout' for battle cries, action moments, dramatic ultimatums.
 - Default kind to 'speech' for everything else.
-- Do NOT include 'Rama said' / 'she replied' attributions inside text —
+- Do NOT include 'the hero said' / 'she replied' attributions inside text —
   the speaker field already carries that.`;
+
+const CHARACTER_PRESENCE_GUIDE = `Character presence rules — critical for accurate scene images:
+- For EVERY scene, list in characters_present ONLY the characters physically visible in that exact scene.
+- List in characters_absent any MAIN characters who are NOT in this scene (kidnapped, off-screen, dead, in another location, or not yet introduced).
+- Do NOT include the full cast in every scene. A scene where the villain confronts the captured princess should have characters_present=["princess","villain"] and characters_absent=["hero","companion"].
+- Only characters in characters_present get appearance locks injected into the image prompt.
+- Absent characters are explicitly excluded from image prompts so the model does not hallucinate them.`;
 
 // ── World mode (existing behaviour, extracted) ───────────────
 
@@ -149,7 +158,9 @@ ${OUTLINE_JSON_SHAPE}
 
 ${VOICE_ARCHETYPE_GUIDE}
 
-${DIALOGUE_GUIDE}`;
+${DIALOGUE_GUIDE}
+
+${CHARACTER_PRESENCE_GUIDE}`;
 }
 
 // ── Classroom mode ───────────────────────────────────────────
@@ -196,7 +207,9 @@ ${OUTLINE_JSON_SHAPE}
 
 ${VOICE_ARCHETYPE_GUIDE}
 
-${DIALOGUE_GUIDE}`;
+${DIALOGUE_GUIDE}
+
+${CHARACTER_PRESENCE_GUIDE}`;
 }
 
 // ── Personalized text mode ───────────────────────────────────
@@ -256,7 +269,9 @@ ${OUTLINE_JSON_SHAPE}
 
 ${VOICE_ARCHETYPE_GUIDE}
 
-${DIALOGUE_GUIDE}`;
+${DIALOGUE_GUIDE}
+
+${CHARACTER_PRESENCE_GUIDE}`;
 }
 
 // ── Random private slug helper ────────────────────────────────

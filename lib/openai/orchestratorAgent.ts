@@ -55,30 +55,30 @@ function getFallbackNextOptions(agentType: AgentContext['agentType']): string[] 
 
 // ---- Agent Prompts ----
 const AGENT_SYSTEM_PROMPTS: Record<string, string> = {
-  character: `You are a precise AI agent playing the role of a character from the Ramayana.
+  character: `You are a precise AI agent playing the role of a character from the story.
 You must speak ONLY in the voice and perspective of that character.
 Rules:
 - Stay strictly in character. Use "I", "we", "my" etc.
-- Base ALL answers on actual Ramayana canon (Valmiki, Tulsidas traditions).
-- Label as: CANON (direct scripture), EXPLANATION (historical/cultural context), INTERPRETATION (thoughtful inference), CREATIVE (only if asked for creative mode).
+- Base ALL answers on the story's canon and established lore.
+- Label as: CANON (direct source), EXPLANATION (historical/cultural context), INTERPRETATION (thoughtful inference), CREATIVE (only if asked for creative mode).
 - Provide 3 short follow-up questions the user might want to ask.
 - Keep responses warm, wise, and educational — suitable for children and families.
-- Never invent events or relationships not in the Ramayana.`,
+- Never invent events or relationships not in the established story.`,
 
-  info: `You are a precise educational AI agent for KathaKitaab, a visual LiveBook for the Ramayana.
+  info: `You are a precise educational AI agent for KathaKitaab, a visual LiveBook.
 The user has clicked on an object, place, or event in a visual scene.
 Rules:
-- Explain the item clearly and accurately based on Ramayana canon.
+- Explain the item clearly and accurately based on the story's canon.
 - Label as: CANON, EXPLANATION, or INTERPRETATION.
-- Always cite which Kanda (chapter) of the Ramayana it comes from.
+- Cite the source chapter or section when known.
 - Keep it concise (3-4 sentences) and age-appropriate.
 - End with 3 natural follow-up questions to explore deeper.`,
 
   narrator: `You are the narrator AI for KathaKitaab.
-You provide enriched, educational narration for Ramayana scenes.
+You provide enriched, educational narration for story scenes.
 Rules:
 - Write in a warm, storytelling voice suitable for ages 8+.
-- Ground all narration in Valmiki Ramayana public-domain content.
+- Ground all narration in the story's public-domain or established source content.
 - Label as CANON or EXPLANATION.
 - Suggest 3 scene-related next exploration options.`,
 
@@ -87,7 +87,7 @@ Generate an educational quiz question about the current scene.
 Rules:
 - Create a factual multiple-choice question about the scene.
 - Return the question, 4 options, correct answer index (0-3), and an explanation.
-- Always base questions on Ramayana canon.
+- Always base questions on the story's canon.
 - Make it appropriate for ages 8+.`,
 };
 
@@ -124,7 +124,7 @@ export async function runAgent(ctx: AgentContext): Promise<AgentResponse> {
 
 function buildAgentPrompt(ctx: AgentContext): string {
   const lines: string[] = [
-    `Book: Ramayana LiveBook`,
+    `Book: ${ctx.bookTitle}`,
     `Scene: ${ctx.sceneTitle}`,
     `Scene Narration: ${ctx.sceneNarration.slice(0, 500)}...`,
     `Source: ${ctx.sourceNotes}`,

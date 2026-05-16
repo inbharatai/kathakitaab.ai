@@ -104,7 +104,7 @@ export function SceneLayers({
           backgroundSize: fitMode,
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          filter: bgPlateUrl ? 'none' : 'blur(0.5px) brightness(0.92)',
+          filter: bgPlateUrl ? 'none' : 'brightness(0.92)',
         }}
       />
 

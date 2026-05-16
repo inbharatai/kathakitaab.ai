@@ -175,7 +175,7 @@ export interface GeneratedScene {
    *  with a URL that pre-dates the chunker fix) gets stripped and
    *  re-rendered on next manifest fetch so the listener never hears
    *  a Gemini-voiced legacy file when Sarvam is now reliable. */
-  audio_provider?: 'sarvam' | 'gemini';
+  audio_provider?: 'sarvam' | 'gemini' | 'failed';
   /** Multi-beat visual track. When present, the scene cross-fades
    *  through these images during narration instead of holding on a
    *  single still. Backwards-compat: if `beats` is missing, the
@@ -191,6 +191,12 @@ export interface GeneratedScene {
    *  is 'comic_book'; other presets keep the bottom subtitle bar.
    *  Missing on legacy books — dialogueTagger backfills on demand. */
   dialogue?: SceneDialogue[];
+  /** Characters physically present in this scene. Drives image-prompt
+   *  character injection and appearance locks. */
+  characters_present?: string[];
+  /** Characters who must NOT appear in this scene (absent, kidnapped,
+   *  dead, off-screen). Drives negative constraints in image prompts. */
+  characters_absent?: string[];
 }
 
 /** Mirrors lib/types/livebook.ts:SceneDialogue. Kept duplicated here
@@ -443,6 +449,12 @@ async function generateBookOpenAI(
     visual_beats?: Array<string | { description: string; camera_action?: string }>;
     mood?: SceneMood;
     theme?: string;
+    /** Characters physically present in this scene. Used to build
+     *  scene-specific image prompts and negative constraints. */
+    characters_present?: string[];
+    /** Main characters who are NOT in this scene (absent, kidnapped,
+     *  dead, off-screen). Used to exclude them from image prompts. */
+    characters_absent?: string[];
     /** Comic-book overlay track emitted by the outline LLM. Optional
      *  to keep backwards compat with prompt versions that pre-date
      *  the field — when missing, the comic-book renderer falls back
@@ -618,10 +630,20 @@ motion guide:
   let completedImages = 0;
   const beatResults = await pMapLimit(beatJobs, 3, async (job) => {
     try {
+      const sceneOutline = sceneOutlines[job.sceneIndex];
+      const present = sceneOutline.characters_present ?? [];
+      const absent = sceneOutline.characters_absent ?? [];
+      // If the LLM didn't emit presence fields (legacy / fallback),
+      // fall back to scanning the prompt for character names so we
+      // don't lose appearance locks entirely.
+      const fallbackCharacters = present.length === 0 && absent.length === 0
+        ? characters.map(c => c.name)
+        : present;
       const imageResult = await generateSceneImage(job.prompt, {
         bookSlug: slug,
-        characters: characters.map(c => c.name),
-        mood: sceneOutlines[job.sceneIndex].mood ?? 'serene',
+        characters: fallbackCharacters,
+        forbiddenCharacters: absent,
+        mood: sceneOutline.mood ?? 'serene',
         stylePreset: options.stylePreset,
       });
       completedImages++;
@@ -701,6 +723,8 @@ motion guide:
       next_scene_id: next,
       mood: scene.mood,
       theme: scene.theme,
+      characters_present: scene.characters_present,
+      characters_absent: scene.characters_absent,
       motion: detail.motion as SceneMotion | undefined,
       duration_seconds: estimateNarrationSeconds(narration),
       // narration_audio_url left unset — see comment above. Filled in

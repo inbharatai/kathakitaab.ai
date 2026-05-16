@@ -31,6 +31,7 @@ export interface SceneGeneration {
   source_notes: string;
   hotspots: GeneratedHotspot[];
   characters_present: string[];
+  characters_absent?: string[];
   mood: string;
   continuity_summary: string;
 }

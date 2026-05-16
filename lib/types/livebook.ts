@@ -60,6 +60,13 @@ export interface Scene {
    *  When present the live reader + movie play this sequence; when
    *  absent both fall back to background_asset_url as a single beat. */
   beats?: SceneBeat[];
+  /** Scene-level visual rules: characters physically present in this scene.
+   *  Used to ensure image prompts only show characters who belong. */
+  characters_present?: string[];
+  /** Scene-level visual rules: main characters who are NOT physically
+   *  present (absent, kidnapped, dead, off-screen). Used to build
+   *  negative constraints in image prompts. */
+  characters_absent?: string[];
   /** Comic-book overlay track — speech bubbles, thought clouds, and
    *  narrator captions anchored to character hotspots. Only rendered
    *  when the book's stylePreset is 'comic_book'; other presets keep

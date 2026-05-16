@@ -220,10 +220,12 @@ export async function POST(request: Request) {
     const stylePreset = await getBookStylePreset(bookSlug);
     const imageResult = await generateSceneImage(visualPrompt, {
       bookSlug,
-      characters: Array.from(new Set([
-        ...(characterNames ?? []),
-        ...(narrative.characters_present ?? []),
-      ])),
+      // Use scene-specific presence list; fall back to scanning the
+      // prompt only if the director didn't emit presence fields.
+      characters: narrative.characters_present?.length
+        ? narrative.characters_present
+        : (characterNames ?? []),
+      forbiddenCharacters: narrative.characters_absent,
       mood: narrative.mood,
       theme,
       stylePreset,

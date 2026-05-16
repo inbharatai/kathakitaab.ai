@@ -50,13 +50,13 @@ export interface MotionParams {
 }
 
 const MOTION_TABLE: Record<SceneMotion, MotionParams> = {
-  slow_zoom_in:  { startScale: 1.04, endScale: 1.14, panX:   0, panY:  -6, shake: 0,    glow: false },
-  slow_zoom_out: { startScale: 1.14, endScale: 1.04, panX:   0, panY:   0, shake: 0,    glow: false, tint: 'rgba(12,8,6,0.10)' },
-  pan_left:      { startScale: 1.08, endScale: 1.10, panX:  -36, panY:  -4, shake: 0,    glow: false, tint: 'rgba(12,8,6,0.18)' },
-  pan_right:     { startScale: 1.08, endScale: 1.10, panX:   36, panY:  -4, shake: 0,    glow: false },
-  divine_glow:   { startScale: 1.05, endScale: 1.13, panX:   0, panY:  -3, shake: 0,    glow: true,  tint: 'rgba(255,200,90,0.08)' },
-  battle_push:   { startScale: 1.06, endScale: 1.18, panX:   0, panY:   0, shake: 1.6,  glow: false, tint: 'rgba(120,20,10,0.10)' },
-  fade_only:     { startScale: 1.05, endScale: 1.07, panX:   0, panY:   0, shake: 0,    glow: false },
+  slow_zoom_in:  { startScale: 1.02, endScale: 1.06, panX:   0, panY:  -4, shake: 0,    glow: false },
+  slow_zoom_out: { startScale: 1.06, endScale: 1.02, panX:   0, panY:   0, shake: 0,    glow: false, tint: 'rgba(12,8,6,0.10)' },
+  pan_left:      { startScale: 1.04, endScale: 1.06, panX:  -36, panY:  -4, shake: 0,    glow: false, tint: 'rgba(12,8,6,0.18)' },
+  pan_right:     { startScale: 1.04, endScale: 1.06, panX:   36, panY:  -4, shake: 0,    glow: false },
+  divine_glow:   { startScale: 1.03, endScale: 1.06, panX:   0, panY:  -3, shake: 0,    glow: true,  tint: 'rgba(255,200,90,0.08)' },
+  battle_push:   { startScale: 1.04, endScale: 1.08, panX:   0, panY:   0, shake: 1.6,  glow: false, tint: 'rgba(120,20,10,0.10)' },
+  fade_only:     { startScale: 1.02, endScale: 1.04, panX:   0, panY:   0, shake: 0,    glow: false },
 };
 
 export function motionParams(motion: SceneMotion): MotionParams {

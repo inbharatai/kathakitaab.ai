@@ -67,15 +67,12 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
   const isV3 = /v3/i.test(getSarvamModel());
   const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-  // No retry. With the longer 22s timeout, Sarvam either responds
-  // or it doesn't — retrying a slow endpoint just doubles wait time
-  // without improving the success rate. If Sarvam fails on the
-  // first attempt, speakTTS falls through to Gemini (still WAV,
-  // still emotional, just a different voice). Better to ship the
-  // book on time with mixed voices than to push the lambda over
-  // its budget chasing a perfect Sarvam pass.
+  // One retry for transient errors (429, 5xx, timeout). Total
+  // worst-case time: ~80s + 1s backoff — well inside the 300s lambda
+  // budget. A second attempt recovers many quota-reset and network
+  // hiccups without falling back to Gemini.
   let attempt = 0;
-  const MAX_ATTEMPTS = 1;
+  const MAX_ATTEMPTS = 2;
   let lastErr: Error = new Error('sarvamTTS: no attempts made');
   while (attempt < MAX_ATTEMPTS) {
     const controller = new AbortController();

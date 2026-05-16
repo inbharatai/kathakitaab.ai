@@ -17,6 +17,7 @@ import { buildVisualPrompt } from './visualPromptBuilder';
 import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
 import { getCanonEntry } from '@/lib/data/canonLookup';
 import { getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
+import { validateImagePrompt } from './imageValidator';
 import type { StylePreset } from '@/lib/types/style';
 import { toFile } from 'openai';
 
@@ -107,6 +108,8 @@ export interface SceneImageContext {
   bookSlug?: string;
   /** Characters known to be in the scene (e.g., scene metadata). */
   characters?: string[];
+  /** Characters who must NOT appear in this scene image. */
+  forbiddenCharacters?: string[];
   /** Mood tag from scene metadata. */
   mood?: string;
   /** Narrative theme (universal: courage / sacrifice / love / loss / …
@@ -141,8 +144,25 @@ export async function generateSceneImage(
     mood: ctx.mood,
     theme: ctx.theme,
     characters: ctx.characters,
+    forbiddenCharacters: ctx.forbiddenCharacters,
     stylePreset: ctx.stylePreset,
   });
+
+  // ── Prompt-level validation ─────────────────────────────────
+  // Catches the most common pipeline bug: the full cast being
+  // injected into a scene where some characters should be absent.
+  const validation = validateImagePrompt({
+    prompt: built.prompt,
+    visibleCharacters: ctx.characters,
+    forbiddenCharacters: ctx.forbiddenCharacters,
+    sceneDescription: visualDescription,
+  });
+  if (!validation.passed) {
+    console.warn('[visualAgent] Prompt validation failed:', validation.issues);
+    // Do NOT cache a failed prompt as final. We still proceed to
+    // generation so the user isn't blocked, but the issue is logged
+    // for admin review and future auto-regeneration.
+  }
 
   // Resolve anchor references for any canon character in the scene
   // that has a pre-baked portrait. This is universal — any book that

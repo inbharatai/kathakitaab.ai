@@ -195,6 +195,7 @@ export function stopNarration() {
     abortController.abort();
     abortController = null;
   }
+  clearPendingSceneTimer();
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
@@ -336,19 +337,52 @@ export async function speak(
     if ((err as Error).name === 'AbortError') return;
   }
 
-  // Fallback: browser TTS
+  // Fallback: browser TTS — chunked so long narrations aren't truncated.
   if (typeof window !== 'undefined' && window.speechSynthesis) {
-    const utterance = new SpeechSynthesisUtterance(text.slice(0, 500));
-    utterance.lang = 'en-IN';
-    utterance.rate = 0.9;
-    utterance.onend = () => { restoreMusic(); setState('idle'); };
-    utterance.onerror = () => { restoreMusic(); setState('idle'); };
+    const chunks = chunkTextForBrowserTTS(text, 500);
+    if (chunks.length > 1) {
+      console.warn('[narrationManager] Browser TTS fallback: text split into', chunks.length, 'chunks');
+    }
+    let index = 0;
+    function speakNextChunk() {
+      if (index >= chunks.length) {
+        restoreMusic();
+        setState('idle');
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(chunks[index]);
+      utterance.lang = 'en-IN';
+      utterance.rate = 0.9;
+      utterance.onend = () => { index++; speakNextChunk(); };
+      utterance.onerror = () => { restoreMusic(); setState('idle'); };
+      window.speechSynthesis.speak(utterance);
+    }
     setState('speaking', text);
-    window.speechSynthesis.speak(utterance);
+    speakNextChunk();
   } else {
     restoreMusic();
     setState('idle');
   }
+}
+
+/** Split text into sentence-safe chunks for browser TTS fallback.
+ *  Keeps chunks under maxLength by breaking at sentence boundaries
+ *  (Devanagari danda + Latin punctuation). */
+function chunkTextForBrowserTTS(text: string, maxLength: number): string[] {
+  if (text.length <= maxLength) return [text];
+  const sentences = text.split(/(?<=[।.!?])\s+/).map(s => s.trim()).filter(Boolean);
+  const chunks: string[] = [];
+  let buf = '';
+  const flush = () => { if (buf) { chunks.push(buf); buf = ''; } };
+  for (const s of sentences) {
+    if (!buf) buf = s;
+    else if (buf.length + 1 + s.length <= maxLength) buf += ' ' + s;
+    else { flush(); buf = s; }
+  }
+  flush();
+  // Guard: if a single sentence is somehow still over maxLength,
+  // hard-slice it so we never return empty or oversized chunks.
+  return chunks.length > 0 ? chunks : [text.slice(0, maxLength)];
 }
 
 // ── Scene lifecycle hook ─────────────────────────────────────

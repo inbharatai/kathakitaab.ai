@@ -76,6 +76,11 @@ export interface BuildVisualPromptInput {
   /** Characters explicitly known to be in the scene (from scene metadata).
    *  These are always injected even if the description doesn't name them. */
   characters?: string[];
+  /** Characters who must NOT appear in this scene image (absent,
+   *  kidnapped, dead, off-screen). Their appearance locks are excluded
+   *  from the positive prompt and they are listed in the negative
+   *  constraints. */
+  forbiddenCharacters?: string[];
   /** Hard limit on injected appearance text per character (chars). Default 600.
    * Big enough to carry skin/hair/clothing/signature-items details for the
    * average canonical character. The whole prompt still fits well inside
@@ -181,8 +186,14 @@ export function buildVisualPrompt(input: BuildVisualPromptInput): BuiltVisualPro
   if (characterNegatives.length) {
     negativeParts.push(...characterNegatives);
   }
+  // Scene-level forbidden characters — must not appear in this image.
+  if (input.forbiddenCharacters?.length) {
+    const forbiddenList = input.forbiddenCharacters.join(', ');
+    negativeParts.push(`Do not show these characters: ${forbiddenList}.`);
+    negativeParts.push(`Do not include any character not explicitly listed as visible.`);
+  }
   negativeParts.push(
-    'No text, captions, watermarks, signatures, or modern objects.',
+    'No text, captions, watermarks, signatures, or modern objects. Keep facial features sharp and well-defined — avoid motion blur, soft focus, or painterly smearing on faces.',
   );
 
   const negative = negativeParts.join(' ');

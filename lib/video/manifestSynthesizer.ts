@@ -133,10 +133,14 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
         if (attempt < 2) {
           await new Promise(r => setTimeout(r, 1500));
         } else {
-          // Both Sarvam and Gemini refused. Don't crash the whole
-          // hydration — the live reader will catch this scene later
-          // via /api/livebook/tts on demand (same chain, same cache).
+          // Both Sarvam and Gemini refused. Mark the scene as failed
+          // so the next manifest fetch retries it, and log clearly.
           console.error(`[hydrateBookAudio] both providers failed for ${s.scene_id}:`, err instanceof Error ? err.message : err);
+          scenes[i] = {
+            ...scenes[i],
+            narration_audio_url: '',
+            audio_provider: 'failed',
+          };
         }
       }
     }
