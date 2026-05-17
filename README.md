@@ -4,18 +4,29 @@
 
 KathaKitaab turns canon books into living scenes you read, click, and watch. Highlighted characters and objects respond on click; figures breathe, sway, blink, and lean toward each other when they speak; the camera dollies, pushes, and shakes in time with whichever verb you choose; every book also plays as a cinematic film, full or trailer, rendered from the same manifest the interactive reader uses.
 
-**Type any title and the engine builds a complete book.** No canon file required. The default reference book is the curated **Ramayana** (12 hand-tuned scenes); a typed-in book like *Akbar and Birbal* runs through the universal pipeline — gpt-4o-mini for the narrative, gpt-image-1 for the art, Sarvam Bulbul for the narration, all stored on Supabase + Redis, ~3 minutes end to end.
+**Type any title and the engine builds a complete book — persistently.** No canon file required. The default reference book is the curated **Ramayana** (12 hand-tuned scenes); a typed-in book like *Akbar and Birbal* runs through the universal pipeline — gpt-4o-mini for the narrative, gpt-image-1 for the art, Sarvam Bulbul for the narration, all stored on Supabase + Redis, ~3 minutes end to end. If your browser closes, the lambda crashes, or you refresh the page, the generation job survives and can be resumed from the exact step that failed.
 
 ## From a typed title to a movie — what actually happens
 
-When you POST `/api/books/generate { title: "..." }`, the engine runs four parallel phases inside one Vercel function (300s budget):
+When you POST `/api/books/generate { title: "..." }`, the engine immediately creates a **persistent generation job** in Redis (`kk:job:{id}`, 7-day TTL) and then runs four parallel phases inside one Vercel function (300s budget):
 
-1. **Outline + characters** — gpt-4o-mini drafts a 9–12 scene chronological arc and assigns each character a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). Sets the `mood` and `theme` per scene up front so downstream modules don't reverse-engineer them from text.
-2. **Scene details** (concurrency 4) — gpt-4o-mini writes per-scene narration, hotspot positions, quiz questions, and per-scene camera motion. ~25s for 11 scenes.
-3. **Scene images** (concurrency 3) — gpt-image-1 paints each scene at 1536×1024. Cached at the prompt level on Supabase, so re-generating the same book is free. ~120–180s.
-4. **Scene narration** (concurrency 6) — Sarvam Bulbul records each scene's narration shaped to the scene's mood. ~10–15s. URLs stored on the scene so the live reader and the movie share the same audio.
+1. **Outline + characters** — gpt-4o-mini drafts a 9–12 scene chronological arc and assigns each character a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). Sets the `mood` and `theme` per scene up front so downstream modules don't reverse-engineer them from text. The outline is saved to the job metadata so resume never re-runs research.
+2. **Scene details** (concurrency 4) — gpt-4o-mini writes per-scene narration, hotspot positions, quiz questions, and per-scene camera motion. ~25s for 11 scenes. Each scene is persisted independently (`kk:scene:{slug}:{sceneId}`) with no TTL — user content survives until deleted.
+3. **Scene images** (concurrency 3) — gpt-image-1 paints each scene at 1536×1024. Cached at the prompt level on Supabase, so re-generating the same book is free. ~120–180s. Per-scene image status (`pending | generating | generated | failed`) is tracked in the scene registry.
+4. **Scene narration** (concurrency 6) — Sarvam Bulbul records each scene's narration shaped to the scene's mood. ~10–15s. URLs stored on the scene so the live reader and the movie share the same audio. Per-scene TTS status is tracked independently.
 
-The result lands in Redis (`kk:book:<slug>`, 30-day TTL) and is immediately playable at `/books/<slug>` interactively or at `/books/<slug>/movie` as a synthesised cinematic cut.
+The result lands in Redis and is immediately playable at `/books/<slug>` interactively or at `/books/<slug>/movie` as a synthesised cinematic cut.
+
+### If something fails, resume — don't restart
+
+The generation pipeline is designed to fail gracefully and resume precisely:
+
+- **Early failure** (outline, characters, scene details) — re-runs the full generator, but reuses the saved outline metadata so research is never duplicated.
+- **Image failure** (scene_images, images_partial) — loads the persisted scenes, regenerates only the missing images, assembles the book. Characters are rehydrated from the saved character key so portraits don't regenerate.
+- **TTS failure** (scene_tts, tts_partial) — loads the completed book, calls `hydrateBookAudio` for missing narration only.
+- **Stitch failure** — assembles the book from persisted scenes and saves it.
+
+Resume is triggered by `POST /api/books/resume { slug }` from the **Generation Queue** on `/books` or the **Admin Dashboard**.
 
 ---
 
@@ -30,6 +41,15 @@ The result lands in Redis (`kk:book:<slug>`, 30-day TTL) and is immediately play
 - **Verb-keyed character motion** — the same verb also flips the chosen figure's per-character motion (Leap arcs upward, Honor bows, Fight lunges forward, Comfort softens). Driven by a small per-character state machine (`useCharacterStates`) — exposed as `data-character-state` on each `AmbientFigure` for tests and downstream renderers.
 - **Verb sprite overlays** — inline-SVG flash effects: sword-flash for Fight, leap-chevrons for Leap, speech-ripples for Talk/Ask, divine-rays for Honor, warmth-pulse for Comfort, footprint-trail for Move, insight-pulse for Learn/Observe. Universal vocabulary, zero asset weight.
 - **Audio-driven lip-pulse** — Web Audio AnalyserNode reads RMS amplitude from the active TTS audio and pulses the speaker's mouth-region overlay; gaze geometry leans the pulse toward whichever hotspot was on stage just before. Reads as "they're looking at each other" in tap-tap conversational sequences.
+
+### Persistent Generation Engine
+- **Job Registry** (`lib/data/jobRegistry.ts`) — Redis-backed with 15 statuses (`queued → planning → outline_generated → scenes_generating → scenes_generated → images_generating → images_partial → images_generated → tts_generating → tts_partial → tts_generated → completed | failed | cancelled`). Every job tracks `totalSteps`, `completedSteps`, `currentStep`, `failedStep`, `errorMessage`, and `resumable`. Global index `kk:jobs:all` for admin queries; per-user index `kk:jobs:user:{userId}` for "My Creations".
+- **Scene Registry** (`lib/data/sceneRegistry.ts`) — Per-scene persistence with independent asset status tracking (`imageStatus`, `ttsStatus`). Scenes have no TTL — user content persists until deleted. `saveBookCharacters` / `getBookCharacters` store character portraits for image-regen resume.
+- **Step callback** (`onStepComplete`) — `generateBookOpenAI` calls the caller-provided callback after outline, portraits, scenes, and images. The route handler decides persistence strategy, keeping the generator lean.
+- **Resume endpoint** (`/api/books/resume`) — Four failure-mode branches with `maxDuration = 300`. Loads persisted state, regenerates only what's missing, assembles the book.
+- **Scene editing + stale tracking** — `PATCH /api/books/{slug}/scenes/{sceneId}` checks ownership via parent book, updates scene fields, and calls `markSceneStale` when media-relevant fields (`narration`, `visual_description`, `mood`, `theme`, `motion`, `characters_present`, `characters_absent`, `beats`) change. Downstream image/audio regeneration resumes automatically.
+- **Polling UI** — `/books` fetches `/api/jobs` every 5 seconds, renders progress bars, status labels, and **Resume** buttons for failed/partial jobs.
+- **Admin Dashboard** (`/admin`) — Admin-only view of every generation job in the system. Resume, delete, or hydrate any book. Global book list with owner IDs.
 
 ### Emotional narration
 - **Universal emotion tagger** — classifies any narration into 7 tones (`neutral / serene / joyful / dramatic / sorrowful / sacred / tense`) by word-boundary triggers. Pure function, no API call.
@@ -55,6 +75,7 @@ The result lands in Redis (`kk:book:<slug>`, 30-day TTL) and is immediately play
 - **Badge system** — per-card badges for `Private`, `Movie`, `Canon`, `AI`, and custom badges. Capped at 2 badges so 155px mobile cards never overflow.
 - **Landscape rotation** — on the movie page (`/books/[slug]/movie`), rotating a phone to landscape auto-hides chrome (header, export banner, padding) and fills the viewport edge-to-edge. Pure CSS `@media (orientation: landscape)` — no JS Fullscreen API gesture requirement.
 - **Owner controls** — private books show inline Edit/Delete in a compact list at the bottom of `/books`. Admin can delete any book. Non-owners get 404 (never 403) so private slug existence stays hidden.
+- **Generation Queue** — active and failed jobs render as a compact list with progress bars, status labels, and Resume buttons. Polls every 5 seconds.
 - **Accessibility** — keyboard tab traversal through cards, `focus-visible` outline, `role="list"`/`role="listitem"`, screen-reader-safe aria-labels, `prefers-reduced-motion` disables snap + zoom + Ken-Burns.
 
 ### Movie Mode v3
@@ -91,7 +112,7 @@ Each scene in `remotion/manifests/{slug}.json` carries:
 - **Gemini 2.5 Flash + Native Audio** for fallback text & TTS
 - **OpenAI** (gpt-4o-mini for branch generation + QA, gpt-image-1 for scene art and the optional layer-slicer)
 - **Supabase Storage** for narration audio and MP4 cache (with local-fs fallback)
-- **Upstash Redis** for cross-instance branch + manifest cache (with in-process LRU fallback)
+- **Upstash Redis** for cross-instance branch + manifest cache, generation job registry, and per-scene persistence (with in-process LRU fallback when Redis is not configured)
 - **Framer Motion** for the reader's living-scene effects
 - **Web Audio API** (AnalyserNode) for the lip-pulse amplitude track
 - **Playwright** for end-to-end testing
@@ -129,7 +150,7 @@ UPSTASH_REDIS_REST_URL=...
 UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-Without Supabase the app still runs — narration falls back to local WAV cache, the MP4 export writes to `public/movies/`. Without Redis the cache is in-process only (works for local dev, not multi-instance).
+Without Supabase the app still runs — narration falls back to local WAV cache, the MP4 export writes to `public/movies/`. Without Redis the job registry and scene registry fall back to in-process Maps (works for local dev, not multi-instance).
 
 ### 3. Dev server
 ```bash
@@ -149,6 +170,7 @@ The same flow that runs in production at [www.kathakitaab.com](https://www.katha
 - The progress bar walks through *Planning the story → Writing scenes → Illustrating → Narrating*.
 - ~3 minutes for an 11-scene book on the standard pipeline (concurrency 4 details / 3 images / 6 audio).
 - ~$0.40 in API cost (OpenAI text + image, Sarvam narration). Caches kick in on every regeneration.
+- **If the tab closes or the server restarts**, the job survives in Redis. Reopen `/books` and click **Resume** in the Generation Queue.
 
 **Step 3 — Read it interactively.**
 - After completion the page redirects to `/books/<slug>`.
@@ -162,6 +184,9 @@ The same flow that runs in production at [www.kathakitaab.com](https://www.katha
   - For any AI-generated book, it's synthesised on demand from the registry — same scenes, same narration audio URLs, same effects DSL, same procedural mood beds, motion picked by the LLM (or mood-derived).
 - The in-browser Remotion `<Player>` plays the cinematic cut: per-scene camera motion, sentence-timed captions, ducked mood music under Sarvam narration, particles + dust shafts + divine glow per the manifest.
 - MP4 download via the **Export** button works locally (`npm run movie:render`) and on hosts that ship Chromium; on Vercel's standard serverless functions the in-browser Player is the canonical path.
+
+**Step 5 — Edit or retry a scene (owner only).**
+- Owners can PATCH scene narration, visual description, mood, or character lists. If media-relevant fields change, the scene is marked **stale** and downstream image / audio regeneration resumes automatically on the next read.
 
 ### 5. Tests
 ```bash
@@ -271,9 +296,16 @@ npm run flush:stale -- --apply
 ```
 app/
   page.tsx                                Landing — truth-first copy + Netflix-style featured rail + Movie Mode v3 with Trailer/Movie toggle
-  books/page.tsx                          Library home — Netflix-style rails + book generator + owner controls
+  books/page.tsx                          Library home — Netflix-style rails + book generator + Generation Queue + owner controls
   books/[slug]/page.tsx                   Interactive reader entry
   books/[slug]/movie/page.tsx             Movie page with live <Player> + landscape rotation + dual export buttons
+  admin/page.tsx                          Admin dashboard — global jobs + all books + resume/delete/hydrate
+  api/books/generate/route.ts             Creates persistent job, then generates step-by-step with onStepComplete
+  api/books/resume/route.ts               Four-branch resume: early re-run / image regen / TTS hydrate / stitch recovery
+  api/jobs/route.ts                       User's generation jobs (polling source for /books)
+  api/admin/jobs/route.ts                 Admin-only listing of every job in the system
+  api/admin/books/route.ts                Admin-only listing of every book
+  api/books/[slug]/scenes/[sceneId]/      GET scene + PATCH with stale tracking for media-relevant edits
   api/livebook/
     entity-interact/                      Per-action branch lookup with cache fallbacks
     pregenerate-branches/                 Fire-and-forget warmer; calls branchAgent
@@ -316,6 +348,9 @@ lib/
   brain/
     LivingBookBrain.ts                    The orchestrator — research → director → vision → branch agent → QA
   data/
+    jobRegistry.ts                        Redis-backed generation job registry (7-day TTL, 15 statuses, per-step tracking)
+    sceneRegistry.ts                      Redis-backed per-scene persistence (no TTL, asset status tracking)
+    bookRegistry.ts                       Book metadata + visibility registry
     canon/{slug}.json                     Per-book canon
     canonLookup.ts                        Universal lookup + prompt fragment builder
     hotspots.ts                           Hand-authored hotspot bboxes (Ramayana)
@@ -372,7 +407,7 @@ tests/e2e/
   mobile-tap.spec.ts                      Mobile Safari touch event chain
   mobile-reader-layout.spec.ts            Mobile viewport image + control alignment across key scenes
   reader-panel-layout.spec.ts             Layout regression: interaction panel renders below scene image, never as overlay
-  universality.spec.ts                    Genre detector, visual prompt builder, quality scorer, prompt-injection guard, CANONICAL badge
+  universality.spec.ts                    Genre detector, visual prompt builder, quality scorer, prompt-injection guard
   human-walkthrough.spec.ts               Full reader → branch → movie → export with screenshots
   v2-screenshots.spec.ts                  Visual evidence snapshots
   book-movie.spec.ts                      Live Player playback through scene 1
@@ -392,16 +427,19 @@ tests/e2e/
 - **No real Agents SDK.** The "agents" are role-flavored functions, not OpenAI Agents SDK with handoffs/guardrails. The architecture matches the spec; the framework doesn't.
 - **Music is procedural, never licensed.** Mood beds are synthesized at build time. Don't expect a film soundtrack.
 - **No game-engine / canvas runtime.** The reader is plain DOM + CSS + framer-motion. We deliberately did **not** add PixiJS, Phaser, Rive, or Spine — those would break Playwright a11y selectors, Remotion export parity, and the SSR-friendly mount, with no measurable visual win at our current scale.
+- **Resume has four fixed branches.** The resume endpoint handles the four common failure modes (early, images, TTS, stitch). A failure in an unexpected sub-step may still re-run more than strictly necessary.
+- **Scene PATCH stale-check is field-list heuristic.** `markSceneStale` checks a hardcoded list of media-relevant fields. If a future field affects image or audio generation, the list must be updated manually.
 
 ---
 
 ## Roadmap
 
-- **Phase 2 (next, opt-in)** — Multi-part puppet rigging: extend the slicer to per-body-part PNGs (head / eyes / mouth / torso / arms) and route them through a state-machine renderer for true cartoon-style poses (idle, talk, walk, react). Falls back to single-cutout when part segmentation is uncertain.
-- **Phase 3** — Whisper-aligned phoneme lip-sync replacing the amplitude-driven mouth pulse.
-- **Phase 4** — AI image-to-video (SVD / Runway / Kling) for *hero moments only* — deer running, Hanuman flying, divine darshan reveal. Inserted between scenes, never inside the cue track (their dynamic durations would break subtitle timing).
-- **Phase 5** — Multi-book canon expansion: ship Mahabharata + Panchatantra manifests; verify the engine renders without scene-id-specific code.
-- **Phase 6** — Real Agents SDK: replace the function-call pipeline with OpenAI Agents handoffs + guardrails per the spec.
+- **Phase A (next, opt-in)** — Multi-part puppet rigging: extend the slicer to per-body-part PNGs (head / eyes / mouth / torso / arms) and route them through a state-machine renderer for true cartoon-style poses (idle, talk, walk, react). Falls back to single-cutout when part segmentation is uncertain.
+- **Phase B** — Whisper-aligned phoneme lip-sync replacing the amplitude-driven mouth pulse.
+- **Phase C** — AI image-to-video (SVD / Runway / Kling) for *hero moments only* — deer running, Hanuman flying, divine darshan reveal. Inserted between scenes, never inside the cue track (their dynamic durations would break subtitle timing).
+- **Phase D** — Multi-book canon expansion: ship Mahabharata + Panchatantra manifests; verify the engine renders without scene-id-specific code.
+- **Phase E** — Real Agents SDK: replace the function-call pipeline with OpenAI Agents handoffs + guardrails per the spec.
+- **Phase F** — Classroom mode revival: hidden in current builds; will return as a dedicated educator dashboard with grade-band presets and curriculum alignment.
 
 ---
 

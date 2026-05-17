@@ -13,11 +13,23 @@ interface LibraryBook {
   title: string;
   subtitle?: string;
   description?: string;
-  mode?: 'world' | 'classroom' | 'personalized_text' | 'personalized_photo';
+  mode?: 'world' | 'personalized_text' | 'personalized_photo';
   coverImage?: string;
   visibility?: 'public' | 'private';
   isOwner?: boolean;
   accuracyLabel?: string;
+}
+
+interface GenerationJob {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  currentStep: string | null;
+  totalSteps: number;
+  completedSteps: number;
+  resumable: boolean;
+  errorMessage?: string;
 }
 
 const FALLBACK: LibraryBook[] = [{
@@ -29,9 +41,39 @@ const FALLBACK: LibraryBook[] = [{
   accuracyLabel: 'CANONICAL',
 }];
 
+const statusLabel = (status: string, step: string | null) => {
+  const map: Record<string, string> = {
+    queued: 'Queued',
+    planning: 'Planning...',
+    outline_generated: 'Outline ready',
+    scenes_generating: 'Writing scenes...',
+    scenes_generated: 'Scenes ready',
+    images_generating: 'Illustrating...',
+    images_partial: 'Images partial',
+    images_generated: 'Images ready',
+    tts_generating: 'Recording audio...',
+    tts_partial: 'Audio partial',
+    tts_generated: 'Audio ready',
+    completed: 'Complete',
+    failed: step ? `Failed at ${step}` : 'Failed',
+    cancelled: 'Cancelled',
+  };
+  return map[status] || status;
+};
+
+const statusColor = (status: string) => {
+  if (status === 'completed') return '#4ade80';
+  if (status === 'failed') return '#ff6b6b';
+  if (status === 'cancelled') return 'var(--color-text-dim)';
+  return '#fbbf24';
+};
+
 export default function BooksPage() {
   const [books, setBooks] = useState<LibraryBook[]>(FALLBACK);
   const [loaded, setLoaded] = useState(false);
+  const [jobs, setJobs] = useState<GenerationJob[]>([]);
+  const [jobsLoaded, setJobsLoaded] = useState(false);
+  const [resumingSlug, setResumingSlug] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +94,32 @@ export default function BooksPage() {
       }
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  // Fetch generation jobs + poll while any are active
+  useEffect(() => {
+    let cancelled = false;
+    const fetchJobs = async () => {
+      try {
+        const res = await fetch('/api/jobs', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json() as { jobs: GenerationJob[] };
+        if (cancelled) return;
+        setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      } catch (err) {
+        console.warn('[books] failed to fetch jobs:', err instanceof Error ? err.message : err);
+      } finally {
+        if (!cancelled) setJobsLoaded(true);
+      }
+    };
+
+    fetchJobs();
+    const interval = setInterval(fetchJobs, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   async function handleDelete(slug: string) {
@@ -78,6 +146,27 @@ export default function BooksPage() {
     const data = await res.json().catch(() => ({}));
     alert(data.error || 'Failed to update story');
     return false;
+  }
+
+  async function handleResume(slug: string) {
+    setResumingSlug(slug);
+    const res = await fetch('/api/books/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug }),
+    });
+    setResumingSlug(null);
+    if (res.ok) {
+      // Refresh jobs immediately so the resumed job appears active
+      const jobsRes = await fetch('/api/jobs', { cache: 'no-store' });
+      if (jobsRes.ok) {
+        const data = await jobsRes.json() as { jobs: GenerationJob[] };
+        setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      }
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || 'Failed to resume generation');
+    }
   }
 
   return (
@@ -134,6 +223,71 @@ export default function BooksPage() {
 
       {/* Netflix-style rails */}
       <LibraryHome books={books} loading={!loaded} />
+
+      {/* Generation Queue — active and failed jobs */}
+      {jobsLoaded && jobs.length > 0 && (
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px 40px' }}>
+          <h2 style={{
+            fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-dim)',
+            textTransform: 'uppercase', letterSpacing: 2.4, marginBottom: 18
+          }}>
+            Generation Queue
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {jobs.map(job => (
+              <div
+                key={job.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 16px', borderRadius: 12,
+                  background: 'rgba(43,27,21,0.35)',
+                  border: '1px solid rgba(255,215,0,0.08)',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--color-gold-light)', fontSize: '0.9rem' }}>
+                    {job.title}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-dim)', marginTop: 2 }}>
+                    {statusLabel(job.status, job.currentStep)}
+                    {job.errorMessage && (
+                      <span style={{ color: '#ff6b6b', marginLeft: 8 }}>
+                        {job.errorMessage}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{
+                    height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)',
+                    marginTop: 6, overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${(job.completedSteps / job.totalSteps) * 100}%`,
+                      height: '100%',
+                      background: statusColor(job.status),
+                      borderRadius: 2,
+                      transition: 'width 0.5s ease'
+                    }} />
+                  </div>
+                </div>
+                {job.resumable && (
+                  <button
+                    className="btn-secondary"
+                    disabled={resumingSlug === job.slug}
+                    style={{
+                      padding: '6px 12px', fontSize: '0.72rem', borderRadius: 999,
+                      color: '#fbbf24', borderColor: 'rgba(251,191,36,0.35)',
+                      opacity: resumingSlug === job.slug ? 0.6 : 1,
+                    }}
+                    onClick={() => handleResume(job.slug)}
+                  >
+                    {resumingSlug === job.slug ? 'Resuming...' : 'Resume'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Owner edit/delete for private books — inline rail cards handle this,
           but keep a compact list view at the bottom for bulk management */}

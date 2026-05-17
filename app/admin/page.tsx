@@ -16,9 +16,25 @@ interface AdminBook {
   coverImage?: string;
 }
 
+interface AdminJob {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  currentStep: string | null;
+  totalSteps: number;
+  completedSteps: number;
+  resumable: boolean;
+  errorMessage?: string;
+  userId: string | null;
+  mode: string;
+  createdAt: number;
+}
+
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const [books, setBooks] = useState<AdminBook[]>([]);
+  const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,6 +47,12 @@ export default function AdminPage() {
       .then(r => (r.ok ? r.json() : null))
       .then((data: { books?: AdminBook[] } | null) => {
         if (!cancelled && data?.books) setBooks(data.books);
+      })
+      .catch(() => {});
+    fetch('/api/admin/jobs')
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: { jobs?: AdminJob[] } | null) => {
+        if (!cancelled && data?.jobs) setJobs(data.jobs);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -59,6 +81,35 @@ export default function AdminPage() {
     } else {
       const data = await res.json().catch(() => ({}));
       setError(data.error || 'Hydration failed');
+    }
+  }
+
+  async function resumeJob(slug: string) {
+    setBusy(true);
+    const res = await fetch('/api/books/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      alert(`Resume triggered for ${slug}`);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Resume failed');
+    }
+  }
+
+  async function deleteJob(id: string, slug: string) {
+    if (!confirm(`Delete job ${slug}?`)) return;
+    setBusy(true);
+    const res = await fetch(`/api/books/${slug}`, { method: 'DELETE' });
+    setBusy(false);
+    if (res.ok) {
+      setJobs(prev => prev.filter(j => j.id !== id));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Delete job failed');
     }
   }
 
@@ -99,6 +150,72 @@ export default function AdminPage() {
           <Link href="/books" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem' }}>Library →</Link>
         </div>
       </nav>
+
+      <h1 style={{ fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', color: 'var(--color-gold-light)', marginBottom: 8 }}>Generation Jobs</h1>
+      <p style={{ color: 'var(--color-text-dim)', marginBottom: 24 }}>{jobs.length} total · admin override enabled</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20, marginBottom: 40 }}>
+        {jobs.map(job => (
+          <div
+            key={job.id}
+            style={{
+              borderRadius: 12,
+              background: 'rgba(43,27,21,0.45)',
+              border: '1px solid rgba(255,215,0,0.12)',
+              padding: 18,
+              display: 'flex', flexDirection: 'column', gap: 10,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: 'var(--color-gold-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {job.title}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)' }}>
+                {job.slug} · {job.status} · {job.mode}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--color-text-dim)', marginTop: 2 }}>
+                Step {job.completedSteps} / {job.totalSteps}
+                {job.errorMessage && (
+                  <span style={{ color: '#ff6b6b', marginLeft: 8 }}>{job.errorMessage}</span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              {job.resumable && (
+                <button
+                  disabled={busy}
+                  onClick={() => resumeJob(job.slug)}
+                  style={{
+                    fontSize: '0.78rem', padding: '6px 12px', borderRadius: 999,
+                    background: 'rgba(251,191,36,0.1)', color: '#fbbf24',
+                    border: '1px solid rgba(251,191,36,0.25)', cursor: 'pointer',
+                  }}
+                >
+                  Resume
+                </button>
+              )}
+              <button
+                disabled={busy}
+                onClick={() => deleteJob(job.id, job.slug)}
+                style={{
+                  fontSize: '0.78rem', padding: '6px 12px', borderRadius: 999,
+                  background: 'rgba(255,107,107,0.1)', color: '#ff6b6b',
+                  border: '1px solid rgba(255,107,107,0.25)', cursor: 'pointer',
+                }}
+              >
+                Delete
+              </button>
+            </div>
+
+            {job.userId && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--color-text-dim)' }}>Owner: {job.userId.slice(0, 12)}…</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', marginBottom: 40 }} />
 
       <h1 style={{ fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', color: 'var(--color-gold-light)', marginBottom: 8 }}>All Books</h1>
       <p style={{ color: 'var(--color-text-dim)', marginBottom: 24 }}>{books.length} total · admin override enabled</p>

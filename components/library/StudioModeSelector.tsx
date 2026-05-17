@@ -18,14 +18,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import BookGenerator from './BookGenerator';
-import ClassroomStoryForm from './ClassroomStoryForm';
 import PersonalizedStoryForm from './PersonalizedStoryForm';
 
-type Mode = 'world' | 'classroom' | 'personalized';
+type Mode = 'world' | 'personalized';
 
 const MODES: { id: Mode; label: string; sublabel: string }[] = [
   { id: 'world',        label: 'Story World',         sublabel: 'Mahabharata, Akbar–Birbal, any title' },
-  { id: 'classroom',    label: 'Classroom Story',     sublabel: 'Grade-tuned, with a recap' },
   { id: 'personalized', label: 'Personalized Story',  sublabel: 'Your child as the hero (text)' },
 ];
 
@@ -88,7 +86,6 @@ export default function StudioModeSelector() {
         transition={{ duration: 0.22 }}
       >
         {mode === 'world' && <BookGenerator />}
-        {mode === 'classroom' && <ClassroomStoryForm />}
         {mode === 'personalized' && <PersonalizedStoryForm />}
       </motion.div>
     </div>

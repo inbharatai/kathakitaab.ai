@@ -384,7 +384,11 @@ export interface GeneratedBook {
 /** Optional knobs for non-world generation modes. The pipeline is
  *  identical (outline → details → images → narration); only the
  *  outline prompt and the synthesised title differ. Each non-world
- *  mode supplies its own pre-built prompt via `outlinePrompt`. */
+ *  mode supplies its own pre-built prompt via `outlinePrompt`.
+ *
+ *  `onStepComplete` is called after each major generation step so
+ *  the caller can persist intermediate state (outline, scenes,
+ *  images) for resumable generation. */
 export interface GenerateBookOptions {
   /** Complete user-content for the outline LLM call. When omitted,
    *  the world-mode prompt is used (existing behaviour). */
@@ -392,6 +396,9 @@ export interface GenerateBookOptions {
   /** Visual style preset for image generation. Defaults to
    *  photoreal_cinematic when omitted. */
   stylePreset?: StylePreset;
+  /** Called after each major step completes with the intermediate
+   *  data so the caller can persist it for resume. */
+  onStepComplete?: (step: 'outline' | 'portraits' | 'scenes' | 'images', data: unknown) => void | Promise<void>;
 }
 
 // ---- Main Generator (OpenAI primary, Gemini fallback) ----
@@ -475,6 +482,8 @@ async function generateBookOpenAI(
 
   if (sceneOutlines.length === 0) throw new Error('Failed to generate scene outline');
 
+  await options.onStepComplete?.('outline', { outline, characters });
+
   // STEP 2.5: Bake canonical character anchor portraits.
   // For each character with an `appearance` description, render a
   // single canonical portrait via the universal visualAgent so the
@@ -533,6 +542,8 @@ async function generateBookOpenAI(
     registerRuntimeCanon(slug, charactersToCanonEntries(characters));
   }
 
+  await options.onStepComplete?.('portraits', { characters });
+
   // STEP 2: Detail LLM calls (parallel, fast).
   // Each detail call is ~5-10s; with concurrency 4 the 11 calls
   // complete in ~25-30s instead of 80s+ serial.
@@ -580,6 +591,47 @@ motion guide:
     return JSON.parse(detailRes.choices[0]?.message?.content || '{}');
     void i;
   });
+
+  // Build base scenes (without images) so the caller can persist
+  // intermediate state before the slow image phase begins.
+  const baseScenes: GeneratedScene[] = sceneOutlines.map((scene, i) => {
+    const detail = details[i] ?? {};
+    const narration = (detail.narration || scene.short_summary) as string;
+    const prev = i > 0 ? sceneOutlines[i - 1].scene_id : null;
+    const next = i < sceneOutlines.length - 1 ? sceneOutlines[i + 1].scene_id : null;
+    return {
+      scene_id: scene.scene_id,
+      title: scene.title,
+      order_index: i + 1,
+      short_summary: scene.short_summary,
+      visual_description: scene.visual_description,
+      background_asset_url: '',
+      narration,
+      learning_points: detail.learning_points || [],
+      source_notes: detail.source_notes || outline.source_tradition || '',
+      hotspots: (detail.hotspots || []).map((h: GeneratedHotspot, idx: number) => ({
+        ...h,
+        id: `hs-${scene.scene_id}-${idx}`,
+      })),
+      quiz_questions: (detail.quiz_questions || []).map((q: GeneratedQuiz, idx: number) => ({
+        ...q,
+        id: `quiz-${scene.scene_id}-${idx}`,
+        scene_id: scene.scene_id,
+      })),
+      previous_scene_id: prev,
+      next_scene_id: next,
+      mood: scene.mood,
+      theme: scene.theme,
+      characters_present: scene.characters_present,
+      characters_absent: scene.characters_absent,
+      motion: detail.motion as SceneMotion | undefined,
+      duration_seconds: estimateNarrationSeconds(narration),
+      beats: undefined,
+      dialogue: normaliseSceneDialogue(scene.dialogue),
+    };
+  });
+
+  await options.onStepComplete?.('scenes', { scenes: baseScenes });
 
   // STEP 3: Image generation (parallel, the slow phase).
   // Each scene now wants 1-5 visual beats: the establishing shot
@@ -685,62 +737,14 @@ motion guide:
   }
   const imageUrls = sceneBeats.map(beats => beats[0]?.imageUrl ?? '');
 
-  // STEP 4: Stitch the book.
-  // Note: scene narration audio is NOT pre-rendered here. The live
-  // reader resolves it lazily via /api/livebook/tts (Redis-cached).
-  // The movie manifest synthesizer pre-renders any missing audio
-  // at first /api/livebook/manifest fetch — that step has its own
-  // 300s lambda budget separate from the gen budget. Splitting the
-  // work keeps book generation fast and reliable: the user lands on
-  // a fully-readable book in ~2 minutes, and the cinematic cut warms
-  // its audio when they open the movie page.
-  const scenesWithDetails: GeneratedScene[] = sceneOutlines.map((scene, i) => {
-    const detail = details[i] ?? {};
-    const narration = (detail.narration || scene.short_summary) as string;
-    const prev = i > 0 ? sceneOutlines[i - 1].scene_id : null;
-    const next = i < sceneOutlines.length - 1 ? sceneOutlines[i + 1].scene_id : null;
+  // Patch base scenes with generated images/beats.
+  for (let i = 0; i < baseScenes.length; i++) {
     const beats = sceneBeats[i] ?? [];
-    return {
-      scene_id: scene.scene_id,
-      title: scene.title,
-      order_index: i + 1,
-      short_summary: scene.short_summary,
-      visual_description: scene.visual_description,
-      background_asset_url: imageUrls[i] ?? '',
-      narration,
-      learning_points: detail.learning_points || [],
-      source_notes: detail.source_notes || outline.source_tradition || '',
-      hotspots: (detail.hotspots || []).map((h: GeneratedHotspot, idx: number) => ({
-        ...h,
-        id: `hs-${scene.scene_id}-${idx}`,
-      })),
-      quiz_questions: (detail.quiz_questions || []).map((q: GeneratedQuiz, idx: number) => ({
-        ...q,
-        id: `quiz-${scene.scene_id}-${idx}`,
-        scene_id: scene.scene_id,
-      })),
-      previous_scene_id: prev,
-      next_scene_id: next,
-      mood: scene.mood,
-      theme: scene.theme,
-      characters_present: scene.characters_present,
-      characters_absent: scene.characters_absent,
-      motion: detail.motion as SceneMotion | undefined,
-      duration_seconds: estimateNarrationSeconds(narration),
-      // narration_audio_url left unset — see comment above. Filled in
-      // by manifestSynthesizer when the movie is requested.
-      // Multi-beat track: only set when at least 2 beats actually
-      // rendered. A 1-beat result is identical to the legacy single-
-      // image scene, so leaving `beats` undefined lets the reader
-      // take its existing fast path.
-      beats: beats.length >= 2 ? beats : undefined,
-      // Comic-book overlay track. Normalised from the outline LLM's
-      // free-form output: trim text, validate kind, drop empties.
-      // Persisted on every book regardless of preset so a future
-      // re-render in the comic style finds dialogue already there.
-      dialogue: normaliseSceneDialogue(scene.dialogue),
-    };
-  });
+    baseScenes[i].background_asset_url = imageUrls[i] ?? '';
+    baseScenes[i].beats = beats.length >= 2 ? beats : undefined;
+  }
+
+  await options.onStepComplete?.('images', { scenes: baseScenes });
 
   onProgress?.('Book complete!', 100);
 
@@ -751,7 +755,7 @@ motion guide:
     subtitle: outline.book_subtitle || `An interactive journey through ${bookTitle}`,
     description: outline.book_description || `Explore ${bookTitle} as a living storybook.`,
     source_tradition: outline.source_tradition || 'Public domain traditions',
-    scenes: scenesWithDetails,
+    scenes: baseScenes,
     characters,
     generatedAt: Date.now(),
   };

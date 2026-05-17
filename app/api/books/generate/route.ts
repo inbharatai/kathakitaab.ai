@@ -1,5 +1,5 @@
 import { NextResponse, after } from 'next/server';
-import { generateBook, type GeneratedBook, type GenerationMode, type BookMetadata } from '@/lib/openai/bookGeneratorAgent';
+import { generateBook, type GeneratedBook, type GeneratedScene, type GeneratedCharacter, type GenerationMode, type BookMetadata } from '@/lib/openai/bookGeneratorAgent';
 import type { StylePreset } from '@/lib/types/style';
 import { defaultPresetForBook, STYLE_PRESETS, slugSuffixForPreset } from '@/lib/types/style';
 import { detectGenreProfile } from '@/lib/engine/genreDetector';
@@ -26,6 +26,16 @@ import {
   type ClassroomMeta,
   type PersonalizedTextMeta,
 } from '@/lib/openai/modePrompts';
+import {
+  createJob,
+  updateJob,
+  completeJob,
+  failJob,
+  getJobBySlug,
+  hasActiveJob,
+  type GenerationStep,
+} from '@/lib/data/jobRegistry';
+import { saveScenes, updateScene, saveBookCharacters, type PersistedScene } from '@/lib/data/sceneRegistry';
 
 // Generation runs ~60–180s for a 10–12 scene book (one OpenAI
 // chat per scene plus image generation). Default Vercel hobby
@@ -335,10 +345,25 @@ export async function POST(request: Request) {
     if (existing) {
       return NextResponse.json({ book: existing, cached: true });
     }
-    if (await isBookGenerating(slug)) {
-      return NextResponse.json({ generating: true, slug });
-    }
   }
+  if (await hasActiveJob(slug) || (mode === 'world' && await isBookGenerating(slug))) {
+    return NextResponse.json({ generating: true, slug });
+  }
+
+  // Create a persistent generation job before any LLM calls.
+  // The job is the source of truth for resumable generation.
+  const stylePreset = resolveStylePreset(body, bookTitle);
+  const job = await createJob({
+    slug,
+    userId: session?.userId ?? ownerId ?? null,
+    title: bookTitle,
+    mode,
+    stylePreset,
+    metadata: {
+      ...(metadata ? (metadata as Record<string, unknown>) : {}),
+      outlinePrompt,
+    },
+  });
 
   // Mark "in flight" before scheduling the work so the very next
   // poll from the browser already sees a progress entry — even
@@ -359,13 +384,64 @@ export async function POST(request: Request) {
   }
 
   after(async () => {
+    let runningStep: GenerationStep = 'outline';
+
+    const onStepComplete = async (step: 'outline' | 'portraits' | 'scenes' | 'images', data: unknown) => {
+      try {
+        if (step === 'outline') {
+          const { outline, characters } = data as { outline: Record<string, unknown>; characters: GeneratedCharacter[] };
+          await updateJob(job.id, {
+            status: 'outline_generated',
+            currentStep: 'portraits',
+            completedSteps: 1,
+            metadata: {
+              ...job.metadata,
+              outlineSubtitle: outline.book_subtitle,
+              outlineDescription: outline.book_description,
+              outlineSourceTradition: outline.source_tradition,
+            },
+          });
+          await saveBookCharacters(slug, characters);
+          runningStep = 'portraits';
+        } else if (step === 'portraits') {
+          const { characters } = data as { characters: GeneratedCharacter[] };
+          await updateJob(job.id, { status: 'outline_generated', currentStep: 'scene_details', completedSteps: 2 });
+          await saveBookCharacters(slug, characters);
+          runningStep = 'scene_details';
+        } else if (step === 'scenes') {
+          const { scenes } = data as { scenes: GeneratedScene[] };
+          await updateJob(job.id, { status: 'scenes_generated', currentStep: 'scene_images', completedSteps: 3 });
+          const persisted: PersistedScene[] = scenes.map(s => ({
+            ...s,
+            savedAt: Date.now(),
+            imageStatus: 'pending',
+            ttsStatus: 'pending',
+          }));
+          await saveScenes(slug, persisted);
+          runningStep = 'scene_images';
+        } else if (step === 'images') {
+          const { scenes } = data as { scenes: GeneratedScene[] };
+          await updateJob(job.id, { status: 'images_generated', currentStep: 'scene_tts', completedSteps: 4 });
+          await Promise.all(scenes.map(s =>
+            updateScene(slug, s.scene_id, {
+              background_asset_url: s.background_asset_url,
+              beats: s.beats,
+              imageStatus: s.background_asset_url ? 'completed' : 'failed',
+            })
+          ));
+          runningStep = 'scene_tts';
+        }
+      } catch (err) {
+        console.error('[generate] onStepComplete failed:', err instanceof Error ? err.message : err);
+      }
+    };
+
     try {
-      const stylePreset = resolveStylePreset(body, bookTitle);
       const book = await generateBook(bookTitle, (step, percent) => {
         void setProgress(slug, step, percent).catch(err => {
           console.error('[generate] progress write failed:', scrubError(err).message);
         });
-      }, { outlinePrompt, stylePreset });
+      }, { outlinePrompt, stylePreset, onStepComplete });
 
       // Stamp the book with mode-specific metadata. The generator
       // doesn't know about ownership — it just produces scenes /
@@ -391,7 +467,9 @@ export async function POST(request: Request) {
       // step fails or the lambda hits its budget, the book is
       // still usable — the live reader falls back to /api/livebook/tts
       // (slower first scene, identical content).
+      runningStep = 'scene_tts';
       try {
+        await updateJob(job.id, { status: 'tts_generating', currentStep: 'scene_tts' });
         await setProgress(slug, 'Recording narration...', 95);
         const hydrated = await hydrateBookAudio(finalBook);
         await saveGeneratedBook(hydrated);
@@ -402,7 +480,10 @@ export async function POST(request: Request) {
           audioErr instanceof Error ? audioErr.message : audioErr);
       }
 
+      runningStep = 'stitch';
+      await updateJob(job.id, { status: 'tts_generated', currentStep: 'stitch', completedSteps: 5 });
       await setProgress(slug, 'Complete!', 100, true);
+      await completeJob(job.id, slug);
       void trackEvent({
         event: 'book_generated',
         distinctId: session?.userId ?? ownerId ?? slug,
@@ -416,6 +497,7 @@ export async function POST(request: Request) {
       const safe = scrubError(err);
       console.error('[generate] failed for', safe.name, ':', safe.message);
       const userMsg = err instanceof Error ? err.message : 'Generation failed';
+      await failJob(job.id, runningStep, userMsg);
       await setProgress(slug, 'Error', 0, true, userMsg);
       // Refund the free-era slot we burned at request entry — a
       // failed generation shouldn't cost the user their one allowance.
@@ -433,7 +515,7 @@ export async function POST(request: Request) {
       void trackEvent({
         event: 'book_generation_failed',
         distinctId: session?.userId ?? ownerId ?? slug,
-        properties: { slug, mode, stylePreset: body.stylePreset, error: safe.message },
+        properties: { slug, mode, stylePreset, error: safe.message },
       });
     }
   });
@@ -464,6 +546,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ done: true, book });
   }
 
+  // New: check persistent job registry first (7-day TTL vs 30-min progress)
+  const job = await getJobBySlug(slug);
+  if (job) {
+    return NextResponse.json({ done: job.status === 'completed', job });
+  }
+
+  // Legacy fallback
   const progress = await getProgress(slug);
   if (!progress) return NextResponse.json({ error: 'No generation found for this slug' }, { status: 404 });
 
