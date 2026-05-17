@@ -3,6 +3,8 @@ import { getSceneWithHotspots } from '@/lib/data/ramayanaSeed';
 import { getBook } from '@/lib/data/bookRegistry';
 import { getScene, updateScene, markSceneStale } from '@/lib/data/sceneRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import type { GeneratedScene } from '@/lib/openai/bookGeneratorAgent';
 
 export async function GET(
@@ -50,11 +52,13 @@ export async function PATCH(
   if (!book) {
     return NextResponse.json({ error: `Book not found: ${slug}` }, { status: 404 });
   }
-  if (book.visibility === 'private') {
-    const ownerId = getOwnerIdFromRequest(request);
-    if (!ownerId || book.ownerId !== ownerId) {
-      return NextResponse.json({ error: 'Scene not found' }, { status: 404 });
-    }
+  const ownerId = getOwnerIdFromRequest(request);
+  const session = await getSessionFromRouteRequest(request);
+  const isAdmin = isAdminSession(session);
+  const callerId = session?.userId ?? ownerId;
+  const isOwner = book.ownerId ? book.ownerId === callerId : false;
+  if (!isAdmin && !isOwner) {
+    return NextResponse.json({ error: 'Scene not found' }, { status: 404 });
   }
 
   let body: Partial<GeneratedScene>;

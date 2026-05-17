@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getJobBySlug } from '@/lib/data/jobRegistry';
 import { getBook } from '@/lib/data/bookRegistry';
 import { getProgress } from '@/lib/data/bookRegistry';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 
 /** SSE stream for a single book generation.
  *
@@ -22,6 +25,19 @@ export async function GET(request: Request) {
   const slug = searchParams.get('slug');
   if (!slug) {
     return NextResponse.json({ error: 'slug required' }, { status: 400 });
+  }
+
+  // Authorize before opening SSE. Private books are not streamable
+  // by non-owners — same semantics as /api/books/[slug].
+  const bookCheck = await getBook(slug);
+  if (bookCheck && bookCheck.visibility === 'private') {
+    const ownerId = getOwnerIdFromRequest(request);
+    const session = await getSessionFromRouteRequest(request);
+    const isAdmin = isAdminSession(session);
+    const callerId = session?.userId ?? ownerId;
+    if (!isAdmin && bookCheck.ownerId !== callerId) {
+      return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+    }
   }
 
   const { readable, writable } = new TransformStream();

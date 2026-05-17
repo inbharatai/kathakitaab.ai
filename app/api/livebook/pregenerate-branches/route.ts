@@ -17,6 +17,10 @@ import {
   getCachedBranch, saveCachedBranch, saveManifest, getManifest, getPregenActions,
   type PreGeneratedBranch, type BranchManifest,
 } from '@/lib/engine/branchPreGenerator';
+import { getBook } from '@/lib/data/bookRegistry';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 
 interface Entity {
   entityId: string;
@@ -53,6 +57,18 @@ export async function POST(request: Request) {
 
     if (!entities || entities.length === 0) {
       return NextResponse.json({ status: 'no_entities', branches: [] });
+    }
+
+    // Visibility check: don't burn OpenAI credits on private books for strangers.
+    const book = await getBook(bookSlug);
+    if (book && book.visibility === 'private') {
+      const ownerId = getOwnerIdFromRequest(request);
+      const session = await getSessionFromRouteRequest(request);
+      const isAdmin = isAdminSession(session);
+      const callerId = session?.userId ?? ownerId;
+      if (!isAdmin && book.ownerId !== callerId) {
+        return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+      }
     }
 
     // Check if manifest already exists

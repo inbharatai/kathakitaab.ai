@@ -16,6 +16,9 @@ import { NextResponse } from 'next/server';
 import { runAgent, AgentContext } from '@/lib/openai/orchestratorAgent';
 import { getCharacterBySlug, getSceneById } from '@/lib/data/ramayanaSeed';
 import { getBook, getScene, getCharacter } from '@/lib/data/bookRegistry';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 
 // Turn a slug like "akbar-and-birbal-stories" into a display title
 // "Akbar And Birbal Stories" when we don't have a registered book to
@@ -99,11 +102,23 @@ export async function POST(request: Request) {
     // empty *and* the seed scene was used — otherwise the agent
     // prompt would claim the user is reading the wrong book.
     let bookTitle = 'LiveBook';
+    let registeredBook: Awaited<ReturnType<typeof getBook>> = null;
     if (bookSlug) {
-      const registered = await getBook(bookSlug);
-      bookTitle = registered?.title ?? slugToTitle(bookSlug);
+      registeredBook = await getBook(bookSlug);
+      bookTitle = registeredBook?.title ?? slugToTitle(bookSlug);
     } else if (getSceneById(sceneId)) {
       bookTitle = 'Ramayana LiveBook';
+    }
+
+    // Visibility check for generated books.
+    if (registeredBook && registeredBook.visibility === 'private') {
+      const ownerId = getOwnerIdFromRequest(request);
+      const session = await getSessionFromRouteRequest(request);
+      const isAdmin = isAdminSession(session);
+      const callerId = session?.userId ?? ownerId;
+      if (!isAdmin && registeredBook.ownerId !== callerId) {
+        return NextResponse.json({ error: 'Scene not found' }, { status: 404 });
+      }
     }
 
     // ---- Build Agent Context ----

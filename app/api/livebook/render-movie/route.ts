@@ -38,6 +38,9 @@ import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { analyzeImageForTargets } from '@/lib/agents/visionAgent';
 import { getBook } from '@/lib/data/bookRegistry';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 
 // 10 minutes — Remotion render of a 7-minute movie typically takes
 // 2-4 minutes depending on hardware. This caps it so a runaway
@@ -97,8 +100,25 @@ export async function POST(request: Request) {
   if (!bookSlug) {
     return NextResponse.json({ error: 'bookSlug is required' }, { status: 400 });
   }
+  // Path-traversal guard: slugs are always URL-safe lowercase alphanumerics
+  // with hyphens. Reject anything else before it touches the filesystem.
+  if (!/^[a-z0-9-]+$/.test(bookSlug)) {
+    return NextResponse.json({ error: 'Invalid bookSlug format' }, { status: 400 });
+  }
   if (mode !== 'movie' && mode !== 'trailer') {
     return NextResponse.json({ error: `mode must be 'movie' or 'trailer', got '${mode}'` }, { status: 400 });
+  }
+
+  // Visibility check: private books can only be rendered by owner or admin.
+  const book = await getBook(bookSlug);
+  if (book && book.visibility === 'private') {
+    const ownerId = getOwnerIdFromRequest(request);
+    const session = await getSessionFromRouteRequest(request);
+    const isAdmin = isAdminSession(session);
+    const callerId = session?.userId ?? ownerId;
+    if (!isAdmin && book.ownerId !== callerId) {
+      return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+    }
   }
 
   const manifest = await getManifestForSlugAsync(bookSlug);
@@ -344,10 +364,16 @@ async function runVisionQA(
       const imageUrl = mScene.imagePath;
       if (!imageUrl) continue;
 
+      const fullUrl = imageUrl.startsWith('http')
+        ? imageUrl
+        : `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5009'}${imageUrl}`;
+      if (!isSafeUrl(fullUrl)) {
+        console.warn(`[vision-qa] Skipped unsafe URL: ${fullUrl}`);
+        continue;
+      }
+
       try {
-        const imageRes = await fetch(imageUrl.startsWith('http')
-          ? imageUrl
-          : `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5009'}${imageUrl}`);
+        const imageRes = await fetch(fullUrl);
         if (!imageRes.ok) continue;
         const buf = Buffer.from(await imageRes.arrayBuffer());
         const dataUri = `data:image/png;base64,${buf.toString('base64')}`;
@@ -366,6 +392,26 @@ async function runVisionQA(
     }
   });
   await Promise.all(workers);
+}
+
+function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    // Block private IP ranges and localhost to prevent SSRF
+    const host = u.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1') return false;
+    if (host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.')) {
+      const second = parseInt(host.split('.')[1], 10);
+      if (host.startsWith('10.') || host.startsWith('192.168.') || (host.startsWith('172.') && second >= 16 && second <= 31)) {
+        return false;
+      }
+    }
+    if (host.startsWith('169.254.')) return false; // link-local
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function getPublicUrlIfExists(

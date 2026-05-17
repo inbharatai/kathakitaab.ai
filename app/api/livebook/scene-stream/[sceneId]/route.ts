@@ -27,6 +27,10 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { detectTopics } from '@/lib/video/effects/topicTagger';
 import { buildSceneEffects } from '@/lib/video/effects/effectRecipes';
 import type { SceneEffect } from '@/lib/video/effects/types';
+import { getBook } from '@/lib/data/bookRegistry';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 
 // ── Manifest shape ───────────────────────────────────────────
 
@@ -116,6 +120,23 @@ export async function GET(
       { error: `Scene not found: ${sceneId} in book ${bookSlug}` },
       { status: 404 },
     );
+  }
+
+  // Authorize: seed books are always public; generated books need ownership.
+  if (bookSlug !== 'ramayana') {
+    const book = await getBook(bookSlug);
+    if (book && book.visibility === 'private') {
+      const ownerId = getOwnerIdFromRequest(request);
+      const session = await getSessionFromRouteRequest(request);
+      const isAdmin = isAdminSession(session);
+      const callerId = session?.userId ?? ownerId;
+      if (!isAdmin && book.ownerId !== callerId) {
+        return NextResponse.json(
+          { error: `Scene not found: ${sceneId} in book ${bookSlug}` },
+          { status: 404 },
+        );
+      }
+    }
   }
 
   const entities = await Promise.all(

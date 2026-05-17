@@ -7,6 +7,9 @@ import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache
 import { getOpenAIModel, isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'default' });
@@ -61,10 +64,23 @@ export async function POST(request: Request) {
       source_notes: seedChar.source_notes, short_summary: seedChar.short_summary, slug: seedChar.slug,
     };
 
+    let registryBook: Awaited<ReturnType<typeof getRegistryBook>> = null;
     if (!book) {
-      const registryBook = await getRegistryBook(bookSlug);
+      registryBook = await getRegistryBook(bookSlug);
       if (registryBook) book = { id: registryBook.id, slug: registryBook.slug, title: registryBook.title };
     }
+
+    // Visibility check for generated books.
+    if (registryBook && registryBook.visibility === 'private') {
+      const ownerId = getOwnerIdFromRequest(request);
+      const session = await getSessionFromRouteRequest(request);
+      const isAdmin = isAdminSession(session);
+      const callerId = session?.userId ?? ownerId;
+      if (!isAdmin && registryBook.ownerId !== callerId) {
+        return NextResponse.json({ error: 'Book, scene, or character not found' }, { status: 404 });
+      }
+    }
+
     if (!scene) {
       const registryScene = await getRegistryScene(bookSlug, sceneId);
       if (registryScene) scene = {

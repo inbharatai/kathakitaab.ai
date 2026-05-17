@@ -17,8 +17,6 @@
 // ============================================================
 import type { AuthSession } from './session';
 
-const DEFAULT_ADMIN_EMAILS = ['reetu004@gmail.com'];
-
 let cached: Set<string> | null = null;
 
 function adminSet(): Set<string> {
@@ -27,7 +25,10 @@ function adminSet(): Set<string> {
     .split(',')
     .map(s => s.trim().toLowerCase())
     .filter(Boolean);
-  cached = new Set<string>([...DEFAULT_ADMIN_EMAILS.map(e => e.toLowerCase()), ...fromEnv]);
+  if (fromEnv.length === 0) {
+    console.warn('[adminAllowlist] KATHA_ADMIN_EMAILS is not set. No admin access.');
+  }
+  cached = new Set<string>(fromEnv);
   return cached;
 }
 

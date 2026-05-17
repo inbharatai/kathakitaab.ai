@@ -41,7 +41,7 @@ export function middleware(request: NextRequest) {
   response.cookies.set({
     name: OWNER_COOKIE,
     value: newOwnerId(),
-    httpOnly: false,
+    httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',

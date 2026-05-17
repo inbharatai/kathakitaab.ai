@@ -144,12 +144,16 @@ export async function checkRateLimit(req: Request, opts: RateLimitOptions = {}):
 }
 
 function getClientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
-  const realIp = req.headers.get('x-real-ip');
-  if (realIp) return realIp.trim();
+  // Trust proxy-set headers first (set by Vercel / Cloudflare),
+  // then fall back to x-forwarded-for which can be spoofed by
+  // clients when no proxy strips it. This ordering prevents IP
+  // spoofing attacks that bypass rate limits.
   const cfIp = req.headers.get('cf-connecting-ip');
   if (cfIp) return cfIp.trim();
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp) return realIp.trim();
+  const xff = req.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0].trim();
   return 'unknown';
 }
 

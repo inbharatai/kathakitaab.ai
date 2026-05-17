@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   // Ownership check
   const ownerId = getOwnerIdFromRequest(request);
   const callerId = session?.userId ?? ownerId;
-  if (!isAdmin && job.userId && job.userId !== callerId) {
+  if (!isAdmin && job.userId !== callerId) {
     return NextResponse.json(
       { error: 'Not authorized to resume this generation' },
       { status: 403 },
