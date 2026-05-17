@@ -80,7 +80,7 @@ export async function POST(request: Request) {
   }
 
   // Lock the job so concurrent resume requests don't double-run.
-  await updateJob(job.id, { status: 'queued', currentStep: null, resumable: false });
+  await updateJob(job.id, { status: 'queued', currentStep: null });
   await setProgress(slug, 'Resuming...', 0);
 
   after(async () => {

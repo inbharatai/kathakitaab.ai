@@ -100,10 +100,10 @@ export default function AdminPage() {
     }
   }
 
-  async function deleteJob(id: string, slug: string) {
-    if (!confirm(`Delete job ${slug}?`)) return;
+  async function deleteJob(id: string, _slug: string) {
+    if (!confirm(`Delete job ${_slug}?`)) return;
     setBusy(true);
-    const res = await fetch(`/api/books/${slug}`, { method: 'DELETE' });
+    const res = await fetch(`/api/admin/jobs/${id}`, { method: 'DELETE' });
     setBusy(false);
     if (res.ok) {
       setJobs(prev => prev.filter(j => j.id !== id));

@@ -1,6 +1,8 @@
 import { NextResponse, after } from 'next/server';
 import { getBook as getSeedBook, getScenesByBookId, getCharactersByBookId } from '@/lib/data/ramayanaSeed';
 import { getBook as getRegistryBook, deleteBook } from '@/lib/data/bookRegistry';
+import { deleteScenesForBook, deleteBookCharacters } from '@/lib/data/sceneRegistry';
+import { getJobBySlug, deleteJob } from '@/lib/data/jobRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
@@ -156,6 +158,15 @@ export async function DELETE(
   }
 
   await deleteBook(slug);
+
+  // Clean up associated scenes, characters, and generation job so Redis doesn't leak.
+  await deleteScenesForBook(slug);
+  await deleteBookCharacters(slug);
+  const job = await getJobBySlug(slug);
+  if (job) {
+    await deleteJob(job.id);
+  }
+
   return NextResponse.json({ ok: true });
 }
 

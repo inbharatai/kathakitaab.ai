@@ -225,7 +225,7 @@ export default function BooksPage() {
       <LibraryHome books={books} loading={!loaded} />
 
       {/* Generation Queue — active and failed jobs */}
-      {jobsLoaded && jobs.length > 0 && (
+      {jobsLoaded && jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled').length > 0 && (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px 40px' }}>
           <h2 style={{
             fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-dim)',
@@ -234,7 +234,7 @@ export default function BooksPage() {
             Generation Queue
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {jobs.map(job => (
+            {jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled').map(job => (
               <div
                 key={job.id}
                 style={{
@@ -333,13 +333,11 @@ export default function BooksPage() {
                       const title = prompt('New title:', book.title);
                       if (title === null) return;
                       const subtitle = prompt('New subtitle:', book.subtitle || '');
-                      if (subtitle === null) return;
                       const description = prompt('New description:', book.description || '');
-                      if (description === null) return;
                       await handleEditSave(book.slug, {
                         title: title.trim() || book.title,
-                        subtitle: subtitle.trim(),
-                        description: description.trim(),
+                        subtitle: subtitle?.trim() ?? book.subtitle,
+                        description: description?.trim() ?? book.description,
                       });
                     }}
                   >

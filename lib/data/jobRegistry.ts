@@ -99,7 +99,7 @@ export async function createJob(
   params: Pick<GenerationJob, 'slug' | 'userId' | 'title' | 'mode' | 'stylePreset' | 'metadata'>,
 ): Promise<GenerationJob> {
   const job: GenerationJob = {
-    id: `job-${params.slug}-${now()}`,
+    id: `job-${params.slug}-${now()}-${Math.random().toString(36).slice(2, 8)}`,
     ...params,
     status: 'queued',
     currentStep: null,

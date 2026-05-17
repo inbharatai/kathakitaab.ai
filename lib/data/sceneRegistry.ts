@@ -280,3 +280,12 @@ export async function getBookCharacters(
   if (!r) return null;
   return r.get<GeneratedCharacter[]>(charactersKey(bookSlug));
 }
+
+/** Delete the character roster for a book. Called when the book is
+ *  deleted so Redis doesn't leak orphaned character keys. */
+export async function deleteBookCharacters(bookSlug: string): Promise<void> {
+  const r = getRedis();
+  if (r) {
+    await r.del(charactersKey(bookSlug));
+  }
+}
