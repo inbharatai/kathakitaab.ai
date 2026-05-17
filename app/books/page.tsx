@@ -185,7 +185,7 @@ export default function BooksPage() {
           </span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem' }}>Story Worlds</span>
+          <Link href="/educator" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem', textDecoration: 'none' }}>Studio →</Link>
           <AuthNavButton next="/books#create-story" compact />
         </div>
       </nav>
