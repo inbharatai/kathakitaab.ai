@@ -655,12 +655,43 @@ body {
   -webkit-overflow-scrolling: touch;
   padding: 8px 16px 20px;
   margin: 0 -16px;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Firefox - hidden on mobile */
+  -ms-overflow-style: none; /* IE/Edge - hidden on mobile */
 }
 
 .story-rail::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none; /* Chrome/Safari - hidden on mobile */
+}
+
+/* Show horizontal scrollbar on tablet/desktop so users can
+   discover there's more content to scroll. Mobile stays
+   hidden since touch-swipe is the primary interaction. */
+@media (min-width: 768px) {
+  .story-rail {
+    scrollbar-width: thin; /* Firefox */
+    -ms-overflow-style: auto; /* IE/Edge */
+    padding-bottom: 24px;
+  }
+
+  .story-rail::-webkit-scrollbar {
+    display: block;
+    height: 6px;
+  }
+
+  .story-rail::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.04);
+    border-radius: 3px;
+    margin: 0 16px;
+  }
+
+  .story-rail::-webkit-scrollbar-thumb {
+    background: var(--color-gold);
+    border-radius: 3px;
+  }
+
+  .story-rail::-webkit-scrollbar-thumb:hover {
+    background: var(--color-saffron);
+  }
 }
 
 /* Story card (poster style) */
