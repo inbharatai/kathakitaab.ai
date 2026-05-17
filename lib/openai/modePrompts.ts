@@ -58,23 +58,32 @@ const OUTLINE_JSON_SHAPE = `Return JSON with this structure:
       "visual_beats": [
         {
           "description": "string — the SECOND beat. A different shot from beat 1: a character close-up, a key object detail, a reaction face, an action moment, or a reveal. Detailed enough to paint as its own illustration. Specify WHO is in frame and what they're doing.",
-          "camera_action": "one of: slow_zoom_in | slow_zoom_out | pan_left | pan_right | divine_glow | battle_push | fade_only — pick what suits this shot. Close-ups want slow_zoom_in or fade_only; reveals want slow_zoom_out; action wants battle_push; sacred moments want divine_glow."
+          "shot_type": "one of: wide | medium | close_up | reverse | detail | reaction | object | over_shoulder | fade_only. For dialogue scenes, alternate speakers with reverse or over_shoulder (shot-reverse-shot). Action needs wide or medium. Emotional beats need close_up or reaction. Object reveals need detail or object. Establishing shots need wide.",
+          "camera_action": "one of: slow_zoom_in | slow_zoom_out | pan_left | pan_right | divine_glow | battle_push | fade_only — pick what suits this shot. Close-ups want slow_zoom_in; reveals want slow_zoom_out; action wants battle_push; sacred moments want divine_glow.",
+          "sfx": "string — OPTIONAL one-shot sound effect that fires when this beat begins. One of: sword_clash, thunder_crack, door_creak, footsteps, horse_gallop, arrow_whoosh, magic_chime, glass_break, splash, roar, whisper_wind, coin_drop, drum_roll. Only for beats with a strong sonic moment; omit otherwise."
         },
         {
           "description": "string — the THIRD beat. Another distinct shot. Vary the framing again: if beat 2 was a close-up, beat 3 might be a wide reaction or detail shot.",
-          "camera_action": "same vocabulary as beat 2 — different value when possible so the camera personality varies"
+          "shot_type": "same vocabulary as beat 2",
+          "camera_action": "same vocabulary as beat 2 — different value when possible so the camera personality varies",
+          "sfx": "same vocabulary as beat 2"
         },
         {
           "description": "string — OPTIONAL fourth beat. Only include when the narration is long enough (>20s) to support 4 painted moments. Skip for short scenes.",
-          "camera_action": "same vocabulary"
+          "shot_type": "same vocabulary",
+          "camera_action": "same vocabulary",
+          "sfx": "same vocabulary"
         },
         {
           "description": "string — OPTIONAL fifth beat. Only for the longest, most action-heavy scenes. Skip otherwise.",
-          "camera_action": "same vocabulary"
+          "shot_type": "same vocabulary",
+          "camera_action": "same vocabulary",
+          "sfx": "same vocabulary"
         }
       ],
       "mood": "serene|dramatic|somber|joyful|sacred|mysterious|tense",
       "theme": "one-word noun for the beat — duty, wit, sacrifice, trick, courage, loss, devotion, reflection",
+      "ambient_sound": "string — OPTIONAL suggested ambient loop for this scene's setting. One of: wind, crowd_murmur, fire_crackling, temple_bells, forest_birds, rain, battle_noise, ocean_waves, night_crickets, palace_hall, desert_sand, river_flow, market_chatter. Only include when the setting has a distinctive soundscape; omit for quiet interior scenes.",
       "characters_present": ["slug of every character physically visible in this scene"],
       "characters_absent": ["slug of main characters who are NOT in this scene (kidnapped, off-screen, dead, elsewhere)"],
       "dialogue": [
@@ -152,7 +161,19 @@ export function worldOutlinePrompt(title: string): string {
 
 Walk the story chronologically — establish the world, introduce the main characters, raise the central conflict, follow it through rising action and a clear turn, and close on the resolution. Each scene should advance the timeline; don't repeat beats.
 
-For each scene, include 2 to 3 distinct VISUAL BEATS — different moments within the same scene that the camera moves through. The first beat is the establishing shot in visual_description; visual_beats[0] and visual_beats[1] are subsequent moments the picture cuts to mid-narration. Children get bored when one image holds for 30 seconds; multiple beats fix that. Each beat must paint as its own illustration — vary the camera angle, the focal character, or what's happening on screen.
+For each scene, include 2 to 3 distinct VISUAL BEATS — different moments within the same scene that the camera cuts to. The first beat is the establishing shot in visual_description; visual_beats[0] and visual_beats[1] are subsequent shots mid-narration. Children get bored when one image holds for 30 seconds; multiple beats fix that. Each beat must paint as its own illustration — vary the camera angle, the focal character, or what's happening on screen.
+
+CRITICAL shot discipline:
+- Label every beat with its shot_type so the camera language is explicit.
+- Dialogue-heavy scenes MUST use shot-reverse-shot: alternate reverse or over_shoulder between speakers so the conversation feels cinematic, not like a static panel.
+- Action scenes need wide or medium shots so the viewer can read the movement.
+- Emotional beats need close_up or reaction shots so the viewer connects with the character.
+- Never repeat the same shot_type back-to-back within a scene — the cut should feel intentional.
+
+Sound design guide — the movie renderer supports ambient loops and one-shot SFX per beat:
+- Assign an ambient_sound to any scene with a distinctive setting (battle, storm, forest, temple, palace hall, market, ocean). Omit for quiet interior scenes.
+- Assign an sfx to a beat ONLY when a strong sonic event happens (sword clash, thunder, door creak, arrow flight, splash, roar). Most beats do NOT need an sfx — silence is as powerful as noise.
+- Do not stack multiple loud sfx in the same scene; one or two per scene is the ceiling.
 
 ${OUTLINE_JSON_SHAPE}
 

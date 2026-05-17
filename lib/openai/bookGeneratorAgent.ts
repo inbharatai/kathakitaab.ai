@@ -197,6 +197,10 @@ export interface GeneratedScene {
   /** Characters who must NOT appear in this scene (absent, kidnapped,
    *  dead, off-screen). Drives negative constraints in image prompts. */
   characters_absent?: string[];
+  /** Ambient sound loop for the scene's setting (wind, rain, fire,
+   *  temple bells, etc.). Suggested by the outline LLM; rendered by
+   *  the movie composer as a low-level texture beneath the mood bed. */
+  ambient_sound?: string;
 }
 
 /** Mirrors lib/types/livebook.ts:SceneDialogue. Kept duplicated here
@@ -230,6 +234,13 @@ export interface SceneBeat {
    *  fills missing motions deterministically from a rotation pool
    *  so every beat gets a distinct camera move regardless. */
   motion?: SceneMotion;
+  /** Shot type the LLM assigned to this beat (wide, close_up,
+   *  reverse, etc.). Forwarded to the manifest for coverage stats
+   *  and future renderer behaviour. */
+  shotType?: string;
+  /** One-shot sound effect that fires when this beat begins.
+   *  Rendered by the movie composer as a brief audio hit. */
+  sfx?: string;
 }
 
 export interface GeneratedCharacter {
@@ -453,9 +464,10 @@ async function generateBookOpenAI(
      *  with `description` + `camera_action`; we ALSO accept the legacy
      *  string[] shape so older prompts and Gemini-fallback paths still
      *  produce something usable. Missing entirely → single-beat scene. */
-    visual_beats?: Array<string | { description: string; camera_action?: string }>;
+    visual_beats?: Array<string | { description: string; camera_action?: string; shot_type?: string; sfx?: string }>;
     mood?: SceneMood;
     theme?: string;
+    ambient_sound?: string;
     /** Characters physically present in this scene. Used to build
      *  scene-specific image prompts and negative constraints. */
     characters_present?: string[];
@@ -628,6 +640,7 @@ motion guide:
       duration_seconds: estimateNarrationSeconds(narration),
       beats: undefined,
       dialogue: normaliseSceneDialogue(scene.dialogue),
+      ambient_sound: scene.ambient_sound,
     };
   });
 
@@ -652,6 +665,10 @@ motion guide:
     prompt: string;
     /** Camera motion the LLM picked for this beat (if any). */
     cameraAction?: string;
+    /** Shot type the LLM assigned (wide, close_up, reverse, etc.). */
+    shotType?: string;
+    /** One-shot SFX suggested for this beat. */
+    sfx?: string;
   };
   const beatJobs: BeatJob[] = sceneOutlines.flatMap((scene, sIdx) => {
     const jobs: BeatJob[] = [
@@ -665,6 +682,12 @@ motion guide:
       const cam = typeof extra === 'object' && extra !== null
         ? extra.camera_action
         : undefined;
+      const shotType = typeof extra === 'object' && extra !== null
+        ? extra.shot_type
+        : undefined;
+      const sfx = typeof extra === 'object' && extra !== null
+        ? extra.sfx
+        : undefined;
       const trimmed = (desc ?? '').trim();
       if (trimmed.length > 8 && trimmed !== scene.visual_description.trim()) {
         jobs.push({
@@ -672,6 +695,8 @@ motion guide:
           beatIndex: jobs.length,
           prompt: trimmed,
           cameraAction: cam,
+          shotType,
+          sfx,
         });
       }
     }
@@ -726,6 +751,8 @@ motion guide:
         // Manifest synthesizer fills missing motions deterministically
         // from a mood pool, so legacy beats still get distinct cameras.
         motion: normaliseSceneMotion(r.cameraAction),
+        shotType: r.shotType,
+        sfx: r.sfx,
       };
     }
   }

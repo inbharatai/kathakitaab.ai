@@ -208,6 +208,8 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
         ? s.beats.map((b, i) => ({
             imagePath: b.imageUrl,
             motion: (b.motion as SceneMotion | undefined) ?? beatMotionForIndex(i, motion, s.mood),
+            shotType: b.shotType,
+            sfxUrl: b.sfx,
           }))
         : undefined;
 
@@ -225,6 +227,7 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
         // backgroundMusicUrl unset → BookMovie picks the procedural
         // mood bed at the right tempo for s.mood. Universal.
         backgroundMusicUrl: undefined,
+        ambientSoundUrl: s.ambient_sound || undefined,
         effects,
         subtitles: planSubtitles(s.narration, durationSeconds),
         hotspots,

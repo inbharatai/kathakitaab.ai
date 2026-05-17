@@ -48,6 +48,11 @@ interface Scene {
   title: string;
   narration: string;
   background_asset_url: string;
+  mood?: string;
+  motion?: string;
+  beats?: Array<{ imageUrl: string; visualDescription?: string; motion?: string; shotType?: string; sfx?: string }>;
+  dialogue?: Array<{ speaker: string; text: string; kind?: string }>;
+  ambient_sound?: string;
 }
 
 interface ManifestScene {
@@ -75,6 +80,15 @@ interface ManifestScene {
    *  falls back to the procedural mood WAV at /audio/mood/{mood}.wav.
    *  Setting this to a real CDN URL lets each book ship its own bed. */
   backgroundMusicUrl?: string;
+  /** Looping ambient soundscape for this scene. Mixed very low beneath
+   *  the mood bed so it adds texture without competing with narration. */
+  ambientSoundUrl?: string;
+  /** Multi-beat visual track — each beat is a distinct shot with its
+   *  own camera motion. Backwards-compatible: missing → single-beat. */
+  beats?: Array<{ imagePath: string; motion?: SceneMotion; shotType?: string; sfxUrl?: string }>;
+  /** Comic-book dialogue overlay. Only rendered when stylePreset is
+   *  'comic_book'; other presets keep the bottom subtitle bar. */
+  dialogue?: Array<{ speaker: string; text: string; kind?: string }>;
   /** Universal effects DSL — particles, glow, vignette, etc. Same
    *  vocabulary the live reader and the Remotion compositions read.
    *  Derived from narration topics + mood at build time. */
@@ -86,6 +100,7 @@ interface Manifest {
   bookTitle: string;
   scenes: ManifestScene[];
   generatedAt: string;
+  stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book';
 }
 
 function parseSlugArg(): string {
@@ -97,15 +112,15 @@ function parseSlugArg(): string {
   throw new Error('book slug required: pass --slug=<slug> or as the first positional arg');
 }
 
-async function fetchBook(slug: string): Promise<{ scenes: Scene[]; bookTitle: string }> {
+async function fetchBook(slug: string): Promise<{ scenes: Scene[]; bookTitle: string; stylePreset?: Manifest['stylePreset'] }> {
   const res = await fetch(`${BASE}/api/books/${slug}`);
   if (!res.ok) throw new Error(`/api/books/${slug} → ${res.status}`);
-  const data = (await res.json()) as { scenes: Scene[]; book?: { title: string } };
+  const data = (await res.json()) as { scenes: Scene[]; book?: { title: string; stylePreset?: Manifest['stylePreset'] } };
   const title = data.book?.title || slug;
   if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
     throw new Error(`/api/books/${slug} returned no scenes`);
   }
-  return { scenes: data.scenes, bookTitle: title };
+  return { scenes: data.scenes, bookTitle: title, stylePreset: data.book?.stylePreset };
 }
 
 /** Build subtitle cues from real per-clip durations. The cumulative
@@ -291,7 +306,7 @@ async function main() {
 
   console.log(`[movie-build] slug: ${slug} | base: ${BASE} | per-cue=${perCue}`);
 
-  const { scenes, bookTitle } = await fetchBook(slug);
+  const { scenes, bookTitle, stylePreset } = await fetchBook(slug);
   console.log(`[movie-build] ${scenes.length} scenes`);
 
   // Preserve hand-authored fields from the existing manifest so a
@@ -366,6 +381,15 @@ async function main() {
     const topics = detectTopics(scene.narration);
     const effects = buildSceneEffects(topics, mood);
     console.log(`[movie-build]    ${describeRecipe(topics, mood, effects)}`);
+    const sceneBeats = scene.beats && scene.beats.length >= 2
+      ? scene.beats.map((b, i) => ({
+          imagePath: b.imageUrl,
+          motion: (b.motion as SceneMotion | undefined) ?? motion,
+          shotType: b.shotType,
+          sfxUrl: b.sfx,
+        }))
+      : undefined;
+
     out.push({
       sceneId: scene.scene_id,
       title: scene.title,
@@ -378,6 +402,9 @@ async function main() {
       motion,
       mood,
       backgroundMusicUrl: musicUrlBySceneId[scene.scene_id],
+      ambientSoundUrl: scene.ambient_sound || undefined,
+      beats: sceneBeats,
+      dialogue: scene.dialogue && scene.dialogue.length > 0 ? scene.dialogue : undefined,
       effects,
     });
   }
@@ -387,6 +414,7 @@ async function main() {
     bookTitle,
     scenes: out,
     generatedAt: new Date().toISOString(),
+    stylePreset,
   };
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
   console.log(`[movie-build] manifest written: ${manifestPath}`);

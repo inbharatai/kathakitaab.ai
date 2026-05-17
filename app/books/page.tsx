@@ -96,29 +96,44 @@ export default function BooksPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch generation jobs + poll while any are active
+  // Fetch generation jobs via SSE for real-time updates.
+  // Falls back to a one-time fetch if EventSource is unavailable
+  // (e.g. very old browsers, or when the user has disabled it).
   useEffect(() => {
-    let cancelled = false;
-    const fetchJobs = async () => {
-      try {
-        const res = await fetch('/api/jobs', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json() as { jobs: GenerationJob[] };
-        if (cancelled) return;
-        setJobs(Array.isArray(data.jobs) ? data.jobs : []);
-      } catch (err) {
-        console.warn('[books] failed to fetch jobs:', err instanceof Error ? err.message : err);
-      } finally {
-        if (!cancelled) setJobsLoaded(true);
-      }
-    };
+    let source: EventSource | null = null;
 
-    fetchJobs();
-    const interval = setInterval(fetchJobs, 5000);
+    if (typeof EventSource !== 'undefined') {
+      source = new EventSource('/api/jobs/stream');
+      source.addEventListener('jobs', (e) => {
+        try {
+          const data = JSON.parse(e.data) as { jobs: GenerationJob[] };
+          setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+        } catch {
+          console.warn('[books] malformed SSE job event');
+        }
+        setJobsLoaded(true);
+      });
+      source.addEventListener('error', (e) => {
+        console.warn('[books] jobs SSE error:', (e as MessageEvent).data || 'connection dropped');
+        // EventSource auto-reconnects by default; we only fall back
+        // to polling if it stays closed after the reconnect window.
+      });
+      source.addEventListener('done', () => {
+        source?.close();
+      });
+    } else {
+      // Fallback for environments without EventSource
+      fetch('/api/jobs', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then((data: { jobs?: GenerationJob[] } | null) => {
+          setJobs(Array.isArray(data?.jobs) ? data.jobs : []);
+        })
+        .catch(err => console.warn('[books] failed to fetch jobs:', err instanceof Error ? err.message : err))
+        .finally(() => setJobsLoaded(true));
+    }
 
     return () => {
-      cancelled = true;
-      clearInterval(interval);
+      source?.close();
     };
   }, []);
 

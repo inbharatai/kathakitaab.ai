@@ -10,8 +10,8 @@ KathaKitaab turns canon books into living scenes you read, click, and watch. Hig
 
 When you POST `/api/books/generate { title: "..." }`, the engine immediately creates a **persistent generation job** in Redis (`kk:job:{id}`, 7-day TTL) and then runs four parallel phases inside one Vercel function (300s budget):
 
-1. **Outline + characters** — gpt-4o-mini drafts a 9–12 scene chronological arc and assigns each character a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). Sets the `mood` and `theme` per scene up front so downstream modules don't reverse-engineer them from text. The outline is saved to the job metadata so resume never re-runs research.
-2. **Scene details** (concurrency 4) — gpt-4o-mini writes per-scene narration, hotspot positions, quiz questions, and per-scene camera motion. ~25s for 11 scenes. Each scene is persisted independently (`kk:scene:{slug}:{sceneId}`) with no TTL — user content survives until deleted.
+1. **Outline + characters** — gpt-4o-mini drafts a 9–12 scene chronological arc and assigns each character a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). Sets the `mood`, `theme`, and `shot_type` per visual beat up front. Requests `shot-reverse-shot` for dialogue scenes. Suggests `ambient_sound` per scene and `sfx` per beat. The outline is saved to the job metadata so resume never re-runs research.
+2. **Scene details** (concurrency 4) — gpt-4o-mini writes per-scene narration, hotspot positions, quiz questions, per-scene camera motion, and per-beat descriptions. ~25s for 11 scenes. Each scene is persisted independently (`kk:scene:{slug}:{sceneId}`) with no TTL — user content survives until deleted.
 3. **Scene images** (concurrency 3) — gpt-image-1 paints each scene at 1536×1024. Cached at the prompt level on Supabase, so re-generating the same book is free. ~120–180s. Per-scene image status (`pending | generating | generated | failed`) is tracked in the scene registry.
 4. **Scene narration** (concurrency 6) — Sarvam Bulbul records each scene's narration shaped to the scene's mood. ~10–15s. URLs stored on the scene so the live reader and the movie share the same audio. Per-scene TTS status is tracked independently.
 
@@ -48,7 +48,7 @@ Resume is triggered by `POST /api/books/resume { slug }` from the **Generation Q
 - **Step callback** (`onStepComplete`) — `generateBookOpenAI` calls the caller-provided callback after outline, portraits, scenes, and images. The route handler decides persistence strategy, keeping the generator lean.
 - **Resume endpoint** (`/api/books/resume`) — Four failure-mode branches with `maxDuration = 300`. Loads persisted state, regenerates only what's missing, assembles the book.
 - **Scene editing + stale tracking** — `PATCH /api/books/{slug}/scenes/{sceneId}` checks ownership via parent book, updates scene fields, and calls `markSceneStale` when media-relevant fields (`narration`, `visual_description`, `mood`, `theme`, `motion`, `characters_present`, `characters_absent`, `beats`) change. Downstream image/audio regeneration resumes automatically.
-- **Polling UI** — `/books` fetches `/api/jobs` every 5 seconds, renders progress bars, status labels, and **Resume** buttons for failed/partial jobs.
+- **Real-time SSE progress** — `/books` opens a persistent `EventSource` to `/api/jobs/stream` and receives job state updates as they happen (1.5s server-side polling loop, one HTTP connection). The generation form (`BookGenerator`) opens a second SSE stream to `/api/books/stream` per active book for per-scene progress, errors, and completion. Falls back to one-time fetch for environments without EventSource. Replaces the previous 5-second client polling.
 - **Admin Dashboard** (`/admin`) — Admin-only view of every generation job in the system. Resume, delete, or hydrate any book. Global book list with owner IDs.
 
 ### Emotional narration
@@ -75,12 +75,17 @@ Resume is triggered by `POST /api/books/resume { slug }` from the **Generation Q
 - **Badge system** — per-card badges for `Private`, `Movie`, `Canon`, `AI`, and custom badges. Capped at 2 badges so 155px mobile cards never overflow.
 - **Landscape rotation** — on the movie page (`/books/[slug]/movie`), rotating a phone to landscape auto-hides chrome (header, export banner, padding) and fills the viewport edge-to-edge. Pure CSS `@media (orientation: landscape)` — no JS Fullscreen API gesture requirement.
 - **Owner controls** — private books show inline Edit/Delete in a compact list at the bottom of `/books`. Admin can delete any book. Non-owners get 404 (never 403) so private slug existence stays hidden.
-- **Generation Queue** — active and failed jobs render as a compact list with progress bars, status labels, and Resume buttons. Polls every 5 seconds.
+- **Generation Queue** — active and failed jobs render as a compact list with progress bars, status labels, and Resume buttons. Receives real-time updates via SSE (`/api/jobs/stream`) instead of polling.
+- **Responsive scroll rails** — thin gold scrollbar on tablet/desktop (`@media (min-width: 768px)`), hidden on mobile. Rails are swipe-friendly on touch and scroll-wheel friendly on desktop.
 - **Accessibility** — keyboard tab traversal through cards, `focus-visible` outline, `role="list"`/`role="listitem"`, screen-reader-safe aria-labels, `prefers-reduced-motion` disables snap + zoom + Ken-Burns.
 
 ### Movie Mode v3
 - **Full Movie** (~6:46 for Ramayana): all scenes, sentence-by-sentence captions, per-scene camera motion, mood music ducked to 0.10 under narration, full effects DSL baked in.
 - **Cinematic Trailer** (43s, fixed): title (3s) + top-6 dramatic scenes (6s each) + end card (4s) = 1290 frames at 30fps. Scenes are scored by mood + motion, then chronologically ordered.
+- **Multi-shot storyboarding** — every scene carries 2–5 visual beats (establishing shot + follow-up shots). The renderer hard-cuts between beats at sentence boundaries with a 2-frame micro-dissolve to avoid popping — cinematic, not slideshow. Each beat gets its own camera motion so a close-up zooms while the next wide shot pans.
+- **Shot-reverse-shot** — the outline prompt explicitly requests reverse / over_shoulder framing for dialogue-heavy scenes so conversations feel cinematic, not like static panels.
+- **Shot type discipline** — every beat is typed (`wide | medium | close_up | reverse | detail | reaction | object | over_shoulder`). The prompt enforces variety: no two consecutive beats share the same shot type.
+- **Sound design layer** — each scene can carry a looping ambient soundscape (wind, rain, fire, temple bells, forest birds, etc.) mixed at 0.15 beneath the mood bed. Individual beats can trigger one-shot SFX (sword clash, thunder, door creak, footsteps) at their cut-in frame. The renderer supports both; the outline prompt suggests them per scene/beat.
 - **Per-scene motion** drawn from the manifest: `slow_zoom_in`, `slow_zoom_out`, `pan_left`, `pan_right`, `divine_glow`, `battle_push`, `fade_only`.
 - **Effects parity** — same `EffectStack` component runs in `BookMovie`, `BookTrailer`, and the live reader. What you see in the player is what bakes into the MP4.
 - **Cinematic captions** — blur-backdrop panel, segmented progress strip with active-cue glow.
@@ -97,8 +102,12 @@ Each scene in `remotion/manifests/{slug}.json` carries:
 - `narrationAudioUrl` and `audioPath`
 - `mood`: serene / dramatic / somber / joyful / sacred / mysterious
 - `backgroundMusicUrl?`: explicit ambient bed URL, or fall back to the procedural WAV for the mood
+- `ambientSoundUrl?`: looping soundscape (wind, rain, fire, temple bells, etc.) mixed very low
+- `beats[]`: multi-beat visual track. Each beat has `imagePath`, `motion`, optional `shotType`, and optional `sfxUrl`.
+- `dialogue[]`: comic-book overlay track (speaker, text, kind). Rendered as in-frame speech bubbles when `stylePreset === 'comic_book'`.
 - `effects[]`: discriminated-union DSL entries (particles / glow / dust_shaft / vignette / rim_light / shake / ripple / parallax / fog / etc.)
 - `durationSeconds`, `imagePath`, `narration`, `title`, `sceneId`
+- `stylePreset`: `photoreal_cinematic` | `storybook_watercolor` | `cinematic_animation` | `comic_book`
 
 `npm run movie:verify` walks every manifest and exits non-zero on the first missing field.
 
@@ -167,10 +176,11 @@ The same flow that runs in production at [www.kathakitaab.com](https://www.katha
 - To make your own: scroll to "Create a Story", type any title (e.g. `Akbar and Birbal`, `Mahabharata`, `NCERT History – Ancient India`), hit **Create Story**.
 
 **Step 2 — KathaKitaab builds the book.**
+- Real-time SSE progress streams per-scene updates (step name + percent) to the creation form without page refreshes.
 - The progress bar walks through *Planning the story → Writing scenes → Illustrating → Narrating*.
 - ~3 minutes for an 11-scene book on the standard pipeline (concurrency 4 details / 3 images / 6 audio).
 - ~$0.40 in API cost (OpenAI text + image, Sarvam narration). Caches kick in on every regeneration.
-- **If the tab closes or the server restarts**, the job survives in Redis. Reopen `/books` and click **Resume** in the Generation Queue.
+- **If the tab closes or the server restarts**, the job survives in Redis. Reopen `/books` and the Generation Queue reattaches automatically via SSE. Click **Resume** to restart from the exact failed step.
 
 **Step 3 — Read it interactively.**
 - After completion the page redirects to `/books/<slug>`.
@@ -183,6 +193,8 @@ The same flow that runs in production at [www.kathakitaab.com](https://www.katha
   - For Ramayana, it's the static, hand-tuned `remotion/manifests/ramayana.json`.
   - For any AI-generated book, it's synthesised on demand from the registry — same scenes, same narration audio URLs, same effects DSL, same procedural mood beds, motion picked by the LLM (or mood-derived).
 - The in-browser Remotion `<Player>` plays the cinematic cut: per-scene camera motion, sentence-timed captions, ducked mood music under Sarvam narration, particles + dust shafts + divine glow per the manifest.
+- **Multi-shot cinema** — scenes with multiple beats hard-cut between shots at sentence boundaries (2-frame micro-dissolve, no slideshow cross-fade). Dialogue scenes use shot-reverse-shot between speakers.
+- **Sound design** — ambient loops (wind, rain, temple bells) texture the background; one-shot SFX fire on key beats (sword clash, thunder, door creak).
 - MP4 download via the **Export** button works locally (`npm run movie:render`) and on hosts that ship Chromium; on Vercel's standard serverless functions the in-browser Player is the canonical path.
 
 **Step 5 — Edit or retry a scene (owner only).**

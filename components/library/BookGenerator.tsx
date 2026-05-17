@@ -138,7 +138,7 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
         // still reattaches.
         persistResume(data.slug, title.trim());
         setStatus('polling');
-        pollProgress(data.slug);
+        streamProgress(data.slug);
         return;
       }
 
@@ -153,64 +153,90 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
     }
   };
 
-  // Function declaration (hoisted) so the resume useEffect at the
-  // top can call it without ESLint flagging a TDZ access.
-  async function pollProgress(slug: string) {
-    // Cap consecutive transient failures so a flaky network or a
-    // permanently-broken slug doesn't loop forever.
-    let consecutiveFailures = 0;
-    const MAX_FAILURES = 8;
+  // SSE stream for real-time generation progress.
+  // Replaces the old pollProgress() which fired an HTTP request
+  // every 1.5 seconds. One persistent EventSource connection, server
+  // pushes updates when state changes, auto-reconnects on dropout.
+  function streamProgress(slug: string) {
+    const source = new EventSource(`/api/books/stream?slug=${encodeURIComponent(slug)}`);
 
-    const poll = async () => {
+    source.addEventListener('progress', (e) => {
       try {
-        const res = await fetch(`/api/books/generate?slug=${slug}`);
-        if (!res.ok) {
-          consecutiveFailures++;
-          if (consecutiveFailures >= MAX_FAILURES) {
-            inFlightRef.current = false;
-            sessionStorage.removeItem(RESUME_KEY);
-            setError('Lost connection to the book generator. Try again in a moment.');
-            setStatus('error');
-            return;
-          }
-          setTimeout(poll, 2000);
-          return;
-        }
-        consecutiveFailures = 0;
-        const data = await res.json();
+        const data = JSON.parse(e.data);
+        setProgress({ step: data.step || 'Working…', percent: data.percent || 0 });
+      } catch { /* malformed — ignore */ }
+    });
 
-        if (data.done && data.book) {
+    source.addEventListener('job', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.job?.errorMessage) {
+          inFlightRef.current = false;
+          sessionStorage.removeItem(RESUME_KEY);
+          setError(data.job.errorMessage);
+          setStatus('error');
+          source.close();
+        }
+      } catch { /* ignore */ }
+    });
+
+    source.addEventListener('book', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.book) {
           inFlightRef.current = false;
           sessionStorage.removeItem(RESUME_KEY);
           setStatus('done');
           setProgress({ step: 'Book complete!', percent: 100 });
           setTimeout(() => router.push(`/books/${slug}`), 1000);
-          return;
+          source.close();
         }
+      } catch { /* ignore */ }
+    });
 
-        if (data.error) {
-          inFlightRef.current = false;
-          sessionStorage.removeItem(RESUME_KEY);
-          setError(data.error);
-          setStatus('error');
-          return;
-        }
+    source.addEventListener('done', () => {
+      inFlightRef.current = false;
+      sessionStorage.removeItem(RESUME_KEY);
+      source.close();
+    });
 
-        setProgress({ step: data.step || 'Working…', percent: data.percent || 0 });
-        setTimeout(poll, 1500);
+    source.addEventListener('error', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data || '{}');
+        inFlightRef.current = false;
+        sessionStorage.removeItem(RESUME_KEY);
+        setError(data.message || 'Lost connection. Try again in a moment.');
+        setStatus('error');
       } catch {
-        consecutiveFailures++;
-        if (consecutiveFailures >= MAX_FAILURES) {
-          inFlightRef.current = false;
-          sessionStorage.removeItem(RESUME_KEY);
-          setError('Lost connection to the book generator. Try again in a moment.');
-          setStatus('error');
-          return;
-        }
-        setTimeout(poll, 2000);
+        // If the stream drops without a message, let the EventSource
+        // auto-reconnect once. If it fails again we'll show an error.
+        setTimeout(() => {
+          if (source.readyState === EventSource.CLOSED) {
+            inFlightRef.current = false;
+            sessionStorage.removeItem(RESUME_KEY);
+            setError('Lost connection to the book generator. Try again in a moment.');
+            setStatus('error');
+          }
+        }, 5000);
       }
-    };
-    poll();
+      source.close();
+    });
+
+    // Safety: close the stream after 6 minutes (generation budget + headroom).
+    const timeout = setTimeout(() => {
+      if (source.readyState !== EventSource.CLOSED) {
+        source.close();
+        inFlightRef.current = false;
+        sessionStorage.removeItem(RESUME_KEY);
+        setError('Generation took too long. Please try again.');
+        setStatus('error');
+      }
+    }, 6 * 60 * 1000);
+
+    // Cleanup is handled by the caller (useEffect return), but we
+    // also store the source on the component so unmount kills it.
+    (streamProgress as unknown as { _source?: EventSource })._source = source;
+    (streamProgress as unknown as { _timeout?: ReturnType<typeof setTimeout> })._timeout = timeout;
   }
 
   // Initialize from sessionStorage on the client. Has to happen in an
@@ -230,7 +256,7 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
     setStatus('polling');
     setProgress({ step: 'Reattaching to your story…', percent: 0 });
     inFlightRef.current = true;
-    pollProgress(saved.slug);
+    streamProgress(saved.slug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */

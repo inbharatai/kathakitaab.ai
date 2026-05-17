@@ -55,6 +55,14 @@ export interface BookMovieBeat {
    *  default beat-motion pool when omitted, so legacy beats still
    *  get distinct camera moves without changing the manifest. */
   motion?: SceneMotion;
+  /** Shot type from the outline — informational for now, used by
+   *  future renderers to select framing or report coverage stats.
+   *  wide | medium | close_up | reverse | detail | reaction |
+   *  object | over_shoulder | fade_only */
+  shotType?: string;
+  /** One-shot SFX that fires at the start of this beat (sword clash,
+   *  door creak, thunder, etc.). Mixed at ~35% under narration. */
+  sfxUrl?: string;
 }
 
 export interface BookMovieScene {
@@ -98,6 +106,11 @@ export interface BookMovieScene {
    *  default. Either http(s) or `/`-prefixed local path — same
    *  resolveAsset rules as imagePath. */
   backgroundMusicUrl?: string;
+  /** Looping ambient soundscape for this scene (wind, crowd, fire,
+   *  rain, temple bells, forest birds, etc.). Mixed very low
+   *  (0.12–0.18) beneath the mood bed so it adds texture without
+   *  competing with narration. Either http(s) or `/`-prefixed. */
+  ambientSoundUrl?: string;
   /** Universal effects DSL — particles, glow, flash, tint, vignette,
    *  rim_light, dust_shaft, shake, ripple, parallax, desaturation,
    *  bloom. Same vocabulary the live reader uses. Derived from the
@@ -441,7 +454,6 @@ const SceneShot: React.FC<{
         {beats.map((beat, i) => {
           const win = beatWindows[i] ?? { startF: 0, endF: durationInFrames };
           const beatLen = Math.max(1, win.endF - win.startF);
-          const fadeFrames = Math.min(18, Math.floor(beatLen * 0.15));
 
           // Per-beat camera math. The beat's motion preset drives a
           // local interpolation 0..1 across its window — so a 4-second
@@ -455,13 +467,15 @@ const SceneShot: React.FC<{
           const beatTx = interpolate(tClamped, [0, 1], [0, bp.panX]);
           const beatTy = interpolate(tClamped, [0, 1], [0, bp.panY]);
 
-          // Cross-fade window. First beat starts visible; subsequent
-          // beats fade in over fadeFrames before their window. Last
-          // beat holds to the end of the scene's frame budget.
+          // Hard cut between beats — cinematic, not slideshow.
+          // A 2-frame micro-dissolve prevents a single-frame pop on
+          // the cut boundary without smearing the image like the old
+          // 18-frame cross-fade.
+          const DISSOLVE_FRAMES = 2;
           let beatOpacity = 1;
           if (beats.length > 1) {
-            if (frame < win.startF - fadeFrames) beatOpacity = 0;
-            else if (frame < win.startF) beatOpacity = (frame - (win.startF - fadeFrames)) / fadeFrames;
+            if (frame < win.startF - DISSOLVE_FRAMES) beatOpacity = 0;
+            else if (frame < win.startF) beatOpacity = (frame - (win.startF - DISSOLVE_FRAMES)) / DISSOLVE_FRAMES;
             else if (frame < win.endF) beatOpacity = 1;
             else if (i === beats.length - 1) beatOpacity = 1;
             else beatOpacity = 0;
@@ -575,6 +589,29 @@ const SceneShot: React.FC<{
           loop
         />
       )}
+
+      {/* ── Ambient soundscape ── low-level texture that grounds the
+          scene in its location without competing with narration. */}
+      {scene.ambientSoundUrl && (
+        <Audio
+          src={resolveAsset(scene.ambientSoundUrl)}
+          volume={0.15}
+          loop
+        />
+      )}
+
+      {/* ── One-shot SFX per beat ── fires at the start of each beat
+          that carries a sfxUrl. Mixed loud enough to register but
+          never drowning the narrator. */}
+      {beats.map((beat, i) => {
+        if (!beat.sfxUrl) return null;
+        const win = beatWindows[i] ?? { startF: 0, endF: durationInFrames };
+        return (
+          <Sequence key={`sfx-${i}`} from={win.startF}>
+            <Audio src={resolveAsset(beat.sfxUrl)} volume={0.35} />
+          </Sequence>
+        );
+      })}
     </AbsoluteFill>
   );
 };
