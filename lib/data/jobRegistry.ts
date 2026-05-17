@@ -73,6 +73,8 @@ export interface GenerationJob {
   bookSlug?: string;
   // Optional metadata bag for mode-specific fields (grade band, etc.)
   metadata?: Record<string, unknown>;
+  /** Optimistic-lock version to prevent lost updates across instances. */
+  version?: number;
 }
 
 // 7 days — long enough that a generation from yesterday is still
@@ -86,9 +88,48 @@ const allJobsKey = () => `kk:jobs:all`;
 
 // In-process hot cache (same-lambda reads)
 const memJobs = new Map<string, GenerationJob>();
+const MAX_MEM_JOBS = 500;
+
+function capMap<K, V>(map: Map<K, V>, limit: number) {
+  if (map.size <= limit) return;
+  const evictCount = Math.ceil(limit * 0.2);
+  let i = 0;
+  for (const key of map.keys()) {
+    if (i >= evictCount) break;
+    map.delete(key);
+    i++;
+  }
+}
 
 function now() {
   return Date.now();
+}
+
+/** Distributed lock for atomic read-modify-write on a Redis key.
+ *  Uses SET NX EX so even if the process crashes, the lock auto-releases.
+ *  Falls back to a no-op in the in-memory path. */
+async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T | null> {
+  const r = getRedis();
+  if (!r) return fn();
+
+  const lockKey = `${key}:lock`;
+  const token = `lock-${now()}-${Math.random().toString(36).slice(2, 8)}`;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const acquired = await r.set(lockKey, token, { nx: true, ex: 5 });
+    if (acquired) {
+      try {
+        return await fn();
+      } finally {
+        const current = await r.get<string>(lockKey);
+        if (current === token) {
+          await r.del(lockKey);
+        }
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+  }
+  console.warn(`[jobRegistry] Could not acquire lock for ${key}`);
+  return null;
 }
 
 /** Create a new generation job immediately when the user clicks
@@ -111,6 +152,7 @@ export async function createJob(
   };
 
   memJobs.set(job.id, job);
+  capMap(memJobs, MAX_MEM_JOBS);
   const r = getRedis();
   if (r) {
     await r.set(jobKey(job.id), job, { ex: JOB_TTL_SEC });
@@ -128,34 +170,39 @@ export async function createJob(
 }
 
 /** Update a job's status and step tracking. Called after every
- *  sub-step completes (outline done, scene N done, image N done, etc.). */
+ *  sub-step completes (outline done, scene N done, image N done, etc.).
+ *  Uses a distributed lock to prevent lost updates across serverless instances. */
 export async function updateJob(
   id: string,
   updates: Partial<Omit<GenerationJob, 'id' | 'createdAt'>>,
 ): Promise<GenerationJob | null> {
-  const existing = memJobs.get(id) ?? await _fetchFromRedis(id);
-  if (!existing) return null;
+  return withLock(jobKey(id), async () => {
+    const existing = memJobs.get(id) ?? await _fetchFromRedis(id);
+    if (!existing) return null;
 
-  const updated: GenerationJob = {
-    ...existing,
-    ...updates,
-    updatedAt: now(),
-  };
+    const updated: GenerationJob = {
+      ...existing,
+      ...updates,
+      updatedAt: now(),
+      version: (existing.version ?? 0) + 1,
+    };
 
-  // Auto-set resumable based on status
-  if (updated.status === 'failed' || updated.status === 'images_partial' || updated.status === 'tts_partial') {
-    updated.resumable = true;
-  } else if (updated.status === 'completed' || updated.status === 'cancelled') {
-    updated.resumable = false;
-  }
+    // Auto-set resumable based on status
+    if (updated.status === 'failed' || updated.status === 'images_partial' || updated.status === 'tts_partial') {
+      updated.resumable = true;
+    } else if (updated.status === 'completed' || updated.status === 'cancelled') {
+      updated.resumable = false;
+    }
 
-  memJobs.set(id, updated);
-  const r = getRedis();
-  if (r) {
-    await r.set(jobKey(id), updated, { ex: JOB_TTL_SEC });
-  }
+    memJobs.set(id, updated);
+    capMap(memJobs, MAX_MEM_JOBS);
+    const r = getRedis();
+    if (r) {
+      await r.set(jobKey(id), updated, { ex: JOB_TTL_SEC });
+    }
 
-  return updated;
+    return updated;
+  });
 }
 
 /** Mark a job as completed and link it to the finished book. */
@@ -202,7 +249,8 @@ export async function getJobBySlug(slug: string): Promise<GenerationJob | null> 
   return getJob(jobId);
 }
 
-/** List all jobs for a user. Supports filtering by status. */
+/** List all jobs for a user. Supports filtering by status.
+ *  Stale IDs (jobs that have TTL-expired) are silently removed from the index. */
 export async function listUserJobs(
   userId: string,
   statuses?: JobStatus[],
@@ -226,13 +274,20 @@ export async function listUserJobs(
     jobIds.map(id => getJob(id).catch(() => null)),
   );
 
+  // Remove stale IDs from the set (jobs whose TTL expired but ID remains)
+  const staleIds = jobIds.filter((_, i) => jobs[i] === null);
+  if (staleIds.length > 0) {
+    await r.srem(jobIndexKey(userId), ...staleIds);
+  }
+
   return jobs
     .filter((j): j is GenerationJob => j !== null)
     .filter(j => !statuses || statuses.includes(j.status))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-/** List every job in the system (admin overview). */
+/** List every job in the system (admin overview).
+ *  Stale IDs (jobs that have TTL-expired) are silently removed from the index. */
 export async function listAllJobs(): Promise<GenerationJob[]> {
   const r = getRedis();
   if (!r) {
@@ -244,6 +299,13 @@ export async function listAllJobs(): Promise<GenerationJob[]> {
   const jobs = await Promise.all(
     jobIds.map(id => getJob(id).catch(() => null)),
   );
+
+  // Remove stale IDs from the set
+  const staleIds = jobIds.filter((_, i) => jobs[i] === null);
+  if (staleIds.length > 0) {
+    await r.srem(allJobsKey(), ...staleIds);
+  }
+
   return jobs
     .filter((j): j is GenerationJob => j !== null)
     .sort((a, b) => b.createdAt - a.createdAt);

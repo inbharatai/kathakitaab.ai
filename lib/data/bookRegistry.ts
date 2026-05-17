@@ -32,6 +32,21 @@ const SEED_BOOKS: Record<string, GeneratedBook> = {};
 const memBooks = new Map<string, GeneratedBook>();
 const memProgress = new Map<string, ProgressEntry>();
 
+const MAX_MEM_BOOKS = 500;
+const MAX_MEM_PROGRESS = 500;
+
+function capMap<K, V>(map: Map<K, V>, limit: number) {
+  if (map.size <= limit) return;
+  // Evict oldest 20% when over limit
+  const evictCount = Math.ceil(limit * 0.2);
+  let i = 0;
+  for (const key of map.keys()) {
+    if (i >= evictCount) break;
+    map.delete(key);
+    i++;
+  }
+}
+
 // 30 days for the finished book — long enough that a generation
 // done last week still resolves; short enough that abandoned
 // experiments don't pile up forever.
@@ -42,6 +57,35 @@ const PROGRESS_TTL_SEC = 60 * 30;
 
 const bookKey = (slug: string) => `kk:book:${slug}`;
 const progressKey = (slug: string) => `kk:gen:progress:${slug}`;
+
+function now() {
+  return Date.now();
+}
+
+/** Distributed lock for atomic read-modify-write on a Redis key. */
+async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T | null> {
+  const r = getRedis();
+  if (!r) return fn();
+
+  const lockKey = `${key}:lock`;
+  const token = `lock-${now()}-${Math.random().toString(36).slice(2, 8)}`;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const acquired = await r.set(lockKey, token, { nx: true, ex: 5 });
+    if (acquired) {
+      try {
+        return await fn();
+      } finally {
+        const current = await r.get<string>(lockKey);
+        if (current === token) {
+          await r.del(lockKey);
+        }
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+  }
+  console.warn(`[bookRegistry] Could not acquire lock for ${key}`);
+  return null;
+}
 
 export function registerSeedBook(book: GeneratedBook) {
   SEED_BOOKS[book.slug] = book;
@@ -72,10 +116,13 @@ export async function getBook(slug: string): Promise<GeneratedBook | null> {
 }
 
 export async function saveGeneratedBook(book: GeneratedBook): Promise<void> {
-  memBooks.set(book.slug, book);
-  syncCanonFromBook(book);
-  const r = getRedis();
-  if (r) await r.set(bookKey(book.slug), book, { ex: BOOK_TTL_SEC });
+  await withLock(bookKey(book.slug), async () => {
+    memBooks.set(book.slug, book);
+    capMap(memBooks, MAX_MEM_BOOKS);
+    syncCanonFromBook(book);
+    const r = getRedis();
+    if (r) await r.set(bookKey(book.slug), book, { ex: BOOK_TTL_SEC });
+  });
 }
 
 /**
@@ -117,12 +164,14 @@ function syncCanonFromBook(book: GeneratedBook): void {
  *  responsible for verifying that the caller owns the book before
  *  invoking this — this function does not check ownership itself. */
 export async function deleteBook(slug: string): Promise<void> {
-  memBooks.delete(slug);
-  const r = getRedis();
-  if (r) await r.del(bookKey(slug));
-  // Progress entry shouldn't outlive the book either.
-  memProgress.delete(slug);
-  if (r) await r.del(progressKey(slug));
+  await withLock(bookKey(slug), async () => {
+    memBooks.delete(slug);
+    const r = getRedis();
+    if (r) await r.del(bookKey(slug));
+    // Progress entry shouldn't outlive the book either.
+    memProgress.delete(slug);
+    if (r) await r.del(progressKey(slug));
+  });
 }
 
 export async function setProgress(
@@ -134,6 +183,7 @@ export async function setProgress(
 ): Promise<void> {
   const entry: ProgressEntry = { step, percent, done, error };
   memProgress.set(slug, entry);
+  capMap(memProgress, MAX_MEM_PROGRESS);
   const r = getRedis();
   if (r) await r.set(progressKey(slug), entry, { ex: PROGRESS_TTL_SEC });
 }
@@ -180,11 +230,16 @@ export async function getAllBooks(): Promise<GeneratedBook[]> {
 
   if (r) {
     try {
-      // Upstash supports KEYS pattern scans cheaply for small key
-      // counts (the library is in the dozens, not millions). If it
-      // ever grows we can switch to a maintained kk:books:index set.
-      const keys = await r.keys('kk:book:*');
-      const missing = keys.filter(k => !seen.has(k.replace('kk:book:', '')));
+      // Use SCAN instead of KEYS to avoid blocking Redis on large datasets.
+      let cursor = 0;
+      const redisKeys: string[] = [];
+      do {
+        const scanResult = await r.scan(cursor, { match: 'kk:book:*', count: 100 });
+        cursor = (scanResult as unknown as { cursor: number; keys: string[] }).cursor;
+        redisKeys.push(...(scanResult as unknown as { cursor: number; keys: string[] }).keys);
+      } while (cursor !== 0);
+
+      const missing = redisKeys.filter(k => !seen.has(k.replace('kk:book:', '')));
       if (missing.length > 0) {
         const fetched = await Promise.all(
           missing.map(k => r.get<GeneratedBook>(k).catch(() => null)),

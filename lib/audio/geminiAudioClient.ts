@@ -48,10 +48,13 @@ export async function geminiTTS(req: GeminiTTSRequest): Promise<GeminiTTSResult>
     } as never,
   });
 
-  const part = response.candidates?.[0]?.content?.parts?.[0];
+  const candidate = response.candidates?.[0];
+  if (!candidate) throw new Error('Gemini returned no candidates');
+  const part = candidate.content?.parts?.[0];
+  if (!part) throw new Error('Gemini returned no content parts');
   const inline = (part as { inlineData?: { data?: string; mimeType?: string } } | undefined)?.inlineData;
-  const b64 = inline?.data;
-  if (!b64) throw new Error('Gemini returned no audio');
+  if (!inline?.data) throw new Error('Gemini returned no audio data');
+  const b64 = inline.data;
 
   // Gemini returns 16-bit PCM at 24 kHz mono. Wrap as WAV.
   const pcm = Buffer.from(b64, 'base64');

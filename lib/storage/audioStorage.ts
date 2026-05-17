@@ -18,7 +18,7 @@
 import { createHash } from 'node:crypto';
 import { getSupabaseService } from '@/lib/supabase';
 
-const BUCKET = 'scene-images';
+const BUCKET = process.env.SUPABASE_AUDIO_BUCKET ?? 'scene-audio';
 
 export interface UploadAudioOpts {
   /** Folder prefix inside the bucket — usually the book slug, so

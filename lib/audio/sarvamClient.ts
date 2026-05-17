@@ -116,8 +116,14 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
       const b64 = json.audios?.[0];
       if (!b64) throw new Error('Sarvam returned no audio');
 
+      const buf = Buffer.from(b64, 'base64');
+      // Validate WAV header so we don't pass garbage downstream
+      if (buf.length < 12 || buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE') {
+        throw new Error('Sarvam returned audio that is not a valid WAV file');
+      }
+
       return {
-        audio: Buffer.from(b64, 'base64'),
+        audio: buf,
         mimeType: 'audio/wav',
       };
     } catch (err) {

@@ -277,5 +277,21 @@ export async function checkOwnerDailyLimit(
   }
   hits.push(now);
   ownerBuckets.set(key, hits);
+
+  // Periodic GC for ownerBuckets (1% chance per check)
+  if (Math.random() < 0.01) gcOwnerBuckets(now);
+
   return null;
+}
+
+function gcOwnerBuckets(now: number) {
+  const cutoff = now - DAY_MS * 2;
+  for (const [k, timestamps] of ownerBuckets) {
+    const fresh = timestamps.filter(t => t > cutoff);
+    if (fresh.length === 0) {
+      ownerBuckets.delete(k);
+    } else {
+      ownerBuckets.set(k, fresh);
+    }
+  }
 }

@@ -26,6 +26,8 @@ export interface PersistedScene extends GeneratedScene {
   imageError?: string;
   /** Error message if TTS failed. */
   ttsError?: string;
+  /** Optimistic-lock version to prevent lost updates across instances. */
+  version?: number;
 }
 
 const sceneKey = (bookSlug: string, sceneId: string) => `kk:scene:${bookSlug}:${sceneId}`;
@@ -33,9 +35,48 @@ const sceneIndexKey = (bookSlug: string) => `kk:scenes:${bookSlug}`;
 
 // In-process hot cache
 const memScenes = new Map<string, PersistedScene>();
+const MAX_MEM_SCENES = 800;
+
+function capMap<K, V>(map: Map<K, V>, limit: number) {
+  if (map.size <= limit) return;
+  const evictCount = Math.ceil(limit * 0.2);
+  let i = 0;
+  for (const key of map.keys()) {
+    if (i >= evictCount) break;
+    map.delete(key);
+    i++;
+  }
+}
 
 function now() {
   return Date.now();
+}
+
+/** Distributed lock for atomic read-modify-write on a Redis key.
+ *  Uses SET NX EX so even if the process crashes, the lock auto-releases.
+ *  Falls back to a no-op in the in-memory path. */
+async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T | null> {
+  const r = getRedis();
+  if (!r) return fn();
+
+  const lockKey = `${key}:lock`;
+  const token = `lock-${now()}-${Math.random().toString(36).slice(2, 8)}`;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const acquired = await r.set(lockKey, token, { nx: true, ex: 5 });
+    if (acquired) {
+      try {
+        return await fn();
+      } finally {
+        const current = await r.get<string>(lockKey);
+        if (current === token) {
+          await r.del(lockKey);
+        }
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+  }
+  console.warn(`[sceneRegistry] Could not acquire lock for ${key}`);
+  return null;
 }
 
 /** Save a single scene to the registry. Called immediately after
@@ -52,6 +93,7 @@ export async function saveScene(
   };
 
   memScenes.set(key, updated);
+  capMap(memScenes, MAX_MEM_SCENES);
   const r = getRedis();
   if (r) {
     await r.set(key, updated);
@@ -115,23 +157,28 @@ export async function getScenesByBookSlug(
 }
 
 /** Update a specific field on a scene (e.g., mark image as completed
- *  after generation succeeds, or mark TTS as stale after text edit). */
+ *  after generation succeeds, or mark TTS as stale after text edit).
+ *  Uses a distributed lock to prevent lost updates across serverless instances. */
 export async function updateScene(
   bookSlug: string,
   sceneId: string,
   updates: Partial<Omit<PersistedScene, 'scene_id' | 'order_index'>>,
 ): Promise<PersistedScene | null> {
-  const existing = await getScene(bookSlug, sceneId);
-  if (!existing) return null;
+  const key = sceneKey(bookSlug, sceneId);
+  return withLock(key, async () => {
+    const existing = await getScene(bookSlug, sceneId);
+    if (!existing) return null;
 
-  const updated: PersistedScene = {
-    ...existing,
-    ...updates,
-    savedAt: now(),
-  };
+    const updated: PersistedScene = {
+      ...existing,
+      ...updates,
+      savedAt: now(),
+      version: (existing.version ?? 0) + 1,
+    };
 
-  await saveScene(bookSlug, updated);
-  return updated;
+    await saveScene(bookSlug, updated);
+    return updated;
+  });
 }
 
 /** Mark a scene's image as completed and store the URL. */
@@ -200,7 +247,8 @@ export async function markSceneStale(
   });
 }
 
-/** Delete all scenes for a book (used when user deletes the draft). */
+/** Delete all scenes for a book (used when user deletes the draft).
+ *  Uses MULTI/EXEC so a concurrent saveScene cannot orphan keys. */
 export async function deleteScenesForBook(bookSlug: string): Promise<void> {
   const r = getRedis();
   if (!r) {
@@ -218,8 +266,10 @@ export async function deleteScenesForBook(bookSlug: string): Promise<void> {
   if (!sceneIds || sceneIds.length === 0) return;
 
   const keys = sceneIds.map(id => sceneKey(bookSlug, id));
-  await r.del(...keys);
-  await r.del(sceneIndexKey(bookSlug));
+  const pipeline = r.multi();
+  pipeline.del(...keys);
+  pipeline.del(sceneIndexKey(bookSlug));
+  await pipeline.exec();
 }
 
 /** Build a GeneratedBook from persisted scenes. Used when resuming

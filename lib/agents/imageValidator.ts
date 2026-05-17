@@ -17,6 +17,10 @@ export interface ImageValidationResult {
   promptGroundedToScene: boolean;
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export interface ImageValidationInput {
   /** Final assembled positive prompt. */
   prompt: string;
@@ -36,19 +40,20 @@ export function validateImagePrompt(input: ImageValidationInput): ImageValidatio
   const issues: string[] = [];
   const promptLower = input.prompt.toLowerCase();
 
-  // 1. Required characters must be mentioned somewhere in the prompt.
+  // 1. Required characters must be mentioned as whole words in the prompt.
   let requiredCharactersPresent = true;
   if (input.visibleCharacters?.length) {
     for (const name of input.visibleCharacters) {
       if (!name) continue;
-      if (!promptLower.includes(name.toLowerCase())) {
+      const re = new RegExp(`\\b${escapeRegex(name.toLowerCase())}\\b`);
+      if (!re.test(promptLower)) {
         issues.push(`Prompt missing required character: ${name}`);
         requiredCharactersPresent = false;
       }
     }
   }
 
-  // 2. Forbidden characters must NOT appear in the positive prompt
+  // 2. Forbidden characters must NOT appear as whole words in the positive prompt
   //    (they may appear only inside the "Avoid:" negative block).
   let forbiddenCharactersExcluded = true;
   if (input.forbiddenCharacters?.length) {
@@ -56,7 +61,8 @@ export function validateImagePrompt(input: ImageValidationInput): ImageValidatio
     const positivePart = promptLower.split('avoid:')[0] ?? promptLower;
     for (const name of input.forbiddenCharacters) {
       if (!name) continue;
-      if (positivePart.includes(name.toLowerCase())) {
+      const re = new RegExp(`\\b${escapeRegex(name.toLowerCase())}\\b`);
+      if (re.test(positivePart)) {
         issues.push(`Forbidden character appears in positive prompt: ${name}`);
         forbiddenCharactersExcluded = false;
       }

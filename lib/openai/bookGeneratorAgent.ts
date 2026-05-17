@@ -121,16 +121,23 @@ function charactersToCanonEntries(characters: GeneratedCharacter[]): CanonEntry[
  * 3-5 waves ≈ 90-180s, well inside Vercel's 300s function budget.
  */
 async function pMapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
+  const out: (R | undefined)[] = new Array(items.length);
+  const errors: (Error | undefined)[] = new Array(items.length);
   let cursor = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
     while (cursor < items.length) {
       const i = cursor++;
-      out[i] = await fn(items[i], i);
+      try {
+        out[i] = await fn(items[i], i);
+      } catch (err) {
+        errors[i] = err instanceof Error ? err : new Error(String(err));
+      }
     }
   });
   await Promise.all(workers);
-  return out;
+  const firstError = errors.find(Boolean);
+  if (firstError) throw firstError;
+  return out as R[];
 }
 
 // ---- Output types ----
@@ -453,7 +460,12 @@ async function generateBookOpenAI(
     max_tokens: 4000,
   });
 
-  const outline = JSON.parse(outlineRes.choices[0]?.message?.content || '{}');
+  let outline: Record<string, unknown>;
+  try {
+    outline = JSON.parse(outlineRes.choices[0]?.message?.content || '{}');
+  } catch {
+    throw new Error(`Outline JSON parse failed for "${bookTitle}" — the LLM returned malformed JSON. Retrying recommended.`);
+  }
   const sceneOutlines: Array<{
     scene_id: string;
     title: string;
@@ -480,8 +492,14 @@ async function generateBookOpenAI(
      *  to the bottom subtitle bar (other presets always do).
      *  Shape mirrors SceneDialogue but kind defaults to 'speech'. */
     dialogue?: Array<{ speaker?: string; text?: string; kind?: string }>;
-  }> = outline.scenes || [];
-  const charactersRaw: GeneratedCharacter[] = outline.characters || [];
+  }> = ((outline.scenes ?? []) as Array<{
+    scene_id: string; title: string; short_summary: string; visual_description: string;
+    visual_beats?: Array<string | { description: string; camera_action?: string; shot_type?: string; sfx?: string }>;
+    mood?: SceneMood; theme?: string; ambient_sound?: string;
+    characters_present?: string[]; characters_absent?: string[];
+    dialogue?: Array<{ speaker?: string; text?: string; kind?: string }>;
+  }>);
+  const charactersRaw: GeneratedCharacter[] = ((outline.characters ?? []) as GeneratedCharacter[]);
   // Backstop the LLM's voice_archetype: if it returned an unknown
   // value (typo, omitted entry), infer from the role text. The
   // downstream TTS router will trust whatever ends up here.
@@ -600,8 +618,19 @@ motion guide:
     });
     completedDetails++;
     onProgress?.(`Wrote ${completedDetails}/${sceneOutlines.length} scenes`, 22 + (completedDetails / sceneOutlines.length) * 18);
-    return JSON.parse(detailRes.choices[0]?.message?.content || '{}');
-    void i;
+    try {
+      return JSON.parse(detailRes.choices[0]?.message?.content || '{}');
+    } catch {
+      console.error(`[BookGenerator] Scene detail JSON parse failed for "${scene.title}" — returning fallback.`);
+      return {
+        narration: scene.short_summary,
+        learning_points: [],
+        source_notes: '',
+        motion: undefined,
+        hotspots: [],
+        quiz_questions: [],
+      };
+    }
   });
 
   // Build base scenes (without images) so the caller can persist
@@ -779,9 +808,9 @@ motion guide:
     id: `book-${slug}`,
     slug,
     title: bookTitle,
-    subtitle: outline.book_subtitle || `An interactive journey through ${bookTitle}`,
-    description: outline.book_description || `Explore ${bookTitle} as a living storybook.`,
-    source_tradition: outline.source_tradition || 'Public domain traditions',
+    subtitle: (outline.book_subtitle as string | undefined) || `An interactive journey through ${bookTitle}`,
+    description: (outline.book_description as string | undefined) || `Explore ${bookTitle} as a living storybook.`,
+    source_tradition: (outline.source_tradition as string | undefined) || 'Public domain traditions',
     scenes: baseScenes,
     characters,
     generatedAt: Date.now(),
@@ -801,7 +830,7 @@ motion guide:
   // AI-generated world books are creative retellings unless they
   // collide with a static canon slug (Ramayana, Mahabharata, Panchatantra).
   const staticCanonSlugs = new Set(['ramayana', 'mahabharata', 'panchatantra']);
-  if (staticCanonSlugs.has(slug)) {
+  if (Array.from(staticCanonSlugs).some(s => slug === s || slug.endsWith(`-${s}`))) {
     book.accuracyLabel = 'CANONICAL';
   } else {
     book.accuracyLabel = 'CREATIVE_RETELLING';

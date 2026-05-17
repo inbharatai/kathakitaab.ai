@@ -104,7 +104,9 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
           text: s.narration.slice(0, 1500),
           mood: s.mood,
         });
-        const ext = result.mimeType.includes('wav') ? 'wav' : result.mimeType.includes('mp3') ? 'mp3' : 'bin';
+        const ext = result.mimeType.includes('wav') ? 'wav'
+          : result.mimeType.includes('mpeg') || result.mimeType.includes('mp3') ? 'mp3'
+          : 'bin';
         const url = await uploadGeneratedNarration(result.audio, {
           mimeType: result.mimeType,
           path: `${slug}/narration/${s.scene_id}.${ext}`,

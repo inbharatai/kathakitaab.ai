@@ -41,25 +41,36 @@ export interface SceneNode {
 }
 
 // ── In-memory graph ──────────────────────────────────────────
+// Keyed by bookSlug so navigation between books doesn't leak branches.
 
-const graph = new Map<string, SceneNode>();
+const graph = new Map<string, Map<string, SceneNode>>();
 
-export function getOrCreateNode(sceneId: string, title: string): SceneNode {
-  let node = graph.get(sceneId);
+function getBookGraph(bookSlug: string): Map<string, SceneNode> {
+  if (!graph.has(bookSlug)) {
+    graph.set(bookSlug, new Map<string, SceneNode>());
+  }
+  return graph.get(bookSlug)!;
+}
+
+export function getOrCreateNode(bookSlug: string, sceneId: string, title: string): SceneNode {
+  const g = getBookGraph(bookSlug);
+  let node = g.get(sceneId);
   if (!node) {
     node = { sceneId, title, visited: false, branches: [], discoveredEntities: [] };
-    graph.set(sceneId, node);
+    g.set(sceneId, node);
   }
   return node;
 }
 
-export function markVisited(sceneId: string) {
-  const node = graph.get(sceneId);
+export function markVisited(bookSlug: string, sceneId: string) {
+  const g = getBookGraph(bookSlug);
+  const node = g.get(sceneId);
   if (node) node.visited = true;
 }
 
-export function addBranch(sceneId: string, branch: SceneBranch): void {
-  const node = graph.get(sceneId);
+export function addBranch(bookSlug: string, sceneId: string, branch: SceneBranch): void {
+  const g = getBookGraph(bookSlug);
+  const node = g.get(sceneId);
   if (!node) return;
   // Dedup by entity + entityType + action — different verbs on the
   // same entity (Talk vs Fight) are intentionally distinct branches.
@@ -73,8 +84,9 @@ export function addBranch(sceneId: string, branch: SceneBranch): void {
   node.branches.push(branch);
 }
 
-export function getBranch(sceneId: string, entityId: string, actionType?: string): SceneBranch | null {
-  const node = graph.get(sceneId);
+export function getBranch(bookSlug: string, sceneId: string, entityId: string, actionType?: string): SceneBranch | null {
+  const g = getBookGraph(bookSlug);
+  const node = g.get(sceneId);
   if (!node) return null;
   // If actionType is supplied, look up the matching variant first;
   // fall back to any branch on the entity for legacy callers.
@@ -88,16 +100,18 @@ export function getBranch(sceneId: string, entityId: string, actionType?: string
   return node.branches.find(b => b.entityId === entityId) ?? null;
 }
 
-export function markEntityDiscovered(sceneId: string, entityId: string) {
-  const node = graph.get(sceneId);
+export function markEntityDiscovered(bookSlug: string, sceneId: string, entityId: string) {
+  const g = getBookGraph(bookSlug);
+  const node = g.get(sceneId);
   if (!node) return;
   if (!node.discoveredEntities.includes(entityId)) {
     node.discoveredEntities.push(entityId);
   }
 }
 
-export function getDiscoveryCount(sceneId: string): { discovered: number; total: number } {
-  const node = graph.get(sceneId);
+export function getDiscoveryCount(bookSlug: string, sceneId: string): { discovered: number; total: number } {
+  const g = getBookGraph(bookSlug);
+  const node = g.get(sceneId);
   if (!node) return { discovered: 0, total: 0 };
   return { discovered: node.discoveredEntities.length, total: node.branches.length };
 }
@@ -112,9 +126,10 @@ export function getDiscoveryCount(sceneId: string): { discovered: number; total:
 const GRAPH_KEY = 'kathakitaab_scene_graph';
 const MAX_BRANCHES_PER_NODE = 12;
 
-function sanitizeForStorage(): Record<string, SceneNode> {
+function sanitizeForStorage(bookSlug: string): Record<string, SceneNode> {
   const out: Record<string, SceneNode> = {};
-  for (const [key, node] of graph) {
+  const g = getBookGraph(bookSlug);
+  for (const [key, node] of g) {
     const branches = node.branches
       .slice(-MAX_BRANCHES_PER_NODE)
       .map<SceneBranch>(b => ({
@@ -129,7 +144,7 @@ function sanitizeForStorage(): Record<string, SceneNode> {
 export function saveGraph(bookSlug: string) {
   if (typeof window === 'undefined') return;
   const key = `${GRAPH_KEY}_${bookSlug}`;
-  const payload = JSON.stringify(sanitizeForStorage());
+  const payload = JSON.stringify(sanitizeForStorage(bookSlug));
   try {
     localStorage.setItem(key, payload);
   } catch (err) {
@@ -150,8 +165,9 @@ export function loadGraph(bookSlug: string) {
   if (!raw) return;
   try {
     const data = JSON.parse(raw) as Record<string, SceneNode>;
+    const g = getBookGraph(bookSlug);
     for (const [key, node] of Object.entries(data)) {
-      graph.set(key, node);
+      g.set(key, node);
     }
   } catch { /* corrupt data, start fresh */ }
 }

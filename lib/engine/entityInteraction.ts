@@ -87,7 +87,7 @@ export async function handleEntityClick(
   // 1. Check scene graph cache. Different actions on the same entity
   // are intentionally distinct branches — a "Talk to Rama" hit must
   // not shadow a later "Fight Rama" click.
-  const existing = getBranch(ctx.sceneId, ctx.entityId, ctx.actionType);
+  const existing = getBranch(ctx.bookSlug, ctx.sceneId, ctx.entityId, ctx.actionType);
   if (existing) {
     existing.visited = true;
     return { branch: existing, cached: true, imageGenerating: false };
@@ -117,8 +117,8 @@ export async function handleEntityClick(
       createdAt: Date.now(),
       visited: true,
     };
-    addBranch(ctx.sceneId, branch);
-    markEntityDiscovered(ctx.sceneId, ctx.entityId);
+    addBranch(ctx.bookSlug, ctx.sceneId, branch);
+    markEntityDiscovered(ctx.bookSlug, ctx.sceneId, ctx.entityId);
     return { branch, cached: true, imageGenerating: false };
   }
 
@@ -136,8 +136,8 @@ export async function handleEntityClick(
   });
   const cachedBranch = (await getCachedResponse(cacheKey)) as SceneBranch | null;
   if (cachedBranch) {
-    addBranch(ctx.sceneId, cachedBranch);
-    markEntityDiscovered(ctx.sceneId, ctx.entityId);
+    addBranch(ctx.bookSlug, ctx.sceneId, cachedBranch);
+    markEntityDiscovered(ctx.bookSlug, ctx.sceneId, ctx.entityId);
     return { branch: cachedBranch, cached: true, imageGenerating: false };
   }
 
@@ -179,8 +179,8 @@ export async function handleEntityClick(
   };
 
   // 4. Save to graph + cache
-  addBranch(ctx.sceneId, branch);
-  markEntityDiscovered(ctx.sceneId, ctx.entityId);
+  addBranch(ctx.bookSlug, ctx.sceneId, branch);
+  markEntityDiscovered(ctx.bookSlug, ctx.sceneId, ctx.entityId);
   await setCachedResponse(cacheKey, branch, 'entity-interaction');
 
   // Narration is fired by the caller (SceneViewer) once the branch

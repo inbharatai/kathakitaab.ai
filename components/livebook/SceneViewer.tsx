@@ -710,8 +710,8 @@ export default function SceneViewer({
       );
 
       // Save scene graph
-      getOrCreateNode(storyScene.scene_id, storyScene.page_title);
-      markVisited(storyScene.scene_id);
+      getOrCreateNode(bookSlug, storyScene.scene_id, storyScene.page_title);
+      markVisited(bookSlug, storyScene.scene_id);
       saveGraph(bookSlug);
 
       // Image generates in the background — swap it in when ready
@@ -820,8 +820,8 @@ export default function SceneViewer({
       );
 
       // Save to scene graph
-      getOrCreateNode(storyScene.scene_id, storyScene.page_title);
-      markVisited(storyScene.scene_id);
+      getOrCreateNode(bookSlug, storyScene.scene_id, storyScene.page_title);
+      markVisited(bookSlug, storyScene.scene_id);
       saveGraph(bookSlug);
 
       if (result.imagePromise) {

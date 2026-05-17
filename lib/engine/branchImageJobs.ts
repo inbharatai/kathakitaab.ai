@@ -51,7 +51,12 @@ export async function startBranchImageJob(
   await writeJob(branchId, initial);
 
   try {
-    const result = await generator();
+    const result = await Promise.race([
+      generator(),
+      new Promise<{ imageUrl?: string | null }>((_, reject) =>
+        setTimeout(() => reject(new Error('Branch image generation timed out after 120s')), 120_000)
+      ),
+    ]);
     if (result.imageUrl) {
       await writeJob(branchId, { state: 'ready', imageUrl: result.imageUrl, finishedAt: Date.now() });
     } else {

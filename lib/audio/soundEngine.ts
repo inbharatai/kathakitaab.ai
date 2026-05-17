@@ -163,6 +163,7 @@ export function playSceneTransitionSound() {
 
 // ---- TTS Narration (OpenAI primary, browser fallback) ----
 let currentAudio: HTMLAudioElement | null = null;
+let currentAudioId = 0;
 let ttsAbortController: AbortController | null = null;
 
 /**
@@ -193,11 +194,20 @@ export async function speakNarration(
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
 
+      const id = ++currentAudioId;
       currentAudio = new Audio(url);
       currentAudio.volume = 0.85;
       currentAudio.onended = () => {
-        URL.revokeObjectURL(url);
-        currentAudio = null;
+        if (currentAudioId === id) {
+          URL.revokeObjectURL(url);
+          currentAudio = null;
+        }
+      };
+      currentAudio.onerror = () => {
+        if (currentAudioId === id) {
+          URL.revokeObjectURL(url);
+          currentAudio = null;
+        }
       };
 
       await currentAudio.play();
@@ -248,9 +258,11 @@ export async function speakAsCharacter(
 }
 
 export function stopNarration() {
+  // Increment ID so any in-flight or old audio callbacks are ignored
+  currentAudioId++;
   // Stop OpenAI audio
   if (currentAudio) {
-    currentAudio.pause();
+    try { currentAudio.pause(); } catch { /* */ }
     currentAudio.currentTime = 0;
     currentAudio = null;
   }
