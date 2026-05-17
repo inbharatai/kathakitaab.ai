@@ -137,7 +137,7 @@ export function sceneToStoryScene(
   scene: SceneWithHotspots,
   characters?: Character[],
   bookSlugOverride?: string,
-  bookContext?: { stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book' },
+  bookContext?: { stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book' | 'anime_manga' },
 ): StoryScene {
   const hotspots = scene.hotspots ?? [];
 

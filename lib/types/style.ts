@@ -16,7 +16,8 @@ export type StylePreset =
   | 'photoreal_cinematic'
   | 'storybook_watercolor'
   | 'cinematic_animation'
-  | 'comic_book';
+  | 'comic_book'
+  | 'anime_manga';
 
 export interface StylePresetMeta {
   /** UI label shown to the user when choosing a preset. */
@@ -66,6 +67,14 @@ export const STYLE_PRESETS: Record<StylePreset, StylePresetMeta> = {
       'Style: comic-book panel illustration in the modern Marvel / DC register — bold black ink outlines, dynamic linework, Ben-Day halftone shading, flat saturated palette, dramatic foreshortening, strong chiaroscuro shadows, action-pose composition. Faces and figures stylised but instantly recognisable. Leave clean negative space in the upper third of the frame where speech bubbles will be overlaid by the renderer; do NOT paint speech bubbles or text into the image itself.',
     negative: ['photorealism', 'soft watercolor', '3D animation', 'anime cel-shading', 'manga', 'painted speech bubbles', 'embedded text or letters'],
   },
+  anime_manga: {
+    label: 'Anime / Manga Adventure',
+    description:
+      'Expressive anime-inspired characters, clean linework, cinematic colour, dramatic emotions, dynamic action poses, and manga-style energy. Best for fantasy quests, teen adventures, superhero retellings, sci-fi, emotional journeys, and action-heavy mythology.',
+    promptClause:
+      'Style: cinematic anime illustration — expressive characters with large emotive eyes, clean confident linework, rich saturated colour grading, dynamic action poses, dramatic lighting with strong rim-light, detailed backgrounds with atmospheric perspective, emotional storytelling through facial expression and body language. NOT photorealistic, NOT 3D CGI, NOT western cartoon, NOT flat corporate illustration. Generic anime/manga visual language only — no copyrighted franchise names, no specific studio styles.',
+    negative: ['photorealism', 'photographic faces', '3D CGI animation', 'western cartoon style', 'flat corporate illustration', 'copyrighted character', 'franchise style', 'distorted face', 'extra fingers', 'oversexualized', 'generic cosplay', 'modern school uniform'],
+  },
 };
 
 /**
@@ -92,6 +101,7 @@ export function slugSuffixForPreset(preset: StylePreset | undefined, explicit = 
   if (preset === 'storybook_watercolor') return '-watercolour';
   if (preset === 'cinematic_animation') return '-animation';
   if (preset === 'comic_book') return '-comic';
+  if (preset === 'anime_manga') return '-anime';
   if (explicit && (!preset || preset === 'photoreal_cinematic')) return '-photoreal';
   return '';
 }
@@ -110,10 +120,16 @@ export function defaultPresetForBook(opts: {
   if (opts.isChildrenStory) return 'storybook_watercolor';
   const t = (opts.title ?? '').toLowerCase();
   const tr = (opts.tradition ?? '').toLowerCase();
+  const combined = t + ' ' + tr;
   // Fable / animal-protagonist tells default to watercolour because
   // photoreal talking animals are uncanny.
-  if (/panchatantra|jataka|aesop|fable|hitopadesha/.test(t + ' ' + tr)) {
+  if (/panchatantra|jataka|aesop|fable|hitopadesha/.test(combined)) {
     return 'storybook_watercolor';
+  }
+  // Anime / manga / teen adventure / sci-fi / fantasy quest titles
+  // default to anime_manga for the energetic visual register.
+  if (/\banime\b|\bmanga\b|\bmecha\b|\bninja\b|\bsamurai\b|\bshonen\b|\bishonen\b|\bisekai\b|\bfantasy quest\b|\bteen adventure\b|\bsuperhero\b|\bsci-fi\b|\bsci fi\b|\bspace\b|\bcyberpunk\b|\bdystopia\b/.test(combined)) {
+    return 'anime_manga';
   }
   return 'photoreal_cinematic';
 }

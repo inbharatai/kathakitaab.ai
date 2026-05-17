@@ -143,7 +143,7 @@ export interface BookMovieManifest {
    *  movie player renders the bottom subtitle track (default) or
    *  comic-style in-frame speech bubbles (comic_book). Absent on
    *  legacy manifests → treated as non-comic. */
-  stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book';
+  stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book' | 'anime_manga';
 }
 
 export const BOOK_MOVIE_FPS = 30;

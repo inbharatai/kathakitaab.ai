@@ -34,7 +34,7 @@ const COMPARISON = [
   { old: 'Same experience every time', new: 'AI generates a fresh branch the first time, caches it after' },
   { old: 'Silent or robotic narration', new: 'Sarvam Bulbul shaped per scene mood — sorrow plays slow, battle plays urgent' },
   { old: 'Characters drift between scenes', new: 'Anchor portraits lock every face — same Rama, same Sita, every scene' },
-  { old: 'Locked into one art style', new: 'Pick photoreal, storybook, or animation — same story, different aesthetic' },
+  { old: 'Locked into one art style', new: 'Pick from five visual styles — same story, different aesthetic, one consistent cast' },
   { old: 'One linear path', new: 'Story graph with hidden discoveries via tap-anywhere' },
   { old: 'Books vs. movies — pick one', new: 'Every book also plays as a cinematic movie' },
   { old: 'Flat illustrations', new: 'Layered scenes with parallax, fog, particles, dust shafts per scene' },
@@ -49,7 +49,7 @@ const STEPS = [
 
 const SUPPORTED_WORLDS = [
   'Ramayana', 'Mahabharata', 'Panchatantra', 'Shiva Stories', 'Buddha Tales',
-  'Indian History', 'Fantasy', 'Sci-Fi', 'Kids Stories', 'Education', 'Biography', 'Any Title You Type',
+  'Indian History', 'Fantasy', 'Sci-Fi', 'Anime Adventure', 'Manga Quest', 'Kids Stories', 'Education', 'Biography', 'Any Title You Type',
 ];
 
 // Steps shown in the "Make your own" stepper. Each maps to a real
@@ -67,7 +67,7 @@ const MAKE_YOUR_OWN_STEPS = [
   {
     num: '02',
     title: 'Pick a visual style — engine builds it',
-    desc: 'Photoreal Bollywood cinematic, storybook watercolour, or cinematic animation. gpt-4o-mini writes scene narration, hotspots, and a quiz. gpt-image-1 first bakes one canonical portrait per character, then uses it as an anchor so the same Rama, Sita, or Birbal shows up in every scene. Sarvam Bulbul records the narration in a voice the AI picked to match each character.',
+    desc: 'Photoreal cinematic, storybook watercolour, cinematic animation, comic book, or anime/manga adventure. gpt-4o-mini writes scene narration, hotspots, and a quiz. gpt-image-1 first bakes one canonical portrait per character, then uses it as an anchor so the same face shows up in every scene. Sarvam Bulbul records the narration in a voice the AI picked to match each character.',
     cta: { label: 'See the engine', href: '/books/akbar-and-birbal' },
     timing: '~3 minutes, ~$0.40 in API cost',
   },
@@ -208,6 +208,18 @@ const STYLE_CARDS: Array<{
       '/images/comic/scene_ravana_jatayu_beat_3.png',
       '/images/comic/scene_hanuman_lanka_beat_1.png',
       '/images/comic/scene_mithila_bow_beat_3.png',
+    ],
+  },
+  {
+    preset: 'anime_manga',
+    icon: '🌸',
+    bestFor: ['Fantasy quests', 'Teen adventures', 'Superhero retellings', 'Sci-fi epics', 'Emotional journeys', 'Action mythology'],
+    accent: 'rgba(255,105,180,0.5)',
+    previewImages: [
+      '/images/style-samples/anime/1-court.png',
+      '/images/style-samples/anime/2-forest.png',
+      '/images/style-samples/anime/3-battle.png',
+      '/images/style-samples/anime/4-temple.png',
     ],
   },
 ];
@@ -491,14 +503,14 @@ export default function HomePage() {
             New · Pick the aesthetic, lock the cast
           </span>
           <h2 className="lp-section-title" style={{ marginTop: 14 }}>
-            Four visual styles. One consistent cast.
+            Five visual styles. One consistent cast.
           </h2>
           <p className="lp-section-sub" style={{ maxWidth: 780, margin: '12px auto 0' }}>
             Pick a style at generation time. Whichever you choose, every scene image
-            is anchored to a canonical portrait of each character — Rama looks like the
-            same Rama in scene 1 and scene 12. Comic books even talk: in-frame speech
-            bubbles, narrator captions, shout starbursts — typed in as the narration
-            plays. Style and accuracy are decoupled by design.
+            is anchored to a canonical portrait of each character — the same face in scene 1 and scene 12.
+            Comic books even talk: in-frame speech bubbles, narrator captions, shout starbursts.
+            Anime brings expressive emotion, dynamic action poses, and manga energy.
+            Style and accuracy are decoupled by design.
           </p>
         </motion.div>
         <div style={{

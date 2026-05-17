@@ -46,7 +46,7 @@ export default function ClassroomStoryForm() {
   // Classroom defaults to photoreal cinematic — feels like the
   // textbook-illustration register. Users can switch to watercolour
   // (Panchatantra), animation (modern adaptations), or comic_book
-  // (action / mythology). Universal across all 4 presets.
+  // (action / mythology). Universal across all 5 presets.
   const [stylePreset, setStylePreset] = useState<StylePreset>('photoreal_cinematic');
   const [status, setStatus] = useState<Status>('idle');
   const [progress, setProgress] = useState<{ step: string; percent: number }>({ step: '', percent: 0 });

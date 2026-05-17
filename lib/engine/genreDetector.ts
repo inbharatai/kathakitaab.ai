@@ -71,7 +71,8 @@ export type RecommendedPreset =
   | 'photoreal_cinematic'
   | 'storybook_watercolor'
   | 'cinematic_animation'
-  | 'comic_book';
+  | 'comic_book'
+  | 'anime_manga';
 
 export interface GenreProfile {
   genre: GenreCategory;
@@ -135,6 +136,15 @@ const KEYWORDS: KeywordMap = {
     dystopia: ['sci_fi'],
     cyberpunk: ['sci_fi'],
     utopia: ['sci_fi'],
+    anime: ['fantasy'],
+    manga: ['fantasy'],
+    mecha: ['sci_fi'],
+    shonen: ['adventure'],
+    isekai: ['fantasy'],
+    'super hero': ['adventure'],
+    superhero: ['adventure'],
+    'teen adventure': ['adventure'],
+    'young adult fantasy': ['fantasy'],
     biography: ['biography'],
     autobiography: ['biography'],
     memoir: ['biography'],
@@ -404,8 +414,9 @@ function inferTone(genre: GenreCategory, region: CulturalRegion): VisualTone {
 
 function recommendPreset(genre: GenreCategory, age: AgeSuitability, region: CulturalRegion): RecommendedPreset {
   if (age === 'children' || genre === 'children' || genre === 'folktale') return 'storybook_watercolor';
-  if (genre === 'sci_fi') return 'cinematic_animation';
-  if (genre === 'fantasy') return 'cinematic_animation';
+  if (genre === 'sci_fi') return 'anime_manga';
+  if (genre === 'fantasy') return 'anime_manga';
+  if (genre === 'adventure' && age === 'teen') return 'anime_manga';
   if (genre === 'mythology' && (region === 'indian' || region === 'greek' || region === 'norse')) return 'photoreal_cinematic';
   if (genre === 'history' || genre === 'biography') return 'photoreal_cinematic';
   if (genre === 'adventure') return 'cinematic_animation';

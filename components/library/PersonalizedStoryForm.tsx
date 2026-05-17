@@ -50,7 +50,7 @@ export default function PersonalizedStoryForm() {
   // Personalized children's stories default to watercolour storybook
   // — soft register that works at any age. Parents can switch to
   // animation, photoreal, or comic_book (for older kids). Universal
-  // across all 4 presets, same as the other two modes.
+  // across all 5 presets, same as the other two modes.
   const [stylePreset, setStylePreset] = useState<StylePreset>('storybook_watercolor');
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<Status>('idle');

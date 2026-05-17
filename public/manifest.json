@@ -1,7 +1,7 @@
 {
   "name": "KathaKitaab — A Living Storybook",
   "short_name": "KathaKitaab",
-  "description": "Read it. Play it. Watch it. AI-powered Indian storybooks that come alive — Ramayana, Mahabharata, custom stories for your child, all in four visual styles.",
+  "description": "Read it. Play it. Watch it. AI-powered Indian storybooks that come alive — Ramayana, Mahabharata, custom stories for your child, all in five visual styles.",
   "id": "/",
   "start_url": "/?source=pwa",
   "scope": "/",

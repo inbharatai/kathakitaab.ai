@@ -100,7 +100,7 @@ interface Manifest {
   bookTitle: string;
   scenes: ManifestScene[];
   generatedAt: string;
-  stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book';
+  stylePreset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book' | 'anime_manga';
 }
 
 function parseSlugArg(): string {

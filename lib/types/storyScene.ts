@@ -234,7 +234,7 @@ export interface StoryScene {
    *  text-display layer the canvas mounts (subtitle bar vs comic
    *  bubbles). Missing → renderer treats as 'photoreal_cinematic'
    *  for visual contract, never as comic. */
-  style_preset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book';
+  style_preset?: 'photoreal_cinematic' | 'storybook_watercolor' | 'cinematic_animation' | 'comic_book' | 'anime_manga';
 }
 
 // ── Visual Bible (consistency across scenes) ─────────────────

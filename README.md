@@ -146,6 +146,7 @@ Choose at generation time:
 | `storybook_watercolor` | Children's fable — soft watercolor washes, gentle outlines |
 | `cinematic_animation` | Indian animation studio style — rich colour, expressive characters |
 | `comic_book` | Comic book panels — ink outlines, flat colour, in-frame speech bubbles |
+| `anime_manga` | Anime / Manga Adventure — expressive characters, clean linework, cinematic colour, dramatic emotions, dynamic action poses |
 
 </details>
 
