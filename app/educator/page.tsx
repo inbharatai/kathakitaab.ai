@@ -72,10 +72,8 @@ export default function EducatorPage() {
           </p>
         </motion.div>
 
-        {/* Generation forms — three modes, one selector. World mode
-            is the default (it's what most visitors want); Classroom
-            and Personalized Story are real flows now and surface the
-            same generation pipeline. */}
+        {/* Generation forms — world and personalized modes. World mode
+            is the default (it's what most visitors want). */}
         <div style={{ marginTop: 32 }}>
           <StudioModeSelector />
         </div>
@@ -118,33 +116,6 @@ export default function EducatorPage() {
           ))}
         </div>
 
-        {/* Coming-soon strip — only items that genuinely don't exist
-            yet. Classroom Story and text-only Personalized Story
-            shipped in V1; the photo-upload variant is still ahead. */}
-        <div style={{
-          marginTop: 36, padding: '18px 22px',
-          borderRadius: 14,
-          background: 'rgba(43,27,21,0.45)',
-          border: '1px solid rgba(255,215,0,0.08)',
-        }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>
-            Coming soon
-          </div>
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
-            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
-              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Child photo upload</strong>
-              {' — illustrate the hero with your child’s likeness. In safety review; will ship with private-by-default photo storage and a clear retention + delete policy. The text-only version above is live today.'}
-            </li>
-            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
-              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Video export</strong>
-              {' — a downloadable MP4 of the cinematic cut. The in-browser cinematic player is already live on every book’s movie page.'}
-            </li>
-            <li style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem', lineHeight: 1.55 }}>
-              <strong style={{ color: 'var(--color-gold-light)', fontWeight: 700 }}>Classroom analytics</strong>
-              {' — assignment, comprehension tracking, multi-student dashboards. Today’s Classroom mode generates a single playable book; the analytics layer is planned, not built.'}
-            </li>
-          </ul>
-        </div>
 
         {/* How the engine actually builds your book — replaces the old
             "Agent Swarm" diagram. Names match the real concurrent

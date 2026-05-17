@@ -267,7 +267,7 @@ export default function HomePage() {
         </Link>
         <div className="lp-nav-actions">
           <div className="lp-nav-links">
-            <Link href="/books" className="lp-nav-link lp-nav-pill-saffron">Stories</Link>
+            <Link href="/books" className="lp-nav-link lp-nav-pill-saffron">Library</Link>
             <Link href="/educator" className="lp-nav-link lp-nav-pill-white">Studio</Link>
           </div>
           <AuthNavButton next="/books#create-story" compact className="lp-nav-pill-signin" />
@@ -306,7 +306,7 @@ export default function HomePage() {
                 <span>Enter the Ramayana</span>
                 <span className="lp-btn-arrow">{'\u2192'}</span>
               </Link>
-              <Link href="#movie-mode" className="lp-btn-outline">Watch as a Movie</Link>
+              <Link href="/books" className="lp-btn-outline">Browse Library</Link>
             </div>
 
             <p className="lp-hero-hint">Free to explore. No signup required.</p>
