@@ -201,25 +201,28 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
     });
 
     source.addEventListener('error', (e) => {
-      try {
-        const data = JSON.parse((e as MessageEvent).data || '{}');
-        inFlightRef.current = false;
-        sessionStorage.removeItem(RESUME_KEY);
-        setError(data.message || 'Lost connection. Try again in a moment.');
-        setStatus('error');
-      } catch {
-        // If the stream drops without a message, let the EventSource
-        // auto-reconnect once. If it fails again we'll show an error.
-        setTimeout(() => {
-          if (source.readyState === EventSource.CLOSED) {
-            inFlightRef.current = false;
-            sessionStorage.removeItem(RESUME_KEY);
-            setError('Lost connection to the book generator. Try again in a moment.');
-            setStatus('error');
-          }
-        }, 5000);
+      const msg = (e as MessageEvent).data;
+      if (msg) {
+        // Server-sent error event — terminal, close the stream.
+        try {
+          const data = JSON.parse(msg);
+          inFlightRef.current = false;
+          sessionStorage.removeItem(RESUME_KEY);
+          setError(data.message || 'Lost connection. Try again in a moment.');
+          setStatus('error');
+        } catch {
+          inFlightRef.current = false;
+          sessionStorage.removeItem(RESUME_KEY);
+          setError('Lost connection. Try again in a moment.');
+          setStatus('error');
+        }
+        source.close();
+      } else {
+        // Native connection error — let EventSource auto-reconnect.
+        // If it stays closed after the reconnect window, the safety
+        // timeout above (6 min) or the page-level guard will surface it.
+        console.warn('[BookGenerator] SSE connection error — retrying');
       }
-      source.close();
     });
 
     // Safety: close the stream after 6 minutes (generation budget + headroom).
@@ -260,6 +263,17 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Cleanup: if the component unmounts while an SSE stream is open,
+  // close it so the browser doesn't leak connections.
+  useEffect(() => {
+    return () => {
+      const s = (streamProgress as unknown as { _source?: EventSource })._source;
+      const t = (streamProgress as unknown as { _timeout?: ReturnType<typeof setTimeout> })._timeout;
+      if (s && s.readyState !== EventSource.CLOSED) s.close();
+      if (t) clearTimeout(t);
+    };
+  }, []);
 
   // Best-effort error message extraction. Tries JSON first, falls back
   // to text, falls back to an HTTP-status string. Never throws.

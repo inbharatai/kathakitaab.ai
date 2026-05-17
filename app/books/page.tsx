@@ -113,8 +113,9 @@ export default function BooksPage() {
         }
         setJobsLoaded(true);
       });
-      source.addEventListener('error', (e) => {
-        console.warn('[books] jobs SSE error:', (e as MessageEvent).data || 'connection dropped');
+      source.addEventListener('error', () => {
+        console.warn('[books] jobs SSE error — connection dropped');
+        setJobsLoaded(true);
         // EventSource auto-reconnects by default; we only fall back
         // to polling if it stays closed after the reconnect window.
       });

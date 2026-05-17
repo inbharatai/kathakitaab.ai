@@ -6,7 +6,7 @@
 // matching `manifests/{slug}.json` and feeds this composition.
 //
 // Per scene: Ken-Burns pan + Sarvam narration + chapter chip +
-// flowing caption + cross-fade. Plus a title card and end card.
+// flowing caption + hard-cut between beats. Plus a title card and end card.
 //
 // Length is data-driven — `computeBookMovieFrames(manifest)` is
 // the single source of truth so callers (Player on the landing
