@@ -14,6 +14,10 @@
 import { NextResponse } from 'next/server';
 import { getManifestForSlugAsync, hydrateAndPersist } from '@/lib/video/manifestRegistry';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
+import { getBook } from '@/lib/data/bookRegistry';
 
 // Anonymous visitors can watch only the curated Ramayana movie. Every
 // other movie / trailer needs sign-in — matches the read access rule
@@ -41,6 +45,16 @@ export async function GET(request: Request) {
       reason: 'auth_required',
       slug,
     }, { status: 401 });
+  }
+
+  // Visibility check: private books can only be rendered by owner or admin.
+  const book = await getBook(slug);
+  if (book) {
+    const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+    const isAdmin = isAdminSession(session);
+    if (!isAdmin && !canReadBook(book, ownerId)) {
+      return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+    }
   }
 
   // Hydrate inline. Sarvam-in-after() couldn't deliver reliably; the

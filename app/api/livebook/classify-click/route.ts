@@ -9,6 +9,12 @@
 import { NextResponse } from 'next/server';
 import { classifyImageClick } from '@/lib/engine/clickClassifier';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
+import { getBook } from '@/lib/data/bookRegistry';
+import { isSafeUrl } from '@/lib/safety/urlValidation';
 
 interface ClassifyRequest {
   sceneTitle: string;
@@ -17,6 +23,8 @@ interface ClassifyRequest {
   imageUrl: string | null;
   xPercent: number;
   yPercent: number;
+  /** Book slug for auth + visibility gating. Optional for back-compat. */
+  bookSlug?: string;
 }
 
 export async function POST(request: Request) {
@@ -25,6 +33,30 @@ export async function POST(request: Request) {
 
   try {
     const body: ClassifyRequest = await request.json();
+
+    // Auth gate for non-seed books.
+    const session = await getSessionFromRouteRequest(request);
+    if (!session && body.bookSlug && body.bookSlug !== 'ramayana') {
+      return NextResponse.json({ error: 'Sign in to interact with this book.', reason: 'auth_required' }, { status: 401 });
+    }
+
+    // SSRF guard: block private IPs and non-HTTP(S) URLs.
+    if (body.imageUrl && !isSafeUrl(body.imageUrl)) {
+      return NextResponse.json({ error: 'Invalid imageUrl' }, { status: 400 });
+    }
+
+    // Visibility check for AI-generated books.
+    if (body.bookSlug && body.bookSlug !== 'ramayana') {
+      const book = await getBook(body.bookSlug);
+      if (book) {
+        const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+        const isAdmin = isAdminSession(session);
+        if (!isAdmin && !canReadBook(book, ownerId)) {
+          return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+        }
+      }
+    }
+
     const result = await classifyImageClick(
       body.sceneTitle,
       body.sceneNarration,

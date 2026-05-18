@@ -14,6 +14,10 @@ import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache
 import { generateSceneImage } from '@/lib/agents/visualAgent';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
+import { getBook } from '@/lib/data/bookRegistry';
 import { getBookStylePreset } from '@/lib/data/bookStyle';
 
 // Character visual prompts — carefully crafted for consistency
@@ -69,6 +73,19 @@ export async function POST(request: Request) {
   try {
     const body: GenerateImageRequest = await request.json();
     const { targetType, targetId, sceneId, sceneTitle, label, promptHint, bookSlug, characters } = body;
+
+    // Visibility check: private books can only generate images for owner or admin.
+    if (bookSlug) {
+      const book = await getBook(bookSlug);
+      if (book) {
+        const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+        const isAdmin = isAdminSession(session);
+        if (!isAdmin && !canReadBook(book, ownerId)) {
+          return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+        }
+      }
+    }
+
     const resolvedTargetId = targetId || label || sceneId;
 
     // Build cache key

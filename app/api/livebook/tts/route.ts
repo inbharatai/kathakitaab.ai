@@ -15,6 +15,11 @@ import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { speakTTS } from '@/lib/audio/ttsRouter';
 import { uploadGeneratedNarration } from '@/lib/storage/audioStorage';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
+import { getBook } from '@/lib/data/bookRegistry';
 
 const TTS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -60,6 +65,24 @@ export async function POST(request: Request) {
 
     if (!text || text.trim().length < 5) {
       return NextResponse.json({ error: 'Text too short' }, { status: 400 });
+    }
+
+    // Auth gate: only Ramayana TTS for anonymous users.
+    const session = await getSessionFromRouteRequest(request);
+    if (!session && bookSlug && bookSlug !== 'ramayana') {
+      return NextResponse.json({ error: 'Sign in for text-to-speech.', reason: 'auth_required' }, { status: 401 });
+    }
+
+    // Visibility check for AI-generated books.
+    if (bookSlug && bookSlug !== 'ramayana') {
+      const book = await getBook(bookSlug);
+      if (book) {
+        const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+        const isAdmin = isAdminSession(session);
+        if (!isAdmin && !canReadBook(book, ownerId)) {
+          return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+        }
+      }
     }
 
     // Resolve archetype: prefer characterSlug; fall back to legacy voice tag.

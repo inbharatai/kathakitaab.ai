@@ -9,8 +9,12 @@
 
 import { NextResponse } from 'next/server';
 import { getBranchImageJob } from '@/lib/engine/branchImageJobs';
+import { checkRateLimit } from '@/lib/middleware/rateLimit';
 
 export async function GET(request: Request) {
+  const limited = await checkRateLimit(request, { scope: 'default' });
+  if (limited) return limited;
+
   const url = new URL(request.url);
   const branchId = url.searchParams.get('branchId');
   if (!branchId) return NextResponse.json({ error: 'branchId required' }, { status: 400 });

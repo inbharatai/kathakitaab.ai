@@ -138,7 +138,7 @@ async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T | null>
  *  lambda crashes 2 seconds later. */
 export async function createJob(
   params: Pick<GenerationJob, 'slug' | 'userId' | 'title' | 'mode' | 'stylePreset' | 'metadata'>,
-): Promise<GenerationJob> {
+): Promise<GenerationJob | null> {
   const job: GenerationJob = {
     id: `job-${params.slug}-${now()}-${Math.random().toString(36).slice(2, 8)}`,
     ...params,
@@ -162,8 +162,22 @@ export async function createJob(
     }
     // Global index for admin overview
     await r.sadd(allJobsKey(), job.id);
-    // Index by slug so /api/books/generate can detect duplicates
-    await r.set(jobSlugIndexKey(job.slug), job.id, { ex: JOB_TTL_SEC });
+    // Index by slug so /api/books/generate can detect duplicates.
+    // Use NX so concurrent createJob calls for the same slug race
+    // safely: only the first caller wins, the rest get null.
+    const slugIndexSet = await r.set(jobSlugIndexKey(job.slug), job.id, { ex: JOB_TTL_SEC, nx: true });
+    if (!slugIndexSet) {
+      // Another instance already created a job for this slug.
+      // Roll back our entry and return null so the caller can
+      // return the existing generation in-flight response.
+      await r.del(jobKey(job.id));
+      await r.srem(allJobsKey(), job.id);
+      if (job.userId) {
+        await r.srem(jobIndexKey(job.userId), job.id);
+      }
+      memJobs.delete(job.id);
+      return null;
+    }
   }
 
   return job;

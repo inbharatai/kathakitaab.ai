@@ -188,7 +188,8 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
           sessionStorage.removeItem(RESUME_KEY);
           setStatus('done');
           setProgress({ step: 'Book complete!', percent: 100 });
-          setTimeout(() => router.push(`/books/${slug}`), 1000);
+          const redirectTimeout = setTimeout(() => router.push(`/books/${slug}`), 1000);
+          (streamProgress as unknown as { _redirectTimeout?: ReturnType<typeof setTimeout> })._redirectTimeout = redirectTimeout;
           source.close();
         }
       } catch { /* ignore */ }
@@ -270,8 +271,10 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
     return () => {
       const s = (streamProgress as unknown as { _source?: EventSource })._source;
       const t = (streamProgress as unknown as { _timeout?: ReturnType<typeof setTimeout> })._timeout;
+      const r = (streamProgress as unknown as { _redirectTimeout?: ReturnType<typeof setTimeout> })._redirectTimeout;
       if (s && s.readyState !== EventSource.CLOSED) s.close();
       if (t) clearTimeout(t);
+      if (r) clearTimeout(r);
     };
   }, []);
 

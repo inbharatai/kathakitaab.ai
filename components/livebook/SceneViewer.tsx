@@ -136,7 +136,7 @@ export default function SceneViewer({
   onGameStateChange,
 }: Props) {
   const router = useRouter();
-  const initialGameState = loadGameState();
+  const initialGameState = useMemo(() => loadGameState(), []);
   const resolvedSceneBasePath = sceneBasePath ?? `/books/${bookSlug}`;
   const continuityRef = useRef<ContinuityState>(loadContinuity(bookSlug));
 
@@ -198,6 +198,15 @@ export default function SceneViewer({
   const isMutedRef = useRef(false);
   const sceneContainerRef = useRef<HTMLDivElement>(null);
   const interactionPanelRef = useRef<HTMLDivElement>(null);
+  // AbortControllers for fire-and-forget fetches so unmount doesn't leak.
+  const pregenAbortRef = useRef<AbortController | null>(null);
+  const generateAbortRef = useRef<AbortController | null>(null);
+  const classifyAbortRef = useRef<AbortController | null>(null);
+  // Timer refs for setTimeout cleanup.
+  const emptyToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visitXpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether component is mounted to guard async setState after unmount.
+  const mountedRef = useRef(true);
 
   // ── Unified game mutator ──
   const mutateGame = useCallback((
@@ -318,10 +327,16 @@ export default function SceneViewer({
   }, [bookSlug]);
 
   // Tear down the stream on unmount so we never apply events to an
-  // unmounted component, and abort any in-flight manifest fetches.
+  // unmounted component, and abort any in-flight fetches + timers.
   useEffect(() => () => {
+    mountedRef.current = false;
     readinessStreamRef.current?.close();
     manifestFetchRef.current?.abort();
+    pregenAbortRef.current?.abort();
+    generateAbortRef.current?.abort();
+    classifyAbortRef.current?.abort();
+    if (emptyToastTimerRef.current) clearTimeout(emptyToastTimerRef.current);
+    if (visitXpTimerRef.current) clearTimeout(visitXpTimerRef.current);
   }, []);
 
   // ── SceneStream manifest fetch ──
@@ -419,7 +434,10 @@ export default function SceneViewer({
 
       const isNew = !gameStateRef.current.scenesVisited.includes(sceneId);
       if (isNew) {
-        setTimeout(() => mutateGame(s => recordSceneVisit(s, sceneId), 75), 600);
+        if (visitXpTimerRef.current) clearTimeout(visitXpTimerRef.current);
+        visitXpTimerRef.current = setTimeout(() => {
+          if (mountedRef.current) mutateGame(s => recordSceneVisit(s, sceneId), 75);
+        }, 600);
       }
 
       agentSwarm.preloadSceneHotspots(
@@ -438,9 +456,12 @@ export default function SceneViewer({
         y: h.y,
       }));
       if (hotspotEntities.length > 0) {
+        pregenAbortRef.current?.abort();
+        pregenAbortRef.current = new AbortController();
         fetch('/api/livebook/pregenerate-branches', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: pregenAbortRef.current.signal,
           body: JSON.stringify({
             bookSlug,
             bookTitle: loadedScene.book_id || bookSlug,
@@ -453,7 +474,7 @@ export default function SceneViewer({
           console.log(`[PreGen] ${data.readyCount}/${data.total} branches ready for ${loadedScene.scene_id}`);
           // Refresh manifest after pre-gen completes so action menu
           // dots flip from amber → green without waiting for next nav.
-          refreshActionStatus(loadedScene.scene_id);
+          if (mountedRef.current) refreshActionStatus(loadedScene.scene_id);
         }).catch(() => { /* pre-gen failure is non-blocking */ });
       }
 
@@ -480,9 +501,9 @@ export default function SceneViewer({
       );
 
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      if (mountedRef.current) setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [bookSlug, mutateGame, onSceneChange, resolvedSceneBasePath, refreshActionStatus, subscribeToReadiness]);
 
@@ -498,9 +519,12 @@ export default function SceneViewer({
     narrationManager.stopNarration();
 
     try {
+      generateAbortRef.current?.abort();
+      generateAbortRef.current = new AbortController();
       const res = await fetch('/api/livebook/generate-scene', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: generateAbortRef.current.signal,
         body: JSON.stringify({
           bookSlug,
           bookTitle: storyScene.story_id || bookSlug,
@@ -528,6 +552,8 @@ export default function SceneViewer({
       const data = await res.json();
       const generatedScene: StoryScene = data.scene;
 
+      if (!mountedRef.current) return;
+
       // Set the generated scene directly (it's already a StoryScene)
       setStoryScene(generatedScene);
       setSceneState(createInitialSceneState(generatedScene));
@@ -549,9 +575,12 @@ export default function SceneViewer({
         y: h.y,
       }));
       if (hotspotEntities.length > 0) {
+        pregenAbortRef.current?.abort();
+        pregenAbortRef.current = new AbortController();
         fetch('/api/livebook/pregenerate-branches', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: pregenAbortRef.current.signal,
           body: JSON.stringify({
             bookSlug,
             bookTitle: generatedScene.story_id || bookSlug,
@@ -584,10 +613,14 @@ export default function SceneViewer({
       narrationManager.onSceneChanged(generatedScene.scene_id, generatedScene.story_text);
 
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to generate scene');
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to generate scene');
+      }
     } finally {
-      setGenerating(false);
-      setGeneratingContext('');
+      if (mountedRef.current) {
+        setGenerating(false);
+        setGeneratingContext('');
+      }
     }
   }, [storyScene, bookSlug, mutateGame, sceneState]);
 
@@ -691,6 +724,7 @@ export default function SceneViewer({
       };
 
       const result = await handleEntityClick(entityCtx);
+      if (!mountedRef.current) return;
       setActiveBranch(result.branch);
 
       // Speak the BRANCH narration, not the scene's. Without this,
@@ -720,13 +754,14 @@ export default function SceneViewer({
       if (result.imagePromise) {
         const branchId = result.branch.id;
         result.imagePromise.then(imageUrl => {
-          if (!imageUrl) return;
+          if (!imageUrl || !mountedRef.current) return;
           setActiveBranch(prev => (prev && prev.id === branchId ? { ...prev, imageUrl } : prev));
         });
       }
 
     } catch (err) {
       console.error('[Entity Interaction]', err);
+      if (!mountedRef.current) return;
       // Fallback: open flipbook for text-only response
       openFlipbook(
         isCharacter ? 'character' : 'info',
@@ -735,7 +770,7 @@ export default function SceneViewer({
         isCharacter ? 'Tell me about yourself in this scene.' : `What is "${hotspot.label}"?`,
       );
     } finally {
-      setBranchLoading(false);
+      if (mountedRef.current) setBranchLoading(false);
     }
   }, [storyScene, bookSlug, mutateGame, loadScene, generateNewScene, openFlipbook]);
 
@@ -750,10 +785,14 @@ export default function SceneViewer({
 
     try {
       // Step 1: Classify what was clicked (via API — server has the API keys)
+      classifyAbortRef.current?.abort();
+      classifyAbortRef.current = new AbortController();
       const classRes = await fetch('/api/livebook/classify-click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: classifyAbortRef.current.signal,
         body: JSON.stringify({
+          bookSlug,
           sceneTitle: storyScene.page_title,
           sceneNarration: storyScene.story_text,
           characters: storyScene.characters.map(c => c.name),
@@ -766,6 +805,7 @@ export default function SceneViewer({
 
       // Step 2: If not meaningful, show toast and stop
       if (!classification.meaningful || classification.suggestedAction === 'ignore') {
+        if (!mountedRef.current) return;
         setBranchLoading(false);
         // Brief toast
         setActiveBranch({
@@ -785,7 +825,9 @@ export default function SceneViewer({
         // Auto-clear ONLY this empty toast — guard against the user
         // creating a real branch within the 3s window. Without this id
         // check the timer would clobber a fresh branch.
-        setTimeout(() => {
+        if (emptyToastTimerRef.current) clearTimeout(emptyToastTimerRef.current);
+        emptyToastTimerRef.current = setTimeout(() => {
+          if (!mountedRef.current) return;
           setActiveBranch(prev => (prev?.id === 'empty' ? null : prev));
         }, 3000);
         return;
@@ -805,6 +847,7 @@ export default function SceneViewer({
       };
 
       const result = await handleEntityClick(entityCtx);
+      if (!mountedRef.current) return;
       setActiveBranch(result.branch);
 
       // Speak the BRANCH narration so audio matches the branch image
@@ -827,16 +870,16 @@ export default function SceneViewer({
       if (result.imagePromise) {
         const branchId = result.branch.id;
         result.imagePromise.then(imageUrl => {
-          if (!imageUrl) return;
+          if (!imageUrl || !mountedRef.current) return;
           setActiveBranch(prev => (prev && prev.id === branchId ? { ...prev, imageUrl } : prev));
         });
       }
 
     } catch (err) {
       console.error('[Click-Anywhere]', err);
-      setBranchLoading(false);
+      if (mountedRef.current) setBranchLoading(false);
     } finally {
-      setBranchLoading(false);
+      if (mountedRef.current) setBranchLoading(false);
     }
   }, [flipOpen, storyScene, bookSlug]);
 

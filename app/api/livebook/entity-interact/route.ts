@@ -19,6 +19,10 @@ import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache
 import { getCachedBranch, getManifest } from '@/lib/engine/branchPreGenerator';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
+import { getBook } from '@/lib/data/bookRegistry';
 import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 import { startBranchImageJob } from '@/lib/engine/branchImageJobs';
 import { getBookStylePreset } from '@/lib/data/bookStyle';
@@ -119,6 +123,16 @@ export async function POST(request: Request) {
     }
 
     const body: EntityInteractRequest = await request.json();
+
+    // Visibility check: private books can only be interacted with by owner or admin.
+    const book = await getBook(body.bookSlug);
+    if (book) {
+      const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+      const isAdmin = isAdminSession(session);
+      if (!isAdmin && !canReadBook(book, ownerId)) {
+        return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+      }
+    }
 
     const fieldGuard = sanitiseFields({
       bookTitle: body.bookTitle,

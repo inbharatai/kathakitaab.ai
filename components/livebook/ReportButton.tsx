@@ -4,7 +4,7 @@
 // the live reader so anyone (signed-in or anonymous) can flag a
 // scene or whole book.
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -28,6 +28,13 @@ export function ReportButton({ bookSlug, sceneId }: Props) {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState('');
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   async function submit() {
     setStatus('sending');
@@ -43,7 +50,7 @@ export function ReportButton({ bookSlug, sceneId }: Props) {
         throw new Error(j.error || `HTTP ${res.status}`);
       }
       setStatus('sent');
-      setTimeout(() => { setOpen(false); setStatus('idle'); setNotes(''); }, 1600);
+      closeTimerRef.current = setTimeout(() => { setOpen(false); setStatus('idle'); setNotes(''); }, 1600);
     } catch (e) {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Failed to send');
@@ -54,7 +61,10 @@ export function ReportButton({ bookSlug, sceneId }: Props) {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+          setOpen(true);
+        }}
         aria-label="Report this content"
         style={{
           padding: '6px 14px', borderRadius: 999,
@@ -137,7 +147,10 @@ export function ReportButton({ bookSlug, sceneId }: Props) {
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+                    setOpen(false);
+                  }}
                   disabled={status === 'sending'}
                   className="btn-secondary"
                   style={{ padding: '8px 18px' }}

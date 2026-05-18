@@ -52,6 +52,8 @@ export default function ClassroomStoryForm() {
   const [progress, setProgress] = useState<{ step: string; percent: number }>({ step: '', percent: 0 });
   const [error, setError] = useState('');
   const inFlightRef = useRef(false);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const busy = status === 'generating' || status === 'polling';
   const canSubmit = !busy && gradeBand.trim().length > 0 && (subject.trim().length > 0 || chapter.trim().length > 0);
@@ -130,7 +132,7 @@ export default function ClassroomStoryForm() {
             setStatus('error');
             return;
           }
-          setTimeout(poll, 2000);
+          pollTimeoutRef.current = setTimeout(poll, 2000);
           return;
         }
         consecutiveFailures = 0;
@@ -140,7 +142,7 @@ export default function ClassroomStoryForm() {
           sessionStorage.removeItem(RESUME_KEY);
           setStatus('done');
           setProgress({ step: 'Story ready!', percent: 100 });
-          setTimeout(() => router.push(`/books/${slug}`), 1000);
+          redirectTimeoutRef.current = setTimeout(() => router.push(`/books/${slug}`), 1000);
           return;
         }
         if (data.error) {
@@ -151,7 +153,7 @@ export default function ClassroomStoryForm() {
           return;
         }
         setProgress({ step: data.step || 'Working…', percent: data.percent || 0 });
-        setTimeout(poll, 1500);
+        pollTimeoutRef.current = setTimeout(poll, 1500);
       } catch {
         consecutiveFailures++;
         if (consecutiveFailures >= MAX_FAILURES) {
@@ -161,7 +163,7 @@ export default function ClassroomStoryForm() {
           setStatus('error');
           return;
         }
-        setTimeout(poll, 2000);
+        pollTimeoutRef.current = setTimeout(poll, 2000);
       }
     };
     poll();
@@ -190,6 +192,13 @@ export default function ClassroomStoryForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    return () => {
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+      if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
+    };
+  }, []);
 
   return (
     <form

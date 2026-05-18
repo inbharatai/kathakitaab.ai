@@ -10,7 +10,7 @@
 // confirm state, second sends the DELETE.
 // ============================================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Props {
@@ -23,6 +23,7 @@ export default function DeleteBookButton({ bookSlug }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Decide visibility from the book's metadata. Calling /api/books/<slug>
   // returns 404 for non-owners, so a successful response with
@@ -44,7 +45,10 @@ export default function DeleteBookButton({ bookSlug }: Props) {
         if (!cancelled && isPrivate) setVisible(true);
       } catch { /* fail closed — don't show the button on error */ }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+    };
   }, [bookSlug]);
 
   if (!visible) return null;
@@ -55,9 +59,10 @@ export default function DeleteBookButton({ bookSlug }: Props) {
       setConfirming(true);
       // Auto-revert if the user doesn't confirm within 5s — avoids
       // leaving the button in a "click-to-confirm" state forever.
-      setTimeout(() => setConfirming(false), 5000);
+      confirmTimeoutRef.current = setTimeout(() => setConfirming(false), 5000);
       return;
     }
+    if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
     setBusy(true);
     setError('');
     try {

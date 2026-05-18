@@ -169,7 +169,8 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
   // Auto-focus the input when loaded
   useEffect(() => {
     if (entry.data && !entry.loading) {
-      setTimeout(() => inputRef.current?.focus(), 400);
+      const t = setTimeout(() => inputRef.current?.focus(), 400);
+      return () => clearTimeout(t);
     }
   }, [entry.data, entry.loading]);
 

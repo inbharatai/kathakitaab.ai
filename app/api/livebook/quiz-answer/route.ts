@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { QuizAnswerRequest } from '@/lib/types/livebook';
 import { getQuizzesBySceneId } from '@/lib/data/ramayanaSeed';
-import { getScene as getRegistryScene } from '@/lib/data/bookRegistry';
+import { getScene as getRegistryScene, getBook } from '@/lib/data/bookRegistry';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'default' });
@@ -11,6 +15,24 @@ export async function POST(request: Request) {
   try {
     const body: QuizAnswerRequest = await request.json();
     const { quizId, sceneId, selectedAnswer, bookSlug } = body;
+
+    // Auth gate: only Ramayana quizzes for anonymous users.
+    const session = await getSessionFromRouteRequest(request);
+    if (!session && bookSlug && bookSlug !== 'ramayana') {
+      return NextResponse.json({ error: 'Sign in to answer quizzes for this book.', reason: 'auth_required' }, { status: 401 });
+    }
+
+    // Visibility check for AI-generated books.
+    if (bookSlug && bookSlug !== 'ramayana') {
+      const book = await getBook(bookSlug);
+      if (book) {
+        const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+        const isAdmin = isAdminSession(session);
+        if (!isAdmin && !canReadBook(book, ownerId)) {
+          return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+        }
+      }
+    }
 
     // Universal quiz lookup: Ramayana seed first, then bookRegistry
     // (each AI-generated scene carries its own quiz_questions[]).

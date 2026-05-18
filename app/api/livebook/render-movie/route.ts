@@ -41,6 +41,7 @@ import { getBook } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { isSafeUrl } from '@/lib/safety/urlValidation';
 
 // 10 minutes — Remotion render of a 7-minute movie typically takes
 // 2-4 minutes depending on hardware. This caps it so a runaway
@@ -394,25 +395,6 @@ async function runVisionQA(
   await Promise.all(workers);
 }
 
-function isSafeUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
-    // Block private IP ranges and localhost to prevent SSRF
-    const host = u.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1') return false;
-    if (host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.')) {
-      const second = parseInt(host.split('.')[1], 10);
-      if (host.startsWith('10.') || host.startsWith('192.168.') || (host.startsWith('172.') && second >= 16 && second <= 31)) {
-        return false;
-      }
-    }
-    if (host.startsWith('169.254.')) return false; // link-local
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function getPublicUrlIfExists(
   supabase: NonNullable<ReturnType<typeof getSupabaseService>>,

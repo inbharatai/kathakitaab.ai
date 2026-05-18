@@ -23,8 +23,12 @@
 import { getCachedBranch, getPregenActions } from '@/lib/engine/branchPreGenerator';
 import { getCanonEntry } from '@/lib/data/canonLookup';
 import { getSceneWithHotspots } from '@/lib/data/ramayanaSeed';
-import { getScene } from '@/lib/data/bookRegistry';
+import { getScene, getBook } from '@/lib/data/bookRegistry';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
 
 // SSE responses must stream — opt out of static optimization explicitly.
 export const dynamic = 'force-dynamic';
@@ -85,6 +89,22 @@ export async function GET(
   const bookSlug = url.searchParams.get('bookSlug') ?? '';
   if (!bookSlug) {
     return new Response('bookSlug query parameter is required', { status: 400 });
+  }
+
+  // Auth gate: only Ramayana streams for anonymous users.
+  const session = await getSessionFromRouteRequest(request);
+  if (!session && bookSlug !== 'ramayana') {
+    return new Response('Sign in to stream updates for this book.', { status: 401 });
+  }
+
+  // Visibility check for AI-generated books.
+  const book = await getBook(bookSlug);
+  if (book) {
+    const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+    const isAdmin = isAdminSession(session);
+    if (!isAdmin && !canReadBook(book, ownerId)) {
+      return new Response('Book not found', { status: 404 });
+    }
   }
 
   const tuples = await resolveActionTuples(bookSlug, sceneId);

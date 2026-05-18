@@ -6,6 +6,7 @@ import { getJobBySlug, deleteJob } from '@/lib/data/jobRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
 import { hydrateAndPersist } from '@/lib/video/manifestRegistry';
 import { saveGeneratedBook } from '@/lib/data/bookRegistry';
 
@@ -15,16 +16,6 @@ import { saveGeneratedBook } from '@/lib/data/bookRegistry';
 // restricted to the canonical reference book; signed-in users get
 // the full library.
 const ANONYMOUS_READABLE_SLUGS = new Set(['ramayana']);
-
-/** Returns true when the requester may read this AI-generated book.
- *  Public books are always readable. Private books are readable only
- *  by the owner (cookie match). For non-owners we 404 — never 403 —
- *  so the existence of a private slug isn't disclosed. */
-function canRead(book: { visibility?: 'public' | 'private'; ownerId?: string }, ownerId: string | null): boolean {
-  if (!book.visibility || book.visibility === 'public') return true;
-  if (!ownerId) return false;
-  return book.ownerId === ownerId;
-}
 
 export async function GET(
   request: Request,
@@ -63,7 +54,7 @@ export async function GET(
     // Use the authed userId when present, else fall back to legacy
     // anonymous owner cookie. Private books only resolve for owner.
     const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
-    if (!canRead(generated, ownerId)) {
+    if (!canReadBook(generated, ownerId)) {
       // 404 instead of 403 so the existence of the slug stays
       // private. A private book to its owner = visible; to anyone
       // else = doesn't exist.

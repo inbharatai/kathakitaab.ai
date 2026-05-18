@@ -25,6 +25,10 @@ import { isGeminiConfigured } from '@/lib/openai/client';
 import { getCachedResponse, setCachedResponse, buildCacheKey } from '@/lib/cache/responseCache';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
+import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { canReadBook } from '@/lib/auth/bookAccess';
+import { getBook } from '@/lib/data/bookRegistry';
 import { getBookStylePreset } from '@/lib/data/bookStyle';
 import { sanitiseFields } from '@/lib/safety/promptInjectionGuard';
 import type { StoryScene, SceneHotspot, SceneCharacter, SceneObject } from '@/lib/types/storyScene';
@@ -84,6 +88,16 @@ export async function POST(request: Request) {
     }
 
     const body: GenerateSceneRequest = await request.json();
+
+    // Visibility check: private books can only be extended by owner or admin.
+    const book = await getBook(body.bookSlug);
+    if (book) {
+      const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
+      const isAdmin = isAdminSession(session);
+      if (!isAdmin && !canReadBook(book, ownerId)) {
+        return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+      }
+    }
 
     const fieldGuard = sanitiseFields({
       bookTitle: body.bookTitle,

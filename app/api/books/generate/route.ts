@@ -365,6 +365,13 @@ export async function POST(request: Request) {
     },
   });
 
+  // createJob returns null when another request already created a
+  // job for this slug (NX race won by the other caller). Return the
+  // in-flight response so both callers see the same generation.
+  if (!job) {
+    return NextResponse.json({ generating: true, slug });
+  }
+
   // Mark "in flight" before scheduling the work so the very next
   // poll from the browser already sees a progress entry — even
   // before generateBook emits its first onProgress callback.
