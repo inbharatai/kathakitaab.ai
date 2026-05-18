@@ -1,14 +1,19 @@
 'use client';
 
 // ============================================================
-// /signin — magic link + password + Google sign-in
+// /signin — magic link + password sign-in / sign-up / forgot
 //
-// Three paths:
+// Paths:
 //   - Magic link: enter email → Supabase sends a sign-in link → user
 //     clicks → /auth/callback completes the session.
-//   - Password: enter email + password → Supabase signs in directly.
-//     Session is persisted via @supabase/ssr cookie helpers.
-//   - Google: OAuth redirect → /auth/callback.
+//   - Password sign-in: existing account, email + password → Supabase
+//     signs in directly. Session persisted via @supabase/ssr cookies.
+//   - Create account: new user, email + password → Supabase creates
+//     account. If auto-confirm is enabled, session is immediate.
+//   - Forgot password: email → Supabase sends reset link.
+//
+// Google login is hidden (not tested end-to-end) but the handler is
+// preserved for future re-enable.
 //
 // All honour ?next= so a user trying to generate gets bounced back
 // to the library after sign-in.
@@ -32,9 +37,12 @@ function SignInForm() {
   const siteOrigin = useMemo(() => getPublicSiteOrigin(), []);
 
   const [mode, setMode] = useState<'magic' | 'password'>('magic');
+  const [passwordSubMode, setPasswordSubMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [submitError, setSubmitError] = useState('');
@@ -100,6 +108,52 @@ function SignInForm() {
     if (data.session) {
       router.push(next);
     }
+  }
+
+  async function signUpWithPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password || !accepted || !client) return;
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match.');
+      return;
+    }
+    setStatus('sending');
+    setErrorMsg('');
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${siteOrigin}/auth/callback?next=${next}`,
+      },
+    });
+    if (error) {
+      setStatus('error');
+      setErrorMsg(error.message);
+      return;
+    }
+    if (data.session) {
+      // Auto-confirmed — session is ready immediately.
+      router.push(next);
+    } else {
+      // Needs email confirmation.
+      setStatus('sent');
+    }
+  }
+
+  async function sendPasswordReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !client) return;
+    setStatus('sending');
+    setErrorMsg('');
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteOrigin}/auth/callback?next=${next}`,
+    });
+    if (error) {
+      setStatus('error');
+      setErrorMsg(error.message);
+      return;
+    }
+    setStatus('sent');
   }
 
   async function signInWithGoogle() {
@@ -193,7 +247,7 @@ function SignInForm() {
             <div style={{ fontSize: '2.2rem', marginBottom: 8 }}>✉️</div>
             <p style={{ color: 'var(--color-gold-light)', fontWeight: 600 }}>Check your inbox</p>
             <p style={{ color: 'var(--color-text-dim)', fontSize: '0.85rem', marginTop: 6 }}>
-              We sent a sign-in link to <b>{email}</b>. Click it to come back here signed in.
+              We sent a message to <b>{email}</b>. Follow the instructions in your email to continue.
             </p>
           </div>
         ) : (
@@ -257,81 +311,218 @@ function SignInForm() {
                 </button>
               </form>
             ) : (
-              <form onSubmit={signInWithPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <input
-                  type="email"
-                  required
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  disabled={status === 'sending'}
-                  style={{
-                    padding: '12px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(212,168,71,0.3)',
-                    borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
-                  }}
-                />
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    disabled={status === 'sending'}
-                    style={{
-                      width: '100%', padding: '12px 44px 12px 16px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(212,168,71,0.3)',
-                      borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
-                    }}
-                  />
+              <>
+                {/* Password sub-mode toggle */}
+                <div style={{
+                  display: 'flex', gap: 6, marginBottom: 12,
+                }}>
                   <button
                     type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPassword(s => !s)}
+                    onClick={() => { setPasswordSubMode('signin'); setErrorMsg(''); }}
                     style={{
-                      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                      background: 'transparent', border: 'none', color: 'var(--color-text-dim)',
-                      cursor: 'pointer', fontSize: '0.8rem',
+                      flex: 1, padding: '6px 0', fontSize: '0.78rem', borderRadius: 6,
+                      background: passwordSubMode === 'signin' ? 'rgba(212,168,71,0.15)' : 'transparent',
+                      border: '1px solid rgba(212,168,71,0.3)',
+                      color: passwordSubMode === 'signin' ? 'var(--color-gold-light)' : 'var(--color-text-dim)',
+                      cursor: 'pointer',
                     }}
                   >
-                    {showPassword ? 'Hide' : 'Show'}
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPasswordSubMode('signup'); setErrorMsg(''); }}
+                    style={{
+                      flex: 1, padding: '6px 0', fontSize: '0.78rem', borderRadius: 6,
+                      background: passwordSubMode === 'signup' ? 'rgba(212,168,71,0.15)' : 'transparent',
+                      border: '1px solid rgba(212,168,71,0.3)',
+                      color: passwordSubMode === 'signup' ? 'var(--color-gold-light)' : 'var(--color-text-dim)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Create Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPasswordSubMode('forgot'); setErrorMsg(''); }}
+                    style={{
+                      flex: 1, padding: '6px 0', fontSize: '0.78rem', borderRadius: 6,
+                      background: passwordSubMode === 'forgot' ? 'rgba(212,168,71,0.15)' : 'transparent',
+                      border: '1px solid rgba(212,168,71,0.3)',
+                      color: passwordSubMode === 'forgot' ? 'var(--color-gold-light)' : 'var(--color-text-dim)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Forgot
                   </button>
                 </div>
-                <button
-                  type="submit"
-                  disabled={!email || !password || !accepted || status === 'sending'}
-                  className="btn-primary"
-                  style={{ width: '100%', opacity: (!email || !password || !accepted || status === 'sending') ? 0.5 : 1 }}
-                >
-                  {status === 'sending' ? 'Signing in…' : 'Sign in'}
-                </button>
-              </form>
+
+                {passwordSubMode === 'signin' && (
+                  <form onSubmit={signInWithPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <input
+                      type="email"
+                      required
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      disabled={status === 'sending'}
+                      style={{
+                        padding: '12px 16px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(212,168,71,0.3)',
+                        borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                      }}
+                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        placeholder="Password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        disabled={status === 'sending'}
+                        style={{
+                          width: '100%', padding: '12px 44px 12px 16px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(212,168,71,0.3)',
+                          borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowPassword(s => !s)}
+                        style={{
+                          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                          background: 'transparent', border: 'none', color: 'var(--color-text-dim)',
+                          cursor: 'pointer', fontSize: '0.8rem',
+                        }}
+                      >
+                        {showPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={!email || !password || !accepted || status === 'sending'}
+                      className="btn-primary"
+                      style={{ width: '100%', opacity: (!email || !password || !accepted || status === 'sending') ? 0.5 : 1 }}
+                    >
+                      {status === 'sending' ? 'Signing in…' : 'Sign in'}
+                    </button>
+                  </form>
+                )}
+
+                {passwordSubMode === 'signup' && (
+                  <form onSubmit={signUpWithPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <input
+                      type="email"
+                      required
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      disabled={status === 'sending'}
+                      style={{
+                        padding: '12px 16px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(212,168,71,0.3)',
+                        borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                      }}
+                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        placeholder="Password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        disabled={status === 'sending'}
+                        style={{
+                          width: '100%', padding: '12px 44px 12px 16px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(212,168,71,0.3)',
+                          borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowPassword(s => !s)}
+                        style={{
+                          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                          background: 'transparent', border: 'none', color: 'var(--color-text-dim)',
+                          cursor: 'pointer', fontSize: '0.8rem',
+                        }}
+                      >
+                        {showPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        placeholder="Confirm password"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        disabled={status === 'sending'}
+                        style={{
+                          width: '100%', padding: '12px 44px 12px 16px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(212,168,71,0.3)',
+                          borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowConfirmPassword(s => !s)}
+                        style={{
+                          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                          background: 'transparent', border: 'none', color: 'var(--color-text-dim)',
+                          cursor: 'pointer', fontSize: '0.8rem',
+                        }}
+                      >
+                        {showConfirmPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={!email || !password || !confirmPassword || !accepted || status === 'sending'}
+                      className="btn-primary"
+                      style={{ width: '100%', opacity: (!email || !password || !confirmPassword || !accepted || status === 'sending') ? 0.5 : 1 }}
+                    >
+                      {status === 'sending' ? 'Creating…' : 'Create account'}
+                    </button>
+                  </form>
+                )}
+
+                {passwordSubMode === 'forgot' && (
+                  <form onSubmit={sendPasswordReset} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <input
+                      type="email"
+                      required
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      disabled={status === 'sending'}
+                      style={{
+                        padding: '12px 16px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(212,168,71,0.3)',
+                        borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!email || status === 'sending'}
+                      className="btn-primary"
+                      style={{ width: '100%', opacity: (!email || status === 'sending') ? 0.5 : 1 }}
+                    >
+                      {status === 'sending' ? 'Sending…' : 'Send reset link'}
+                    </button>
+                  </form>
+                )}
+              </>
             )}
-
-            <div style={{
-              textAlign: 'center', margin: '16px 0',
-              color: 'var(--color-text-dim)', fontSize: '0.78rem',
-            }}>
-              or
-            </div>
-
-            <button
-              type="button"
-              onClick={signInWithGoogle}
-              disabled={!accepted}
-              className="btn-secondary"
-              style={{
-                width: '100%',
-                display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10,
-                opacity: !accepted ? 0.5 : 1,
-              }}
-            >
-              <span aria-hidden style={{ fontSize: '1.1rem' }}>🔑</span>
-              Continue with Google
-            </button>
 
             <label style={{
               display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 20,
