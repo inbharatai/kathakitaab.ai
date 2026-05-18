@@ -1,14 +1,16 @@
 'use client';
 
 // ============================================================
-// /signin — magic link + Google sign-in
+// /signin — magic link + password + Google sign-in
 //
-// Two paths:
+// Three paths:
 //   - Magic link: enter email → Supabase sends a sign-in link → user
 //     clicks → /auth/callback completes the session.
+//   - Password: enter email + password → Supabase signs in directly.
+//     Session is persisted via @supabase/ssr cookie helpers.
 //   - Google: OAuth redirect → /auth/callback.
 //
-// Both honour ?next= so a user trying to generate gets bounced back
+// All honour ?next= so a user trying to generate gets bounced back
 // to the library after sign-in.
 //
 // Surfaces /signin?error=<message> via a banner when the callback
@@ -16,24 +18,25 @@
 // ============================================================
 
 import { useState, useMemo, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { createBrowserAuthClient, getPublicSiteOrigin } from '@/lib/auth/supabaseAuthClient';
 
 function SignInForm() {
   const params = useSearchParams();
+  const router = useRouter();
   const next = params.get('next') || '/books';
   const errorParam = params.get('error');
   const client = useMemo(() => createBrowserAuthClient(), []);
   const siteOrigin = useMemo(() => getPublicSiteOrigin(), []);
 
+  const [mode, setMode] = useState<'magic' | 'password'>('magic');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  // Local error state (set after form submission). Static error from
-  // the URL (?error=...) is derived directly so we don't trip
-  // react-hooks/set-state-in-effect.
   const [submitError, setSubmitError] = useState('');
   const urlError = errorParam ? decodeURIComponent(errorParam) : '';
   const errorMsg = submitError || urlError;
@@ -78,6 +81,25 @@ function SignInForm() {
       return;
     }
     setStatus('sent');
+  }
+
+  async function signInWithPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password || !accepted || !client) return;
+    setStatus('sending');
+    setErrorMsg('');
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      setStatus('error');
+      setErrorMsg(error.message);
+      return;
+    }
+    if (data.session) {
+      router.push(next);
+    }
   }
 
   async function signInWithGoogle() {
@@ -176,30 +198,118 @@ function SignInForm() {
           </div>
         ) : (
           <>
-            <form onSubmit={sendMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input
-                type="email"
-                required
-                placeholder="you@example.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                disabled={status === 'sending'}
-                style={{
-                  padding: '12px 16px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(212,168,71,0.3)',
-                  borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
-                }}
-              />
+            {/* Mode toggle */}
+            <div style={{
+              display: 'flex', gap: 8, marginBottom: 16,
+              background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 4,
+            }}>
               <button
-                type="submit"
-                disabled={!email || !accepted || status === 'sending'}
-                className="btn-primary"
-                style={{ width: '100%', opacity: (!email || !accepted || status === 'sending') ? 0.5 : 1 }}
+                type="button"
+                onClick={() => { setMode('magic'); setErrorMsg(''); }}
+                className="btn-secondary"
+                style={{
+                  flex: 1, padding: '8px 0', fontSize: '0.82rem',
+                  background: mode === 'magic' ? 'rgba(212,168,71,0.2)' : 'transparent',
+                  border: mode === 'magic' ? '1px solid rgba(212,168,71,0.4)' : '1px solid transparent',
+                  color: mode === 'magic' ? 'var(--color-gold-light)' : 'var(--color-text-dim)',
+                }}
               >
-                {status === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
+                Magic Link
               </button>
-            </form>
+              <button
+                type="button"
+                onClick={() => { setMode('password'); setErrorMsg(''); }}
+                className="btn-secondary"
+                style={{
+                  flex: 1, padding: '8px 0', fontSize: '0.82rem',
+                  background: mode === 'password' ? 'rgba(212,168,71,0.2)' : 'transparent',
+                  border: mode === 'password' ? '1px solid rgba(212,168,71,0.4)' : '1px solid transparent',
+                  color: mode === 'password' ? 'var(--color-gold-light)' : 'var(--color-text-dim)',
+                }}
+              >
+                Password
+              </button>
+            </div>
+
+            {mode === 'magic' ? (
+              <form onSubmit={sendMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <input
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  disabled={status === 'sending'}
+                  style={{
+                    padding: '12px 16px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(212,168,71,0.3)',
+                    borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!email || !accepted || status === 'sending'}
+                  className="btn-primary"
+                  style={{ width: '100%', opacity: (!email || !accepted || status === 'sending') ? 0.5 : 1 }}
+                >
+                  {status === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={signInWithPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <input
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  disabled={status === 'sending'}
+                  style={{
+                    padding: '12px 16px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(212,168,71,0.3)',
+                    borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                  }}
+                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    disabled={status === 'sending'}
+                    style={{
+                      width: '100%', padding: '12px 44px 12px 16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(212,168,71,0.3)',
+                      borderRadius: 10, color: 'white', fontSize: '0.95rem', outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword(s => !s)}
+                    style={{
+                      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                      background: 'transparent', border: 'none', color: 'var(--color-text-dim)',
+                      cursor: 'pointer', fontSize: '0.8rem',
+                    }}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!email || !password || !accepted || status === 'sending'}
+                  className="btn-primary"
+                  style={{ width: '100%', opacity: (!email || !password || !accepted || status === 'sending') ? 0.5 : 1 }}
+                >
+                  {status === 'sending' ? 'Signing in…' : 'Sign in'}
+                </button>
+              </form>
+            )}
 
             <div style={{
               textAlign: 'center', margin: '16px 0',
