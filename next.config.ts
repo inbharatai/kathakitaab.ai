@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
     '@remotion/compositor-linux-x64-musl',
     '@remotion/compositor-win32-x64-msvc',
   ],
+  async headers() {
+    return [
+      {
+        source: '/.well-known/assetlinks.json',
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

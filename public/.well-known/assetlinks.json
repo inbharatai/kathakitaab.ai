@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.kathakitaab.app",
+      "sha256_cert_fingerprints": [
+        "8B:4E:5E:96:D9:B0:23:5B:97:BB:13:CC:5F:4D:CB:D5:3D:D8:F8:39:3F:7F:51:A3:A9:8C:62:CD:AE:93:4B:91"
+      ]
+    }
+  }
+]
