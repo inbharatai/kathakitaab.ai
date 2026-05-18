@@ -213,13 +213,13 @@ const STYLE_CARDS: Array<{
   {
     preset: 'anime_manga',
     icon: '🌸',
-    bestFor: ['Fantasy quests', 'Teen adventures', 'Superhero retellings', 'Sci-fi epics', 'Emotional journeys', 'Action mythology'],
+    bestFor: ['Teen adventures', 'Fantasy quests', 'Sci-fi stories', 'Superhero retellings', 'Action mythology', 'Emotional character journeys'],
     accent: 'rgba(255,105,180,0.5)',
     previewImages: [
-      '/images/style-samples/anime/1-court.png',
-      '/images/style-samples/anime/2-forest.png',
-      '/images/style-samples/anime/3-battle.png',
-      '/images/style-samples/anime/4-temple.png',
+      '/images/styles/anime-manga/ramayana-anime.png',
+      '/images/styles/anime-manga/hanuman-anime.png',
+      '/images/styles/anime-manga/mahabharata-anime.png',
+      '/images/styles/anime-manga/maharana-pratap-anime.png',
     ],
   },
 ];
@@ -569,6 +569,37 @@ export default function HomePage() {
                   }}>
                     {card.bestFor.map(b => <li key={b}>{b}</li>)}
                   </ul>
+                  {card.preset === 'anime_manga' && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 8,
+                      marginTop: 8,
+                    }}>
+                      {[
+                        { src: '/images/styles/anime-manga/ramayana-anime.png', alt: 'Anime manga style Ramayana scene with Rama, Lakshmana and Sita in golden light' },
+                        { src: '/images/styles/anime-manga/hanuman-anime.png', alt: 'Anime manga style Hanuman carrying the mountain at sunset' },
+                        { src: '/images/styles/anime-manga/mahabharata-anime.png', alt: 'Anime manga style Krishna and Arjuna on the chariot at Kurukshetra' },
+                        { src: '/images/styles/anime-manga/maharana-pratap-anime.png', alt: 'Anime manga style Maharana Pratap on horseback near a fortress at sunset' },
+                      ].map(img => (
+                        <motion.div
+                          key={img.src}
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.98 }}
+                          style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(212,168,71,0.25)', lineHeight: 0 }}
+                        >
+                          <Image
+                            src={img.src}
+                            alt={img.alt}
+                            width={300}
+                            height={200}
+                            style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block' }}
+                            loading="lazy"
+                          />
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             );
