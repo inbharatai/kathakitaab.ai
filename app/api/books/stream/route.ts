@@ -5,6 +5,7 @@ import { getProgress } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 
 /** SSE stream for a single book generation.
  *
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
   // Authorize before opening SSE. Private books are not streamable
   // by non-owners — same semantics as /api/books/[slug].
   const bookCheck = await getBook(slug);
-  if (bookCheck && bookCheck.visibility === 'private') {
+  if (bookCheck && resolveBookVisibility(bookCheck) === 'private') {
     const ownerId = getOwnerIdFromRequest(request);
     const session = await getSessionFromRouteRequest(request);
     const isAdmin = isAdminSession(session);

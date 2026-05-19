@@ -28,7 +28,7 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
-import { canReadBook } from '@/lib/auth/bookAccess';
+import { canReadBook, resolveBookVisibility } from '@/lib/auth/bookAccess';
 
 // SSE responses must stream — opt out of static optimization explicitly.
 export const dynamic = 'force-dynamic';
@@ -88,7 +88,7 @@ export async function GET(
   const url = new URL(request.url);
   const bookSlug = url.searchParams.get('bookSlug') ?? '';
   if (!bookSlug) {
-    return new Response('bookSlug query parameter is required', { status: 400 });
+    return new Response(JSON.stringify({ error: 'bookSlug query parameter is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   // Visibility check for AI-generated books.
@@ -98,7 +98,7 @@ export async function GET(
     const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
     const isAdmin = isAdminSession(session);
     if (!isAdmin && !canReadBook(book, ownerId)) {
-      return new Response('Book not found', { status: 404 });
+      return new Response(JSON.stringify({ error: 'Book not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
     }
   }
 

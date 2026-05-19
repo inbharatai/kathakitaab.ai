@@ -10,6 +10,7 @@ import { buildCanonPromptFragment } from '@/lib/data/canonLookup';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'default' });
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     // Visibility check for generated books.
-    if (registryBook && registryBook.visibility === 'private') {
+    if (registryBook && resolveBookVisibility(registryBook) === 'private') {
       const ownerId = getOwnerIdFromRequest(request);
       const session = await getSessionFromRouteRequest(request);
       const isAdmin = isAdminSession(session);

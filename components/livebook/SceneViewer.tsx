@@ -756,7 +756,7 @@ export default function SceneViewer({
         result.imagePromise.then(imageUrl => {
           if (!imageUrl || !mountedRef.current) return;
           setActiveBranch(prev => (prev && prev.id === branchId ? { ...prev, imageUrl } : prev));
-        });
+        }).catch(() => { /* image generation failure is non-blocking */ });
       }
 
     } catch (err) {
@@ -872,7 +872,7 @@ export default function SceneViewer({
         result.imagePromise.then(imageUrl => {
           if (!imageUrl || !mountedRef.current) return;
           setActiveBranch(prev => (prev && prev.id === branchId ? { ...prev, imageUrl } : prev));
-        });
+        }).catch(() => { /* image generation failure is non-blocking */ });
       }
 
     } catch (err) {

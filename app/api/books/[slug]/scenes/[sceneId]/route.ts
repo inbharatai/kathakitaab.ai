@@ -5,6 +5,7 @@ import { getScene, updateScene, markSceneStale } from '@/lib/data/sceneRegistry'
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 import type { GeneratedScene } from '@/lib/openai/bookGeneratorAgent';
 
 export async function GET(
@@ -24,7 +25,7 @@ export async function GET(
   //    even though the book listing hides them. The cookie owner
   //    check matches /api/books/[slug] semantics.
   const book = await getBook(slug);
-  if (book && book.visibility === 'private') {
+  if (book && resolveBookVisibility(book) === 'private') {
     const ownerId = getOwnerIdFromRequest(request);
     if (!ownerId || book.ownerId !== ownerId) {
       // 404 instead of 403 — don't disclose the slug exists.

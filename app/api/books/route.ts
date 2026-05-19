@@ -25,6 +25,7 @@ import { resolveBookVisibility } from '@/lib/auth/bookAccess';
  *  reads use getBook(slug) which hits Redis.
  */
 export async function GET(request: Request) {
+  try {
   const seed = getSeedBooks();
   const generated = await getRegistryBooks();
   const ownerId = getOwnerIdFromRequest(request);
@@ -92,4 +93,8 @@ export async function GET(request: Request) {
     });
 
   return NextResponse.json({ books: [...seedAsBook, ...generatedAsBook] });
+  } catch (err) {
+    console.error('[api/books] unexpected error:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Failed to load library' }, { status: 500 });
+  }
 }

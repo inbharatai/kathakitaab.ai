@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import { generateBranch } from '@/lib/agents/branchAgent';
 import { checkRateLimit, runInBatches, MAX_PARALLEL_BRANCHES } from '@/lib/middleware/rateLimit';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 import {
   getCachedBranch, saveCachedBranch, saveManifest, getManifest, getPregenActions,
   type PreGeneratedBranch, type BranchManifest,
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
 
     // Visibility check: don't burn OpenAI credits on private books for strangers.
     const book = await getBook(bookSlug);
-    if (book && book.visibility === 'private') {
+    if (book && resolveBookVisibility(book) === 'private') {
       const ownerId = getOwnerIdFromRequest(request);
       const session = await getSessionFromRouteRequest(request);
       const isAdmin = isAdminSession(session);

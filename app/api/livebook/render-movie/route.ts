@@ -41,6 +41,7 @@ import { getBook } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 import { isSafeUrl } from '@/lib/safety/urlValidation';
 
 // 10 minutes — Remotion render of a 7-minute movie typically takes
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
 
   // Visibility check: private books can only be rendered by owner or admin.
   const book = await getBook(bookSlug);
-  if (book && book.visibility === 'private') {
+  if (book && resolveBookVisibility(book) === 'private') {
     const ownerId = getOwnerIdFromRequest(request);
     const session = await getSessionFromRouteRequest(request);
     const isAdmin = isAdminSession(session);

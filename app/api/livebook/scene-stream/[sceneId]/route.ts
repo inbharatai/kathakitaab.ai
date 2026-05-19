@@ -31,6 +31,7 @@ import { getBook } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 
 // ── Manifest shape ───────────────────────────────────────────
 
@@ -125,7 +126,7 @@ export async function GET(
   // Authorize: seed books are always public; generated books need ownership.
   if (bookSlug !== 'ramayana') {
     const book = await getBook(bookSlug);
-    if (book && book.visibility === 'private') {
+    if (book && resolveBookVisibility(book) === 'private') {
       const ownerId = getOwnerIdFromRequest(request);
       const session = await getSessionFromRouteRequest(request);
       const isAdmin = isAdminSession(session);

@@ -70,7 +70,7 @@ async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T | null>
   const lockKey = `${key}:lock`;
   const token = `lock-${now()}-${Math.random().toString(36).slice(2, 8)}`;
   for (let attempt = 0; attempt < 10; attempt++) {
-    const acquired = await r.set(lockKey, token, { nx: true, ex: 5 });
+    const acquired = await r.set(lockKey, token, { nx: true, ex: 30 });
     if (acquired) {
       try {
         return await fn();
@@ -105,11 +105,32 @@ export async function getBook(slug: string): Promise<GeneratedBook | null> {
 
   const r = getRedis();
   if (r) {
-    const book = await r.get<GeneratedBook>(bookKey(slug));
-    if (book) {
-      memBooks.set(slug, book);
-      syncCanonFromBook(book);
-      return book;
+    try {
+      const book = await r.get<GeneratedBook>(bookKey(slug));
+      if (book) {
+        memBooks.set(slug, book);
+        syncCanonFromBook(book);
+        return book;
+      }
+
+      // Fallback: the caller may be using a bare slug (e.g. "mahabharata")
+      // but the book was saved with a preset suffix ("mahabharata-photoreal").
+      // This happens when old bookmarks or external links omit the suffix.
+      // Scan is cheap on small datasets; we only do it when the exact miss
+      // would otherwise return 404.
+      const [nextCursor, keys] = await r.scan('0', { match: `${bookKey(slug)}-*`, count: 10 });
+      void nextCursor; // single batch is enough for ≤10 matches
+      if (keys && keys.length > 0) {
+        const fallback = await r.get<GeneratedBook>(keys[0]);
+        if (fallback) {
+          console.warn(`[bookRegistry] slug fallback: ${slug} → ${keys[0].replace('kk:book:', '')}`);
+          memBooks.set(slug, fallback);
+          syncCanonFromBook(fallback);
+          return fallback;
+        }
+      }
+    } catch (err) {
+      console.warn('[bookRegistry] Redis read failed for', slug, ':', err instanceof Error ? err.message : err);
     }
   }
   return null;

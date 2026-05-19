@@ -41,7 +41,8 @@ export default function DeleteBookButton({ bookSlug }: Props) {
         // books have mode='world'. Either way, leave the button hidden.
         const isPrivate = book?.visibility === 'private'
           || book?.mode === 'classroom'
-          || book?.mode === 'personalized_text';
+          || book?.mode === 'personalized_text'
+          || book?.mode === 'personalized_photo';
         if (!cancelled && isPrivate) setVisible(true);
       } catch { /* fail closed — don't show the button on error */ }
     })();

@@ -13,6 +13,7 @@ import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { checkFreeEraGate, bookGenerationConsumed, bookGenerationRefund, consumeAnonymousQuota, refundAnonymousQuota } from '@/lib/auth/freeEraGate';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 import { captureException } from '@/lib/observability/sentry';
 import { capture as trackEvent } from '@/lib/observability/analytics';
 import { guardPromptInput, sanitiseFields } from '@/lib/safety/promptInjectionGuard';
@@ -151,6 +152,7 @@ function validateBody(body: GenerateBody): string {
 // ── Route handler ────────────────────────────────────────────
 
 export async function POST(request: Request) {
+  try {
   // Resolve the session first so admin allowlist callers can skip
   // the per-IP rate limit and moderation gates that would otherwise
   // throttle a deployment-owner doing live QA. Anonymous callers
@@ -492,7 +494,7 @@ export async function POST(request: Request) {
         event: 'book_generated',
         distinctId: session?.userId ?? ownerId ?? slug,
         properties: { slug, mode, stylePreset, sceneCount: book.scenes?.length ?? 0 },
-      });
+      }).catch(() => { /* analytics fire-and-forget */ });
     } catch (err: unknown) {
       // Scrub the error message before logging so any PII (child
       // name, prompt, slug) that landed in the thrown value is
@@ -525,7 +527,7 @@ export async function POST(request: Request) {
         event: 'book_generation_failed',
         distinctId: session?.userId ?? ownerId ?? slug,
         properties: { slug, mode, stylePreset, error: safe.message },
-      });
+      }).catch(() => { /* analytics fire-and-forget */ });
     }
   });
 
@@ -534,10 +536,15 @@ export async function POST(request: Request) {
     slug,
     message: 'Agents are building your book. Poll /api/books/generate?slug=' + slug,
   });
+  } catch (err) {
+    console.error('[api/books/generate] POST unexpected error:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Failed to start generation' }, { status: 500 });
+  }
 }
 
 // GET /api/books/generate?slug=xxx — check progress
 export async function GET(request: Request) {
+  try {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get('slug');
   if (!slug) return NextResponse.json({ error: 'slug required' }, { status: 400 });
@@ -546,7 +553,7 @@ export async function GET(request: Request) {
   if (book) {
     // For private books, only the owner sees the completed book;
     // anyone else gets a 404 to avoid revealing the slug exists.
-    if (book.visibility === 'private') {
+    if (resolveBookVisibility(book) === 'private') {
       const ownerId = getOwnerIdFromRequest(request);
       if (!ownerId || book.ownerId !== ownerId) {
         return NextResponse.json({ error: 'No generation found for this slug' }, { status: 404 });
@@ -566,4 +573,8 @@ export async function GET(request: Request) {
   if (!progress) return NextResponse.json({ error: 'No generation found for this slug' }, { status: 404 });
 
   return NextResponse.json({ ...progress, done: progress.done });
+  } catch (err) {
+    console.error('[api/books/generate] unexpected error:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Failed to check generation status' }, { status: 500 });
+  }
 }

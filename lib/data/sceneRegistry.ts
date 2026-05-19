@@ -62,7 +62,7 @@ async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T | null>
   const lockKey = `${key}:lock`;
   const token = `lock-${now()}-${Math.random().toString(36).slice(2, 8)}`;
   for (let attempt = 0; attempt < 10; attempt++) {
-    const acquired = await r.set(lockKey, token, { nx: true, ex: 5 });
+    const acquired = await r.set(lockKey, token, { nx: true, ex: 30 });
     if (acquired) {
       try {
         return await fn();

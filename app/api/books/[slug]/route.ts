@@ -16,6 +16,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+  try {
 
   // Try the curated seed (Ramayana) first. Seed books are always
   // public — they predate the ownership model.
@@ -82,6 +83,10 @@ export async function GET(
   }
 
   return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+  } catch (err) {
+    console.error(`[api/books/${slug}] unexpected error:`, err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Failed to load book' }, { status: 500 });
+  }
 }
 
 /** DELETE /api/books/[slug]

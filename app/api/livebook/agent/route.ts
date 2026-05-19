@@ -13,6 +13,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 import { runAgent, AgentContext } from '@/lib/openai/orchestratorAgent';
 import { getCharacterBySlug, getSceneById } from '@/lib/data/ramayanaSeed';
 import { getBook, getScene, getCharacter } from '@/lib/data/bookRegistry';
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
     }
 
     // Visibility check for generated books.
-    if (registeredBook && registeredBook.visibility === 'private') {
+    if (registeredBook && resolveBookVisibility(registeredBook) === 'private') {
       const ownerId = getOwnerIdFromRequest(request);
       const session = await getSessionFromRouteRequest(request);
       const isAdmin = isAdminSession(session);
