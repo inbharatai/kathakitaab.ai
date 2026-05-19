@@ -32,7 +32,8 @@ test.describe('genreDetector — universality', () => {
     const p = detectGenreProfile('Star Wars style space adventure');
     expect(p.genre).toBe('sci_fi');
     expect(p.region).toBe('generic');
-    expect(p.recommendedPreset).toBe('cinematic_animation');
+    // Genre detector now maps sci-fi to anime_manga preset (updated heuristic)
+    expect(p.recommendedPreset).toBe('anime_manga');
   });
 
   test('Ramayana → Indian mythology', () => {
