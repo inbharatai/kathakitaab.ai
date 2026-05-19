@@ -4,6 +4,9 @@
 // anonymous and the user's display name + sign-out when signed in.
 // Hides entirely while auth state is loading so the navbar doesn't
 // flicker on first paint.
+//
+// BETA: Auth is dormant during beta. Set NEXT_PUBLIC_AUTH_ENABLED=true
+// to re-enable accounts, subscriptions, and saved libraries later.
 
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/useAuth';
@@ -18,7 +21,11 @@ interface Props {
   className?: string;
 }
 
+const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
+
 export function AuthNavButton({ next = '/books', compact = false, className }: Props) {
+  if (!AUTH_ENABLED) return null;
+
   const { user, loading, signOut } = useAuth();
   if (loading) return null;
 

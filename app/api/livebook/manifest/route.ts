@@ -36,18 +36,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'slug query parameter is required' }, { status: 400 });
   }
 
-  // Same anonymous gate as /api/books/[slug]: only Ramayana plays
-  // without sign-in. Every other movie/trailer requires an account.
-  const session = await getSessionFromRouteRequest(request);
-  if (!session && !ANONYMOUS_WATCHABLE_SLUGS.has(slug)) {
-    return NextResponse.json({
-      error: 'Sign in to watch this movie. The Ramayana plays for everyone — every other movie needs a free account.',
-      reason: 'auth_required',
-      slug,
-    }, { status: 401 });
-  }
-
   // Visibility check: private books can only be rendered by owner or admin.
+  const session = await getSessionFromRouteRequest(request);
   const book = await getBook(slug);
   if (book) {
     const ownerId = session?.userId ?? getOwnerIdFromRequest(request);

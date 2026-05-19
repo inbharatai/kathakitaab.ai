@@ -11,7 +11,7 @@ import { moderatePrompt } from '@/lib/safety/moderation';
 import { scrubError } from '@/lib/safety/scrub';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
-import { checkFreeEraGate, bookGenerationConsumed, bookGenerationRefund } from '@/lib/auth/freeEraGate';
+import { checkFreeEraGate, bookGenerationConsumed, bookGenerationRefund, consumeAnonymousQuota, refundAnonymousQuota } from '@/lib/auth/freeEraGate';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { captureException } from '@/lib/observability/sentry';
 import { capture as trackEvent } from '@/lib/observability/analytics';
@@ -156,6 +156,7 @@ export async function POST(request: Request) {
   // throttle a deployment-owner doing live QA. Anonymous callers
   // get null back essentially for free (no cookie → no DB hit).
   const session = await getSessionFromRouteRequest(request);
+  const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
   const isAdmin = isAdminSession(session);
 
   if (!isAdmin) {
@@ -228,11 +229,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  // Auth gate: generation requires a signed-in user during the
-  // free-era beta. Anonymous reading of existing books stays open.
-  // The gate also enforces the first-100-users cap and the per-user
-  // 1-book lifetime quota — admin sessions short-circuit it.
-  const gate = await checkFreeEraGate(session);
+  // Auth gate: during beta, anonymous users with an owner cookie get
+  // a 1-generation quota. Signed-in users keep their existing free-era
+  // slot. Admin sessions bypass entirely.
+  const gate = await checkFreeEraGate(session, ownerId);
   if (!gate.allowed) {
     const status = gate.reason === 'auth_required' ? 401
       : gate.reason === 'waitlist' ? 403
@@ -241,11 +241,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: gate.message, reason: gate.reason }, { status });
   }
 
-  // Owner cookie still used for read-time visibility checks on private
-  // books. Authenticated users carry both the cookie AND a session;
-  // newly-generated books are owned by the userId (preferred) but the
-  // cookie ownerId is kept as a fallback for legacy reads.
-  const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
   const isPrivateMode = body.mode === 'classroom' || body.mode === 'personalized_text';
   if (isPrivateMode && !ownerId) {
     return NextResponse.json({
@@ -377,16 +372,19 @@ export async function POST(request: Request) {
   // before generateBook emits its first onProgress callback.
   await setProgress(slug, 'Starting...', 0);
 
-  // Burn the user's free-era quota now that we're actually starting
-  // a generation. Done AFTER setProgress so a 5xx from setProgress
-  // doesn't burn the slot for nothing. Fire-and-forget — counter
-  // bump shouldn't block the user's response. Admin sessions are a
-  // no-op inside bookGenerationConsumed so testing doesn't drain
-  // the owner's quota. Failure inside `after()` refunds via
-  // bookGenerationRefund in the catch block below.
+  // Burn the user's quota now that we're actually starting a generation.
+  // Done AFTER setProgress so a 5xx from setProgress doesn't burn the
+  // slot for nothing. Fire-and-forget — counter bump shouldn't block
+  // the user's response. Admin sessions are a no-op.
+  // Failure inside `after()` refunds via bookGenerationRefund /
+  // refundAnonymousQuota in the catch block below.
   if (session?.userId) {
     void bookGenerationConsumed(session).catch(err => {
-      console.warn('[generate] failed to bump quota counter:', err instanceof Error ? err.message : err);
+      console.warn('[generate] failed to bump user quota:', err instanceof Error ? err.message : err);
+    });
+  } else if (ownerId) {
+    void consumeAnonymousQuota(ownerId).catch(err => {
+      console.warn('[generate] failed to bump anon quota:', err instanceof Error ? err.message : err);
     });
   }
 
@@ -506,13 +504,18 @@ export async function POST(request: Request) {
       const userMsg = err instanceof Error ? err.message : 'Generation failed';
       await failJob(job.id, runningStep, userMsg);
       await setProgress(slug, 'Error', 0, true, userMsg);
-      // Refund the free-era slot we burned at request entry — a
-      // failed generation shouldn't cost the user their one allowance.
-      // No-op for admin (consume was a no-op too). Floors at zero so
-      // a refund race against another success can't underflow.
-      void bookGenerationRefund(session).catch(refundErr => {
-        console.warn('[generate] refund failed:', refundErr instanceof Error ? refundErr.message : refundErr);
-      });
+      // Refund the quota we burned at request entry — a failed
+      // generation shouldn't cost the user their one allowance.
+      // No-op for admin. Floors at zero.
+      if (session?.userId) {
+        void bookGenerationRefund(session).catch(refundErr => {
+          console.warn('[generate] user quota refund failed:', refundErr instanceof Error ? refundErr.message : refundErr);
+        });
+      } else if (ownerId) {
+        void refundAnonymousQuota(ownerId).catch(refundErr => {
+          console.warn('[generate] anon quota refund failed:', refundErr instanceof Error ? refundErr.message : refundErr);
+        });
+      }
       // Surface the unscrubbed error to Sentry — operator-only
       // destination, fine to include raw context tags.
       captureException(err, {

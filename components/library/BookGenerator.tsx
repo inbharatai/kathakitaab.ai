@@ -112,13 +112,6 @@ export default function BookGenerator({ existingBooks = [] }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title.trim(), stylePreset }),
       });
-      // 401 = caller isn't signed in. Don't surface a generic error
-      // toast — send them to /signin and bounce back to the form.
-      if (res.status === 401) {
-        const here = typeof window !== 'undefined' ? window.location.pathname + window.location.hash : '/books#create-story';
-        router.push(`/signin?next=${encodeURIComponent(here)}`);
-        return;
-      }
       if (!res.ok) {
         const msg = await safeReadError(res);
         throw new Error(msg);

@@ -58,17 +58,7 @@ export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
-  // Every fresh image generation requires sign-in — even Ramayana
-  // hotspot clicks. Cached returns below still work for any cookie
-  // owner since they don't spend money. This matches the project
-  // directive that any *generation* (story or image) is gated.
   const session = await getSessionFromRouteRequest(request);
-  if (!session) {
-    return NextResponse.json({
-      error: 'Sign in to unlock interactive image generation.',
-      reason: 'auth_required',
-    }, { status: 401 });
-  }
 
   try {
     const body: GenerateImageRequest = await request.json();

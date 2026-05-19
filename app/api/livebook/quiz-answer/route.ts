@@ -16,14 +16,9 @@ export async function POST(request: Request) {
     const body: QuizAnswerRequest = await request.json();
     const { quizId, sceneId, selectedAnswer, bookSlug } = body;
 
-    // Auth gate: only Ramayana quizzes for anonymous users.
-    const session = await getSessionFromRouteRequest(request);
-    if (!session && bookSlug && bookSlug !== 'ramayana') {
-      return NextResponse.json({ error: 'Sign in to answer quizzes for this book.', reason: 'auth_required' }, { status: 401 });
-    }
-
     // Visibility check for AI-generated books.
-    if (bookSlug && bookSlug !== 'ramayana') {
+    const session = await getSessionFromRouteRequest(request);
+    if (bookSlug) {
       const book = await getBook(bookSlug);
       if (book) {
         const ownerId = session?.userId ?? getOwnerIdFromRequest(request);

@@ -3,6 +3,7 @@ import { getAllBooks as getSeedBooks } from '@/lib/data/ramayanaSeed';
 import { getScenesByBookId } from '@/lib/data/scenes';
 import { getAllBooks as getRegistryBooks } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
+import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 
 /** Public + my-private books listing.
  *
@@ -54,8 +55,9 @@ export async function GET(request: Request) {
 
   const generatedAsBook = generated
     .filter(b => {
+      const effective = resolveBookVisibility(b);
       // Public AI-generated books: always visible.
-      if (!b.visibility || b.visibility === 'public') return true;
+      if (effective === 'public') return true;
       // Private books: only the owner sees them in the listing.
       return ownerId !== null && b.ownerId === ownerId;
     })

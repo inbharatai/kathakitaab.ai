@@ -29,6 +29,11 @@ const FREE_ERA_CAP = 100;
 const FREE_ERA_QUOTA_PER_USER = 1;
 const FREE_ERA_COUNTER_KEY = 'kk:free_era:admitted';
 
+// Anonymous beta quota — one free generation per browser/device cookie.
+// Override via BETA_FREE_GENERATION_LIMIT env var (defaults to 1).
+const ANON_QUOTA_KEY_PREFIX = 'kk:anon_quota:';
+const ANON_QUOTA_MAX = Number(process.env.BETA_FREE_GENERATION_LIMIT ?? 1) || 1;
+
 export type GateDecision =
   | { allowed: true; seq: number; isFreshAdmission: boolean }
   | { allowed: false; reason: 'auth_required'; message: string }
@@ -47,13 +52,23 @@ export type GateDecision =
  * request actually starts a generation. That separation means a
  * pre-flight UI check ("can I press the button?") doesn't burn the
  * user's one allowance.
+ *
+ * Beta change: anonymous users with an owner cookie get a 1-generation
+ * quota so the app works without login during Google Play review.
  */
-export async function checkFreeEraGate(session: AuthSession | null): Promise<GateDecision> {
+export async function checkFreeEraGate(session: AuthSession | null, ownerId?: string | null): Promise<GateDecision> {
   if (!session) {
+    // During beta, anonymous users get a per-device/cookie quota instead
+    // of being blocked. If no owner cookie either, fall through to the
+    // generic misconfigured path (shouldn't happen — proxy.ts always sets
+    // the cookie).
+    if (ownerId) {
+      return checkAnonymousQuota(ownerId);
+    }
     return {
       allowed: false,
-      reason: 'auth_required',
-      message: 'Sign in to make a story. Reading existing books stays free for everyone.',
+      reason: 'misconfigured',
+      message: 'Could not establish ownership. Please reload and try again.',
     };
   }
 
@@ -213,6 +228,42 @@ export async function joinWaitlist(email: string, source = 'signin'): Promise<vo
   const supabase = getSupabaseService();
   if (!supabase) return;
   await supabase.from('waitlist').upsert({ email, source }, { onConflict: 'email' });
+}
+
+// ── anonymous quota helpers ─────────────────────────────────
+
+async function checkAnonymousQuota(ownerId: string): Promise<GateDecision> {
+  const r = getRedis();
+  if (!r) {
+    // Local dev without Redis = unlimited for convenience.
+    return { allowed: true, seq: -1, isFreshAdmission: false };
+  }
+  const key = `${ANON_QUOTA_KEY_PREFIX}${ownerId}`;
+  const used = Number(await r.get<number>(key) ?? 0);
+  if (used >= ANON_QUOTA_MAX) {
+    return {
+      allowed: false,
+      reason: 'quota_exhausted',
+      message: "You've used your free beta story. More generations and saved accounts are coming soon.",
+    };
+  }
+  return { allowed: true, seq: -1, isFreshAdmission: false };
+}
+
+export async function consumeAnonymousQuota(ownerId: string | null): Promise<void> {
+  if (!ownerId) return;
+  const r = getRedis();
+  if (!r) return;
+  await r.incr(`${ANON_QUOTA_KEY_PREFIX}${ownerId}`);
+}
+
+export async function refundAnonymousQuota(ownerId: string | null): Promise<void> {
+  if (!ownerId) return;
+  const r = getRedis();
+  if (!r) return;
+  const key = `${ANON_QUOTA_KEY_PREFIX}${ownerId}`;
+  const cur = Number(await r.get<number>(key) ?? 0);
+  if (cur > 0) await r.set(key, cur - 1);
 }
 
 // ── internal ──

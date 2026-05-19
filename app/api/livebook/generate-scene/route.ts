@@ -68,16 +68,7 @@ export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'expensive' });
   if (limited) return limited;
 
-  // Generating fresh scenes runs gpt-4o-mini + gpt-image-1 + safety
-  // checks — all paid OpenAI calls. Anonymous reading is free; any
-  // dynamic generation requires sign-in regardless of which book.
   const session = await getSessionFromRouteRequest(request);
-  if (!session) {
-    return NextResponse.json({
-      error: 'Sign in to extend the story. Reading existing scenes stays free.',
-      reason: 'auth_required',
-    }, { status: 401 });
-  }
 
   try {
     if (!isOpenAIConfigured() && !isGeminiConfigured()) {

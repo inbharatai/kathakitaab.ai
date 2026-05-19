@@ -55,11 +55,11 @@ function SignInForm() {
       <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
         <div style={{ maxWidth: 460, textAlign: 'center' }}>
           <h1 className="font-serif" style={{ color: 'var(--color-gold-light)', marginBottom: 12 }}>
-            Auth isn&apos;t set up yet
+            Accounts are paused during beta
           </h1>
           <p style={{ color: 'var(--color-text-dim)', lineHeight: 1.6 }}>
-            Supabase auth env vars (<code>NEXT_PUBLIC_SUPABASE_URL</code>, <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>)
-            aren&apos;t configured. The library still reads anonymously — only generation needs sign-in.
+            You can read every book and generate one free story without creating an account.
+            Saved accounts and cross-device libraries are coming soon.
           </p>
           <Link href="/books" className="lp-btn-outline" style={{ display: 'inline-block', marginTop: 18, textDecoration: 'none' }}>
             Back to the library
@@ -217,19 +217,19 @@ function SignInForm() {
           fontSize: '0.72rem', color: 'var(--color-gold)', textTransform: 'uppercase',
           letterSpacing: '0.22em', marginBottom: 12, textAlign: 'center',
         }}>
-          Free Beta · First 100 Users
+          Free Beta
         </div>
         <h1 className="font-serif" style={{
           fontSize: '1.85rem', textAlign: 'center', margin: 0,
           color: 'var(--color-gold-light)', lineHeight: 1.25,
         }}>
-          Sign in to make a story
+          Create your free beta story
         </h1>
         <p style={{
           fontSize: '0.9rem', color: 'var(--color-text-dim)', lineHeight: 1.6,
           textAlign: 'center', marginTop: 10, marginBottom: 22,
         }}>
-          Reading every existing book is free and needs no account. Sign in only to generate a new one.
+          Reading every existing book is free. During beta, you can generate one story without creating an account.
         </p>
 
         {errorMsg && (

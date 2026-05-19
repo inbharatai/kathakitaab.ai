@@ -50,16 +50,8 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
     (async () => {
       try {
         const res = await fetch(`/api/books/${params.slug}`);
-        // 401 = anonymous visitor trying to read a non-Ramayana book.
-        // Bounce them to /signin and back to this URL so the
-        // experience is "sign in, the book loads" not "error toast".
-        if (res.status === 401) {
-          const next = `/books/${params.slug}${typeof window !== 'undefined' ? window.location.search : ''}`;
-          router.push(`/signin?next=${encodeURIComponent(next)}`);
-          return;
-        }
         if (!res.ok) {
-          if (!cancelled) setError(`Book "${params.slug}" hasn't been generated yet — go to the library to create it.`);
+          if (!cancelled) setError('not_ready');
           return;
         }
         const data = await res.json();
@@ -79,12 +71,25 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
   }, [params.slug, initialSceneId, router]);
 
   if (error) {
+    const isNotReady = error === 'not_ready';
     return (
       <div className="glass-card" style={{ padding: 40, textAlign: 'center', marginTop: 40 }}>
-        <p style={{ color: '#ff8a8a', marginBottom: 24 }}>{error}</p>
-        <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none' }}>
-          Go to the Library
-        </Link>
+        <p style={{ color: '#ff8a8a', marginBottom: 16, fontSize: '1.1rem', fontWeight: 600 }}>
+          {isNotReady ? 'This story is not ready yet.' : error}
+        </p>
+        <p style={{ color: 'var(--color-text-dim)', marginBottom: 24, fontSize: '0.95rem' }}>
+          {isNotReady ? 'You can generate it from Studio.' : 'Go to the Library to find or create stories.'}
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none' }}>
+            Browse Library
+          </Link>
+          {isNotReady && (
+            <Link href="/books?tab=studio" className="btn-primary" style={{ textDecoration: 'none' }}>
+              Generate Story
+            </Link>
+          )}
+        </div>
       </div>
     );
   }

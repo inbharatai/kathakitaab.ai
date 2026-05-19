@@ -91,13 +91,8 @@ export async function GET(
     return new Response('bookSlug query parameter is required', { status: 400 });
   }
 
-  // Auth gate: only Ramayana streams for anonymous users.
-  const session = await getSessionFromRouteRequest(request);
-  if (!session && bookSlug !== 'ramayana') {
-    return new Response('Sign in to stream updates for this book.', { status: 401 });
-  }
-
   // Visibility check for AI-generated books.
+  const session = await getSessionFromRouteRequest(request);
   const book = await getBook(bookSlug);
   if (book) {
     const ownerId = session?.userId ?? getOwnerIdFromRequest(request);

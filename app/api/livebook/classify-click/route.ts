@@ -34,19 +34,14 @@ export async function POST(request: Request) {
   try {
     const body: ClassifyRequest = await request.json();
 
-    // Auth gate for non-seed books.
-    const session = await getSessionFromRouteRequest(request);
-    if (!session && body.bookSlug && body.bookSlug !== 'ramayana') {
-      return NextResponse.json({ error: 'Sign in to interact with this book.', reason: 'auth_required' }, { status: 401 });
-    }
-
     // SSRF guard: block private IPs and non-HTTP(S) URLs.
+    const session = await getSessionFromRouteRequest(request);
     if (body.imageUrl && !isSafeUrl(body.imageUrl)) {
       return NextResponse.json({ error: 'Invalid imageUrl' }, { status: 400 });
     }
 
     // Visibility check for AI-generated books.
-    if (body.bookSlug && body.bookSlug !== 'ramayana') {
+    if (body.bookSlug) {
       const book = await getBook(body.bookSlug);
       if (book) {
         const ownerId = session?.userId ?? getOwnerIdFromRequest(request);
