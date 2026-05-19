@@ -31,6 +31,7 @@ import './_loadEnv';
 
 import { generateBook } from '../lib/openai/bookGeneratorAgent';
 import { saveGeneratedBook, deleteBook, getBook } from '../lib/data/bookRegistry';
+import { saveScenes, type PersistedScene } from '../lib/data/sceneRegistry';
 import { hydrateBookAudio } from '../lib/video/manifestSynthesizer';
 
 interface Args {
@@ -119,6 +120,18 @@ async function main() {
   const hydrateStart = Date.now();
   const hydrated = await hydrateBookAudio(book);
   await saveGeneratedBook(hydrated);
+
+  // Populate the per-scene registry so the live reader's scene API
+  // (which looks up individual scenes) doesn't 404 on legacy books
+  // that were regenerated before the scene registry existed.
+  const persistedScenes: PersistedScene[] = hydrated.scenes.map(s => ({
+    ...s,
+    savedAt: Date.now(),
+    imageStatus: s.background_asset_url ? 'completed' : 'pending',
+    ttsStatus: s.narration_audio_url ? 'completed' : 'pending',
+  }));
+  await saveScenes(slug, persistedScenes);
+
   const hydrateElapsed = ((Date.now() - hydrateStart) / 1000).toFixed(1);
   const audioOk = hydrated.scenes.filter(s => s.narration_audio_url).length;
   console.log(`[regen] audio hydrated ${audioOk}/${hydrated.scenes.length} in ${hydrateElapsed}s`);

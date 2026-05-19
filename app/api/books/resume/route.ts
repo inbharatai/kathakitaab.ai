@@ -11,6 +11,8 @@ import {
   assembleBookFromScenes,
   updateScene,
   getBookCharacters,
+  saveScenes,
+  type PersistedScene,
 } from '@/lib/data/sceneRegistry';
 import { getBook, saveGeneratedBook, setProgress } from '@/lib/data/bookRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
@@ -126,6 +128,18 @@ export async function POST(request: Request) {
         } catch {
           // TTS failure is non-fatal — reader falls back to lazy TTS.
         }
+
+        // Populate per-scene registry so the live reader's scene API
+        // can fetch individual scenes even when generation resumed
+        // without the incremental onStepComplete callback.
+        const persistedScenes: PersistedScene[] = finalBook.scenes.map(s => ({
+          ...s,
+          savedAt: Date.now(),
+          imageStatus: s.background_asset_url ? 'completed' : 'pending',
+          ttsStatus: s.narration_audio_url ? 'completed' : 'pending',
+        }));
+        await saveScenes(slug, persistedScenes);
+
         await completeJob(job.id, slug);
       } else if (
         (job.status === 'failed' && job.failedStep === 'scene_images') ||

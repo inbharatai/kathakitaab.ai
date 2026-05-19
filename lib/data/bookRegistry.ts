@@ -92,6 +92,17 @@ export function registerSeedBook(book: GeneratedBook) {
   SEED_BOOKS[book.slug] = book;
 }
 
+const PRESET_SUFFIXES = ['-photoreal', '-watercolour', '-animation', '-comic', '-anime'];
+
+function stripPresetSuffix(slug: string): string | null {
+  for (const suffix of PRESET_SUFFIXES) {
+    if (slug.endsWith(suffix)) {
+      return slug.slice(0, -suffix.length);
+    }
+  }
+  return null;
+}
+
 export async function getBook(slug: string): Promise<GeneratedBook | null> {
   // Hot path: same lambda already answered this slug.
   if (memBooks.has(slug)) {
@@ -123,11 +134,26 @@ export async function getBook(slug: string): Promise<GeneratedBook | null> {
       void nextCursor; // single batch is enough for ≤10 matches
       if (keys && keys.length > 0) {
         const fallback = await r.get<GeneratedBook>(keys[0]);
-        if (fallback) {
+        if (fallback && Array.isArray(fallback.scenes)) {
           console.warn(`[bookRegistry] slug fallback: ${slug} → ${keys[0].replace('kk:book:', '')}`);
           memBooks.set(slug, fallback);
           syncCanonFromBook(fallback);
           return fallback;
+        }
+      }
+
+      // Reverse fallback: the caller uses a suffixed slug
+      // (e.g. "mahabharata-photoreal") but the book was saved with a
+      // bare slug ("mahabharata"). This happens for legacy showcase
+      // books generated before the preset suffix logic existed.
+      const bareSlug = stripPresetSuffix(slug);
+      if (bareSlug) {
+        const bareBook = await r.get<GeneratedBook>(bookKey(bareSlug));
+        if (bareBook && Array.isArray(bareBook.scenes)) {
+          console.warn(`[bookRegistry] slug reverse fallback: ${slug} → ${bareSlug}`);
+          memBooks.set(slug, bareBook);
+          syncCanonFromBook(bareBook);
+          return bareBook;
         }
       }
     } catch (err) {

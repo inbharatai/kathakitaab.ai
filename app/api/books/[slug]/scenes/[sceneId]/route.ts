@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSceneWithHotspots } from '@/lib/data/ramayanaSeed';
-import { getBook } from '@/lib/data/bookRegistry';
+import { getBook, getScene as getSceneFromBook } from '@/lib/data/bookRegistry';
 import { getScene, updateScene, markSceneStale } from '@/lib/data/sceneRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
@@ -41,6 +41,11 @@ export async function GET(
 
   const scene = await getScene(sceneSlug, sceneId);
   if (scene) return NextResponse.json({ scene }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
+
+  // Fallback: scene may exist in the assembled book JSON but was never
+  // written to the per-scene registry (legacy resume/regenerate path).
+  const bookScene = await getSceneFromBook(sceneSlug, sceneId);
+  if (bookScene) return NextResponse.json({ scene: bookScene }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
   return NextResponse.json({ error: `Scene not found: ${sceneId} in book ${slug}` }, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } });
 }
