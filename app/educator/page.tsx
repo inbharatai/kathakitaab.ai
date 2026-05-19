@@ -50,9 +50,10 @@ export default function EducatorPage() {
         </Link>
         <span style={{ color: 'var(--color-text-dim)', fontSize: '0.9rem' }}>/ Studio</span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none', padding: '6px 16px', fontSize: '0.85rem' }}>
-            View Library
+          <Link href="/books" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem', textDecoration: 'none' }}>
+            Stories
           </Link>
+          <span style={{ color: 'var(--color-gold)', fontSize: '0.85rem', fontWeight: 600 }}>Studio</span>
           <AuthNavButton next="/educator" compact />
         </div>
       </nav>

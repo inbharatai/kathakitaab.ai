@@ -257,6 +257,22 @@ body {
   width: 100%;
 }
 
+.reader-book-page {
+  padding-top: 64px;
+}
+
+@media (max-width: 768px) {
+  .reader-book-page {
+    padding-top: 52px;
+  }
+}
+
+@media (max-width: 480px) {
+  .reader-book-page {
+    padding-top: 48px;
+  }
+}
+
 .book-page {
   width: 100%;
   transform-style: preserve-3d;
@@ -570,6 +586,13 @@ body {
   .book-page .scene-container [data-scene-beat] {
     object-fit: contain !important;
     object-position: center center !important;
+  }
+  /* SceneLayers renders the background as a div with background-image.
+     Force contain so generated artwork isn't cropped on narrow phones. */
+  .book-page .scene-container > div > div:first-child {
+    background-size: contain !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
   }
 }
 

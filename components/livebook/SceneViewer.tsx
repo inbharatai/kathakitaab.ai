@@ -990,12 +990,12 @@ export default function SceneViewer({
         <AnimatePresence mode="wait">
           <motion.div
             key={storyScene.scene_id}
-            className="book-page"
+            className="book-page reader-book-page"
             initial={{ rotateY: transitionDir * 22, opacity: 0, scale: 0.97 }}
             animate={{ rotateY: 0, opacity: 1, scale: 1 }}
             exit={{ rotateY: transitionDir * -22, opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.55, ease: [0.645, 0.045, 0.355, 1.0] }}
-            style={{ paddingTop: embedded ? 0 : 64 }}
+            style={{ paddingTop: embedded ? 0 : undefined }}
           >
             {/* Title row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
@@ -1009,7 +1009,7 @@ export default function SceneViewer({
             </div>
 
             {/* ── Scene Canvas — the layered interactive visual ── */}
-            <div ref={sceneContainerRef} data-testid="scene-wrapper" style={{ position: 'relative' }}>
+            <div ref={sceneContainerRef} data-testid="scene-wrapper" className="scene-container" style={{ position: 'relative' }}>
               <SceneCanvas
                 scene={storyScene}
                 sceneState={sceneState ?? undefined}

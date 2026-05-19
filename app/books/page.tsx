@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import BookGenerator from '@/components/library/BookGenerator';
+import StudioModeSelector from '@/components/library/StudioModeSelector';
 import LibraryHome from '@/components/library/LibraryHome';
 import { AuthNavButton } from '@/components/auth/AuthNavButton';
 
@@ -201,6 +201,7 @@ export default function BooksPage() {
           </span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <Link href="/books" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem', textDecoration: 'none', fontWeight: 600 }}>Stories</Link>
           <Link href="/educator" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem', textDecoration: 'none' }}>Studio →</Link>
           <AuthNavButton next="/books#create-story" compact />
         </div>
@@ -216,7 +217,7 @@ export default function BooksPage() {
             fontSize: '0.72rem', color: 'var(--color-gold)', textTransform: 'uppercase',
             letterSpacing: '0.24em', marginBottom: 10
           }}>
-            Story Worlds
+            KathaKitaab Studio
           </div>
           <h1 className="font-serif" style={{
             fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, marginBottom: 10,
@@ -228,12 +229,13 @@ export default function BooksPage() {
             color: 'var(--color-text-dim)', marginBottom: 0, fontSize: '1rem',
             lineHeight: 1.75, maxWidth: 700, marginInline: 'auto'
           }}>
+            Type a title or prompt — the engine writes the scenes, paints the art, and prepares the narration.
             Swipe through stories, tap to read, or watch the cinematic movie.
           </p>
         </motion.div>
 
         <section id="create-story" style={{ marginBottom: 32 }}>
-          <BookGenerator existingBooks={books.map(b => b.slug)} />
+          <StudioModeSelector />
         </section>
       </div>
 

@@ -24,7 +24,7 @@ type Mode = 'world' | 'personalized';
 
 const MODES: { id: Mode; label: string; sublabel: string }[] = [
   { id: 'world',        label: 'Story World',         sublabel: 'Mahabharata, Akbar–Birbal, any title' },
-  { id: 'personalized', label: 'Personalized Story',  sublabel: 'Your child as the hero (text)' },
+  { id: 'personalized', label: 'Custom Story Prompt',  sublabel: 'Type a story idea — safe for everyone' },
 ];
 
 export default function StudioModeSelector() {

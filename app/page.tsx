@@ -279,7 +279,7 @@ export default function HomePage() {
         </Link>
         <div className="lp-nav-actions">
           <div className="lp-nav-links">
-            <Link href="/books" className="lp-nav-link lp-nav-pill-saffron">Library</Link>
+            <Link href="/books" className="lp-nav-link lp-nav-pill-saffron">Stories</Link>
             <Link href="/educator" className="lp-nav-link lp-nav-pill-white">Studio</Link>
           </div>
           <AuthNavButton next="/books#create-story" compact className="lp-nav-pill-signin" />
