@@ -234,8 +234,7 @@ export async function POST(request: Request) {
   // slot. Admin sessions bypass entirely.
   const gate = await checkFreeEraGate(session, ownerId);
   if (!gate.allowed) {
-    const status = gate.reason === 'auth_required' ? 401
-      : gate.reason === 'waitlist' ? 403
+    const status = gate.reason === 'waitlist' ? 403
       : gate.reason === 'quota_exhausted' ? 402
       : 503;
     return NextResponse.json({ error: gate.message, reason: gate.reason }, { status });

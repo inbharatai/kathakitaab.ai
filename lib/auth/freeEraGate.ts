@@ -15,9 +15,9 @@
 //
 // Returns one of:
 //   - { allowed: true, seq, isFreshAdmission }      — go generate
-//   - { allowed: false, reason: 'auth_required' }   — show signin
 //   - { allowed: false, reason: 'waitlist' }        — cap reached
 //   - { allowed: false, reason: 'quota_exhausted' } — used their 1 gen
+//   - { allowed: false, reason: 'misconfigured' }    — infra issue
 // ============================================================
 
 import { getRedis } from '@/lib/redis';
@@ -36,7 +36,6 @@ const ANON_QUOTA_MAX = Number(process.env.BETA_FREE_GENERATION_LIMIT ?? 1) || 1;
 
 export type GateDecision =
   | { allowed: true; seq: number; isFreshAdmission: boolean }
-  | { allowed: false; reason: 'auth_required'; message: string }
   | { allowed: false; reason: 'waitlist'; message: string }
   | { allowed: false; reason: 'quota_exhausted'; message: string }
   | { allowed: false; reason: 'misconfigured'; message: string };

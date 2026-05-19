@@ -231,13 +231,14 @@ export async function getAllBooks(): Promise<GeneratedBook[]> {
   if (r) {
     try {
       // Use SCAN instead of KEYS to avoid blocking Redis on large datasets.
-      let cursor = 0;
+      // Upstash returns [nextCursor, keys] as a tuple; cursor is a string.
+      let cursor = '0';
       const redisKeys: string[] = [];
       do {
-        const scanResult = await r.scan(cursor, { match: 'kk:book:*', count: 100 });
-        cursor = (scanResult as unknown as { cursor: number; keys: string[] }).cursor;
-        redisKeys.push(...(scanResult as unknown as { cursor: number; keys: string[] }).keys);
-      } while (cursor !== 0);
+        const [nextCursor, keys] = await r.scan(cursor, { match: 'kk:book:*', count: 100 });
+        cursor = nextCursor;
+        if (keys) redisKeys.push(...keys);
+      } while (cursor !== '0');
 
       const missing = redisKeys.filter(k => !seen.has(k.replace('kk:book:', '')));
       if (missing.length > 0) {
