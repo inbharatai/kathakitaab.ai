@@ -64,13 +64,15 @@ async function resolveActionTuples(bookSlug: string, sceneId: string): Promise<A
 interface ResolvedHotspot { targetId: string; type: string }
 
 async function getHotspotsForScene(bookSlug: string, sceneId: string): Promise<ResolvedHotspot[]> {
-  if (bookSlug === 'ramayana') {
+  const book = await getBook(bookSlug);
+  const sceneSlug = book?.slug ?? bookSlug;
+  if (sceneSlug === 'ramayana') {
     const scene = getSceneWithHotspots(sceneId);
     if (scene) {
       return scene.hotspots.map(h => ({ targetId: h.target_id, type: h.hotspot_type }));
     }
   }
-  const generic = await getScene(bookSlug, sceneId);
+  const generic = await getScene(sceneSlug, sceneId);
   if (!generic) return [];
   return (generic.hotspots ?? []).map(h => ({ targetId: h.target_id, type: h.hotspot_type }));
 }

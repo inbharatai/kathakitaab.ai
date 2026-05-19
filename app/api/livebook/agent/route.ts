@@ -76,9 +76,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields: type, sceneId' }, { status: 400 });
     }
 
-    // Support both seed (Ramayana) and AI-generated books
+    // Support both seed (Ramayana) and AI-generated books.
+    // Use book.slug for scene lookup so preset-suffixed books work
+    // when the URL carries the bare slug.
     let scene: SceneLike | undefined = getSceneById(sceneId);
-    if (!scene && bookSlug) scene = (await getScene(bookSlug, sceneId)) ?? undefined;
+    if (!scene && bookSlug) {
+      const book = await getBook(bookSlug);
+      const sceneSlug = book?.slug ?? bookSlug;
+      scene = (await getScene(sceneSlug, sceneId)) ?? undefined;
+    }
     if (!scene) {
       return NextResponse.json({ error: `Scene not found: ${sceneId}` }, { status: 404 });
     }

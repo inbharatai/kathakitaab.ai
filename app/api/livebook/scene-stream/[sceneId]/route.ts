@@ -209,7 +209,12 @@ interface NormalizedHotspot {
 }
 
 async function resolveScene(bookSlug: string, sceneId: string): Promise<NormalizedScene | null> {
-  if (bookSlug === 'ramayana') {
+  // Look up the actual stored slug first so preset-suffixed books
+  // work when the query carries the bare slug.
+  const book = await getBook(bookSlug);
+  const sceneSlug = book?.slug ?? bookSlug;
+
+  if (sceneSlug === 'ramayana') {
     const scene = getSceneWithHotspots(sceneId);
     if (scene) {
       return {
@@ -230,7 +235,7 @@ async function resolveScene(bookSlug: string, sceneId: string): Promise<Normaliz
       };
     }
   }
-  const generic = await getScene(bookSlug, sceneId);
+  const generic = await getScene(sceneSlug, sceneId);
   if (!generic) return null;
   return {
     title: generic.title,
