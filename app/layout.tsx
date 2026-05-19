@@ -20,10 +20,27 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
-  appleWebApp: {
-    capable: true,
-    title: "KathaKitaab",
-    statusBarStyle: "black-translucent",
+  openGraph: {
+    title: "KathaKitaab — A Living Storybook Powered by AI",
+    description: "Read it. Play it. Shape it. KathaKitaab is a clean AI-powered playable storybook where readers can enter a world, choose what happens next, and watch the story come alive.",
+    url: "https://www.kathakitaab.com",
+    siteName: "KathaKitaab",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "KathaKitaab — AI-powered interactive Indian storybooks",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "KathaKitaab — A Living Storybook Powered by AI",
+    description: "Read it. Play it. Shape it. AI-powered Indian storybooks that come alive.",
+    images: ["/og-image.png"],
   },
 };
 
