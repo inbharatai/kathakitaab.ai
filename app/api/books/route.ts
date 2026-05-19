@@ -92,7 +92,10 @@ export async function GET(request: Request) {
       };
     });
 
-  return NextResponse.json({ books: [...seedAsBook, ...generatedAsBook] });
+  return NextResponse.json(
+    { books: [...seedAsBook, ...generatedAsBook] },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } },
+  );
   } catch (err) {
     console.error('[api/books] unexpected error:', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Failed to load library' }, { status: 500 });

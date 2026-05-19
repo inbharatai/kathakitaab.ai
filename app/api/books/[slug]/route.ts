@@ -63,23 +63,23 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({
-      book: {
-        id: generated.id,
-        slug: generated.slug,
-        title: generated.title,
-        subtitle: generated.subtitle,
-        description: generated.description,
-        source_tradition: generated.source_tradition,
-        // Style preset propagates to the live reader so the canvas
-        // can choose subtitle vs comic-bubble overlay layer per book.
-        // Missing on legacy books → renderer treats as non-comic.
-        stylePreset: generated.stylePreset,
-        accuracyLabel: generated.accuracyLabel ?? 'CREATIVE_RETELLING',
+    return NextResponse.json(
+      {
+        book: {
+          id: generated.id,
+          slug: generated.slug,
+          title: generated.title,
+          subtitle: generated.subtitle,
+          description: generated.description,
+          source_tradition: generated.source_tradition,
+          stylePreset: generated.stylePreset,
+          accuracyLabel: generated.accuracyLabel ?? 'CREATIVE_RETELLING',
+        },
+        scenes: generated.scenes,
+        characters: generated.characters,
       },
-      scenes: generated.scenes,
-      characters: generated.characters,
-    });
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } },
+    );
   }
 
   return NextResponse.json({ error: 'Book not found' }, { status: 404 });

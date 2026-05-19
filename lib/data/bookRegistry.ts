@@ -47,10 +47,11 @@ function capMap<K, V>(map: Map<K, V>, limit: number) {
   }
 }
 
-// 30 days for the finished book — long enough that a generation
-// done last week still resolves; short enough that abandoned
-// experiments don't pile up forever.
-const BOOK_TTL_SEC = 60 * 60 * 24 * 30;
+// 365 days for the finished book — public generated books are
+// meant to persist. The library listing depends on these keys
+// being present; a 30-day TTL caused books to disappear from the
+// listing and return 404 even though their scenes still existed.
+const BOOK_TTL_SEC = 60 * 60 * 24 * 365;
 // 30 minutes for in-flight progress. A stuck generation expires
 // on its own, so a retry from the user gets a clean run.
 const PROGRESS_TTL_SEC = 60 * 30;

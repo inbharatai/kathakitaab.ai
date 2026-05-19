@@ -40,9 +40,9 @@ export async function GET(
   }
 
   const scene = await getScene(sceneSlug, sceneId);
-  if (scene) return NextResponse.json({ scene });
+  if (scene) return NextResponse.json({ scene }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
-  return NextResponse.json({ error: `Scene not found: ${sceneId} in book ${slug}` }, { status: 404 });
+  return NextResponse.json({ error: `Scene not found: ${sceneId} in book ${slug}` }, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } });
 }
 
 /** PATCH a scene's content. Ownership is required. When media-relevant
