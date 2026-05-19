@@ -24,9 +24,12 @@ interface Props {
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
 
 export function AuthNavButton({ next = '/books', compact = false, className }: Props) {
+  const { user, loading, signOut } = useAuth();
+
+  // BETA: Auth is dormant during beta. Set NEXT_PUBLIC_AUTH_ENABLED=true
+  // to re-enable accounts, subscriptions, and saved libraries later.
   if (!AUTH_ENABLED) return null;
 
-  const { user, loading, signOut } = useAuth();
   if (loading) return null;
 
   const padding = compact ? '6px 14px' : '8px 18px';
