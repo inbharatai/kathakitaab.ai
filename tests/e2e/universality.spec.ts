@@ -139,11 +139,12 @@ test.describe('qualityScorer — structured score', () => {
       title: 'Test Book',
       subtitle: 'A test',
       description: 'Testing quality scorer.',
+      source_tradition: 'test',
       scenes: [makeScene(), makeScene({ scene_id: 's2', order_index: 1, previous_scene_id: 's1' })],
       characters: [
         { slug: 'king', name: 'King', role: 'protagonist', appearance: 'tall, wearing a crown', traits: ['wise', 'just'], speech_tone: 'measured' },
       ],
-      canon_entries: [],
+      generatedAt: Date.now(),
     } as GeneratedBook;
 
     const report = scoreBook(book);
@@ -163,9 +164,10 @@ test.describe('qualityScorer — structured score', () => {
       title: 'Unsafe Book',
       subtitle: '',
       description: '',
+      source_tradition: 'test',
       scenes: [makeScene({ narration: 'The killer murdered the victim with blood everywhere.' })],
       characters: [],
-      canon_entries: [],
+      generatedAt: Date.now(),
     } as GeneratedBook;
 
     const report = scoreBook(book);
@@ -181,13 +183,14 @@ test.describe('qualityScorer — structured score', () => {
       title: 'Repetitive Book',
       subtitle: '',
       description: '',
+      source_tradition: 'test',
       scenes: Array.from({ length: 5 }, (_, i) => makeScene({
         scene_id: `s${i}`,
         order_index: i,
         narration: repeated.repeat(20),
       })),
       characters: [],
-      canon_entries: [],
+      generatedAt: Date.now(),
     } as GeneratedBook;
 
     const report = scoreBook(book);
@@ -217,13 +220,17 @@ test.describe('promptInjectionGuard — blocks attacks, preserves legitimate tit
   test('allows legitimate mythology titles', () => {
     const result = guardPromptInput('The Iliad of Homer');
     expect(result.ok).toBe(true);
-    expect(result.clean).toBe('The Iliad of Homer');
+    if (result.ok) {
+      expect(result.clean).toBe('The Iliad of Homer');
+    }
   });
 
   test('allows legitimate sci-fi titles', () => {
     const result = guardPromptInput('Star Wars: A New Hope');
     expect(result.ok).toBe(true);
-    expect(result.clean).toBe('Star Wars: A New Hope');
+    if (result.ok) {
+      expect(result.clean).toBe('Star Wars: A New Hope');
+    }
   });
 
   test('strips dangerous delimiters but does not block', () => {

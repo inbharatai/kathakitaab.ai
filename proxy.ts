@@ -1,5 +1,5 @@
 // ============================================================
-// middleware.ts — issues the anonymous owner cookie
+// proxy.ts — issues the anonymous owner cookie
 //
 // Every visitor gets a stable `katha:owner` UUID cookie. The
 // cookie is the sole authorization principal for private books
@@ -28,7 +28,7 @@ import { OWNER_COOKIE, isValidOwnerId, newOwnerId } from '@/lib/auth/ownerId';
 
 const COOKIE_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const existing = request.cookies.get(OWNER_COOKIE)?.value;
   // Idempotent: never overwrite a valid existing cookie. A user who
   // returns after months keeps their owner ID — and therefore keeps
