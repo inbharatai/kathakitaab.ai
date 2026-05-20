@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
+      // Explicit .ico so Google Search can discover the favicon. Next.js
+      // auto-links app/favicon.ico, but that file lives in public/ now to
+      // avoid a Turbopack build error, so we reference it explicitly here.
+      { url: "/favicon.ico", sizes: "256x256", type: "image/x-icon" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
