@@ -365,42 +365,6 @@ export default function HomePage() {
         <div className="lp-hero-glow lp-hero-glow-3" />
       </section>
 
-      {/* ── What is KathaKitaab? ── */}
-      <section className="lp-worlds" id="what-is" style={{ paddingTop: 48 }}>
-        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 32 }}>
-          <span className="lp-hero-badge">
-            <span className="lp-hero-badge-dot" />
-            What is KathaKitaab?
-          </span>
-          <p className="lp-section-sub" style={{ maxWidth: 780, margin: '16px auto 0' }}>
-            Not a story browser. An AI creation engine. Type a prompt and the agent plans, writes, illustrates, narrates, and films the story.
-          </p>
-        </motion.div>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 18, maxWidth: 1100, margin: '0 auto',
-        }}>
-          {WHAT_IS_FEATURES.map((f, i) => (
-            <motion.div
-              key={f.title}
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.06, duration: 0.5 }}
-              style={{
-                padding: 22, borderRadius: 14,
-                background: 'rgba(43,27,21,0.55)', border: '1px solid rgba(255,215,0,0.12)',
-                display: 'flex', flexDirection: 'column', gap: 8,
-              }}
-            >
-              <span style={{ fontSize: '1.6rem' }} aria-hidden>{f.icon}</span>
-              <h3 className="font-serif" style={{ fontSize: '1.1rem', color: 'var(--color-gold-light)', margin: 0 }}>{f.title}</h3>
-              <p style={{ color: 'rgba(232,219,196,0.88)', margin: 0, fontSize: '0.85rem', lineHeight: 1.55 }}>{f.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
       {/* ── Dual experience: interactive reader + cinematic movie ──
           Replaces the old "Interactive Demo Preview" + the late
           "Trailer / Movie Mode" section (which sat ~5 sections down).
