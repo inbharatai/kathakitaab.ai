@@ -724,6 +724,17 @@ export default function SceneViewer({
     setActiveBranch(null);
   }, [bookSlug]);
 
+  const handleBranchNextScene = useCallback(() => {
+    setActiveBranch(null);
+    clearBranchHistory(bookSlug);
+    setBranchHistory([]);
+    if (storyScene?.next_scene_id) {
+      loadScene(storyScene.next_scene_id, 1);
+    } else {
+      generateNewScene('continue');
+    }
+  }, [bookSlug, storyScene, loadScene, generateNewScene]);
+
   // ── Hotspot action handler — Entity Interaction Engine ──
   const handleHotspotAction = useCallback(async (hotspot: SceneHotspot, action: HotspotClickAction) => {
     if (!storyScene) return;
@@ -1156,18 +1167,28 @@ export default function SceneViewer({
                             onClick={handleReturnToStory}
                             style={{
                               padding: '4px 12px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
-                              background: 'rgba(212,168,71,0.15)', border: '1px solid rgba(212,168,71,0.35)',
+                              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
                               color: 'var(--color-gold-light)', cursor: 'pointer',
                             }}
                           >
                             Return to Story
+                          </button>
+                          <button
+                            onClick={handleBranchNextScene}
+                            style={{
+                              padding: '4px 12px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+                              background: 'rgba(212,168,71,0.15)', border: '1px solid rgba(212,168,71,0.35)',
+                              color: 'var(--color-gold-light)', cursor: 'pointer',
+                            }}
+                          >
+                            Next Scene \u2192
                           </button>
                         </div>
                       </div>
                     )}
 
                     {branchLoading && !activeBranch ? (
-                      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, position: 'relative' }}>
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
@@ -1181,6 +1202,19 @@ export default function SceneViewer({
                           style={{ color: 'var(--color-gold)', fontSize: '0.9rem', fontWeight: 600, letterSpacing: 1 }}>
                           Exploring...
                         </motion.div>
+                        {/* Cancel loading — lets the user bail out if
+                            the branch is taking too long. */}
+                        <button
+                          onClick={() => { setBranchLoading(false); setActiveBranch(null); }}
+                          style={{
+                            position: 'absolute', top: 12, left: 12,
+                            padding: '4px 12px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600,
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'var(--color-gold-light)', cursor: 'pointer',
+                          }}
+                        >
+                          ✕ Cancel
+                        </button>
                       </div>
                     ) : activeBranch ? (
                       <>
@@ -1192,6 +1226,20 @@ export default function SceneViewer({
                           overflow: 'hidden',
                           maxHeight: '35vh',
                         }}>
+                          {/* Floating back button on image — visible even when
+                              the breadcrumb header is scrolled out of view */}
+                          <button
+                            onClick={handleReturnToStory}
+                            style={{
+                              position: 'absolute', top: 12, left: 12, zIndex: 3,
+                              background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+                              border: '1px solid rgba(255,215,0,0.25)',
+                              borderRadius: 999, padding: '6px 14px',
+                              color: 'var(--color-gold-light)', cursor: 'pointer',
+                              fontSize: '0.82rem', fontWeight: 600,
+                            }}
+                            aria-label="Back to scene"
+                          >{'←'} Back</button>
                           {activeBranch.imageUrl ? (
                             <motion.img
                               key={activeBranch.imageUrl}
@@ -1264,6 +1312,32 @@ export default function SceneViewer({
                               ))}
                             </div>
                           )}
+
+                          {/* Continue to next scene — surfaced at the bottom of
+                              the branch so users don't have to hunt for it */}
+                          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              onClick={handleBranchNextScene}
+                              style={{
+                                padding: '6px 14px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 600,
+                                background: 'rgba(212,168,71,0.12)', border: '1px solid rgba(212,168,71,0.3)',
+                                color: 'var(--color-gold-light)', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: 6,
+                              }}
+                            >
+                              Next Scene →
+                            </button>
+                            <button
+                              onClick={handleReturnToStory}
+                              style={{
+                                padding: '6px 14px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 600,
+                                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                                color: 'var(--color-text-dim)', cursor: 'pointer',
+                              }}
+                            >
+                              Return to Story
+                            </button>
+                          </div>
 
                           <div style={{ marginTop: 8, fontSize: '0.66rem', color: 'rgba(255,255,255,0.32)' }}>
                             {activeBranch.entityType}: {activeBranch.entityLabel}

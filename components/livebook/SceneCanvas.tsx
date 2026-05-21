@@ -936,6 +936,23 @@ export default function SceneCanvas({
               transformOrigin: 'center',
             }}
           >
+            {/* Always-visible subtle indicator so users know where
+                characters and objects are, without the noisy debug
+                overlay. Tiny dot + soft glow, static (no animation). */}
+            <div style={{
+              position: 'absolute', top: '50%', left: '50%',
+              transform: `translate(-50%, -50%) scale(${isHovered ? 1.25 : 1})`,
+              width: isCharacter ? 7 : 5,
+              height: isCharacter ? 7 : 5,
+              borderRadius: '50%',
+              background: color.dot,
+              boxShadow: `0 0 ${isHovered ? 10 : 6}px ${color.glow}`,
+              opacity: isHovered ? 0.95 : 0.65,
+              transition: 'all 0.2s ease',
+              pointerEvents: 'none',
+              zIndex: 5,
+            }} />
+
             {showHotspotVisuals && (
               <>
                 {/* Pulse ring */}
@@ -949,7 +966,7 @@ export default function SceneCanvas({
                     pointerEvents: 'none',
                   }}
                 />
-                {/* Center dot */}
+                {/* Debug center dot (larger) */}
                 <div style={{
                   position: 'absolute', top: '50%', left: '50%',
                   transform: 'translate(-50%, -50%)',
