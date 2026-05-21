@@ -59,6 +59,7 @@ interface CharacterLike {
 import { buildCacheKey, getCachedResponse, setCachedResponse, getCacheStats } from '@/lib/cache/responseCache';
 import { isOpenAIConfigured, getOpenAIModel } from '@/lib/openai/openaiClient';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
+import { buildClickRegionKey, normalizeHotspotPosition } from '@/lib/utils/hotspotCoordinates';
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'default' });
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
       sceneId: scene.scene_id,
       targetId: targetId || 'none',
       input: userInput || 'explore',
-      clickRegion: clickX && clickY ? `${Math.round(clickX / 10) * 10},${Math.round(clickY / 10) * 10}` : 'none',
+      clickRegion: buildClickRegionKey(clickX, clickY),
     });
 
     const cached = await getCachedResponse(cacheKey);
@@ -163,7 +164,8 @@ export async function POST(request: Request) {
     // Free-region click — use scene context as the anchor
     if (type === 'free') {
       ctx.agentType = 'info';
-      ctx.agentName = `Scene area at position (${clickX?.toFixed(0)}%, ${clickY?.toFixed(0)}%)`;
+      const pos = normalizeHotspotPosition({ x: clickX, y: clickY });
+      ctx.agentName = pos.valid ? pos.label : 'general scene area';
       ctx.userInput = userInput || `What is at this location in the scene?`;
     }
 
@@ -187,7 +189,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Agent API Error]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "We're having trouble with that request. Please try again." }, { status: 500 });
   }
 }
 

@@ -163,6 +163,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     console.error('Ask character error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "We're having trouble with that request. Please try again." }, { status: 500 });
   }
 }

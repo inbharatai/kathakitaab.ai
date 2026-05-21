@@ -9,7 +9,7 @@
 // pointing back to the reader — no half-rendered placeholder.
 
 import Link from 'next/link';
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useRef, useCallback } from 'react';
 import { Player } from '@remotion/player';
 import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames, type BookMovieManifest } from '@/remotion/BookMovie';
 
@@ -44,6 +44,42 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
     return () => { cancelled = true; };
   }, [slug]);
 
+  // Fullscreen + orientation lock for immersive cinematic playback
+  const playerWrapRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = playerWrapRef.current;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) {
+        const req = el.requestFullscreen || (el as any).webkitRequestFullscreen;
+        if (req) {
+          await req.call(el);
+          try { await (screen.orientation as any).lock?.('landscape'); } catch { /* ignore */ }
+        }
+      } else {
+        const exit = document.exitFullscreen || (document as any).webkitExitFullscreen;
+        if (exit) {
+          await exit.call(document);
+          try { (screen.orientation as any).unlock?.(); } catch { /* ignore */ }
+        }
+      }
+    } catch { /* fullscreen may be blocked by browser policy */ }
+  }, []);
+
   return (
     <main className="lp-movie-page-main movie-page-root">
       <div className="movie-page-inner">
@@ -69,7 +105,16 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
           </div>
         ) : manifest ? (
           <>
-            <div className="movie-player-wrap">
+            <div
+              ref={playerWrapRef}
+              className="movie-player-wrap"
+              style={{
+                position: 'relative',
+                ...(isFullscreen
+                  ? { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }
+                  : {}),
+              }}
+            >
               <Player
                 component={BookMovie}
                 inputProps={{ manifest }}
@@ -81,8 +126,47 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
                 controls
                 clickToPlay
                 doubleClickToFullscreen
-                style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#0C0806' }}
+                style={{
+                  width: '100%',
+                  aspectRatio: '16 / 9',
+                  display: 'block',
+                  background: '#0C0806',
+                  maxHeight: isFullscreen ? '100vh' : undefined,
+                }}
               />
+              {/* Fullscreen toggle — visible when not fullscreen so users
+                  on mobile (where double-click is unreliable) have a clear
+                  affordance to enter cinematic mode. Hidden when already
+                  fullscreen to avoid clutter; double-click still exits. */}
+              {!isFullscreen && (
+                <button
+                  onClick={toggleFullscreen}
+                  aria-label="Enter fullscreen"
+                  style={{
+                    position: 'absolute',
+                    bottom: 14,
+                    right: 14,
+                    zIndex: 2,
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    background: 'rgba(0,0,0,0.55)',
+                    backdropFilter: 'blur(6px)',
+                    border: '1px solid rgba(255,215,0,0.3)',
+                    color: 'var(--color-gold-light)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                  </svg>
+                  Fullscreen
+                </button>
+              )}
             </div>
 
             {/* MP4 export — disabled in the public UI because the

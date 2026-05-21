@@ -135,6 +135,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Generate Image Error]', message);
-    return NextResponse.json({ error: message, fallback: true }, { status: 200 });
+    return NextResponse.json({ error: "Image generation is temporarily unavailable.", fallback: true }, { status: 200 });
   }
 }

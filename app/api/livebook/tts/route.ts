@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'TTS failed';
     console.error('[TTS Error]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Narration is temporarily unavailable. Please try again." }, { status: 500 });
   }
 }
 

@@ -103,7 +103,8 @@ export async function validateBranch(input: QAInput): Promise<QAResult> {
   try {
     raw = await callQA(SYSTEM_PROMPT, userPrompt);
   } catch (err) {
-    return { score: 70, verb: 70, entity: 70, canon: 70, note: `qa unavailable: ${err instanceof Error ? err.message : String(err)}` };
+    console.error('[BranchQA] validation failed:', err);
+    return { score: 70, verb: 70, entity: 70, canon: 70, note: 'qa unavailable' };
   }
 
   const verb = clamp(Number(raw.verb), 0, 100);

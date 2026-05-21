@@ -44,7 +44,11 @@ import {
 } from '@/lib/agents/continuityAgent';
 import * as narrationManager from '@/lib/engine/narrationManager';
 import { handleEntityClick, getVoiceForEntity, type EntityClickContext } from '@/lib/engine/entityInteraction';
-import { getOrCreateNode, markVisited, loadGraph, saveGraph, type SceneBranch } from '@/lib/engine/sceneGraph';
+import {
+  getOrCreateNode, markVisited, loadGraph, saveGraph, type SceneBranch,
+  pushBranchHistory, popBranchHistory, clearBranchHistory, loadBranchHistory,
+  getBranchHistory, type BranchHistoryEntry,
+} from '@/lib/engine/sceneGraph';
 import type { ClickClassification } from '@/lib/engine/clickClassifier';
 
 // lazy-load sound engine + universal music orchestrator (client-only)
@@ -151,17 +155,18 @@ export default function SceneViewer({
   const [error, setError]                 = useState('');
   const [mode, setMode]                   = useState<'story' | 'learn' | 'quiz'>('story');
   const [activeBranch, setActiveBranch]   = useState<SceneBranch | null>(null);
+  const activeBranchRef = useRef<SceneBranch | null>(null);
+  const [branchHistory, setBranchHistory] = useState<BranchHistoryEntry[]>([]);
   const [branchLoading, setBranchLoading] = useState(false);
   const [transitionDir, setTransitionDir] = useState<1 | -1>(1);
   const [textExpanded, setTextExpanded]   = useState(false);
 
   const showHotspotVisuals = useMemo(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     const params = new URLSearchParams(window.location.search);
     const debugParam = params.get('hotspotDebug');
-    if (debugParam === '0') return false;
     if (debugParam === '1') return true;
-    return process.env.NEXT_PUBLIC_HOTSPOT_DEBUG !== '0';
+    return false;
   }, []);
 
   // ── Flipbook state ──
@@ -379,6 +384,9 @@ export default function SceneViewer({
     setError('');
     setTextExpanded(false);
     setFlipHistory([]);
+    setActiveBranch(null);
+    clearBranchHistory(bookSlug);
+    setBranchHistory([]);
     narrationManager.stopNarration();
 
     try {
@@ -562,6 +570,8 @@ export default function SceneViewer({
       // Clear any branch overlay from the previous scene — otherwise it
       // would obscure the freshly generated scene's hotspots.
       setActiveBranch(null);
+      clearBranchHistory(bookSlug);
+      setBranchHistory([]);
 
       // Pre-warm hotspot branches for the new scene the same way
       // loadScene does for static scenes. Without this, the user's
@@ -640,8 +650,10 @@ export default function SceneViewer({
       setIsNarrating(s === 'speaking');
     });
 
-    // Load scene graph
+    // Load scene graph + branch navigation history
     loadGraph(bookSlug);
+    loadBranchHistory(bookSlug);
+    setBranchHistory(getBranchHistory(bookSlug));
 
     return () => {
       window.clearTimeout(initialLoadTimeout);
@@ -655,6 +667,10 @@ export default function SceneViewer({
   useEffect(() => {
     onGameStateChange?.(gameStateRef.current);
   }, [onGameStateChange]);
+
+  useEffect(() => {
+    activeBranchRef.current = activeBranch;
+  }, [activeBranch]);
 
   useEffect(() => {
     if (!externalGameState) return;
@@ -679,6 +695,34 @@ export default function SceneViewer({
   }, [flipOpen, activeBranch, branchLoading]);
 
   // Close background menu when flipbook opens (handled in handleHotspotAction instead)
+
+  // ── Branch navigation ──────────────────────────────────────
+  const pushCurrentBranch = useCallback(() => {
+    if (!activeBranchRef.current || !storyScene) return;
+    pushBranchHistory(bookSlug, {
+      branch: activeBranchRef.current,
+      sceneId: storyScene.scene_id,
+      sceneTitle: storyScene.page_title,
+      timestamp: Date.now(),
+    });
+    setBranchHistory(getBranchHistory(bookSlug));
+  }, [bookSlug, storyScene]);
+
+  const handleBranchBack = useCallback(() => {
+    const prev = popBranchHistory(bookSlug);
+    setBranchHistory(getBranchHistory(bookSlug));
+    if (prev) {
+      setActiveBranch(prev.branch);
+    } else {
+      setActiveBranch(null);
+    }
+  }, [bookSlug]);
+
+  const handleReturnToStory = useCallback(() => {
+    clearBranchHistory(bookSlug);
+    setBranchHistory([]);
+    setActiveBranch(null);
+  }, [bookSlug]);
 
   // ── Hotspot action handler — Entity Interaction Engine ──
   const handleHotspotAction = useCallback(async (hotspot: SceneHotspot, action: HotspotClickAction) => {
@@ -707,6 +751,7 @@ export default function SceneViewer({
     // All other actions → Entity Interaction Engine
     // Click anything → generate a branch with text + image + narration
     setBranchLoading(true);
+    pushCurrentBranch();
     setActiveBranch(null);
 
     try {
@@ -781,6 +826,7 @@ export default function SceneViewer({
     if (!isMutedRef.current) soundEngine?.playClickSound();
 
     setBranchLoading(true);
+    pushCurrentBranch();
     setActiveBranch(null);
 
     try {
@@ -1062,19 +1108,63 @@ export default function SceneViewer({
                       maxHeight: '55vh',
                     }}
                   >
-                    {/* Back to scene */}
-                    <button
-                      onClick={() => setActiveBranch(null)}
-                      style={{
-                        position: 'absolute', top: 12, left: 12, zIndex: 2,
-                        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
-                        border: '1px solid rgba(255,215,0,0.25)',
-                        borderRadius: 999, padding: '6px 14px',
-                        color: 'var(--color-gold-light)', cursor: 'pointer',
-                        fontSize: '0.82rem', fontWeight: 600,
-                      }}
-                      aria-label="Back to scene"
-                    >{'\u2190'} Back</button>
+                    {/* Branch navigation header \u2014 breadcrumb + controls */}
+                    {activeBranch && (
+                      <div
+                        style={{
+                          padding: '8px 14px',
+                          background: 'rgba(8,5,4,0.95)',
+                          borderBottom: '1px solid rgba(255,215,0,0.12)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+                        }}
+                      >
+                        {/* Breadcrumb */}
+                        <div
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)',
+                            flexWrap: 'wrap', lineHeight: 1.4,
+                          }}
+                        >
+                          <span style={{ color: 'var(--color-gold-light)', fontWeight: 600 }}>Main Story</span>
+                          <span>\u203a</span>
+                          <span>{storyScene.page_title}</span>
+                          {branchHistory.map((h, i) => (
+                            <span key={i}>
+                              \u203a {h.branch.title}
+                            </span>
+                          ))}
+                          <span>\u203a</span>
+                          <span style={{ color: 'var(--color-gold-light)', fontWeight: 600 }}>{activeBranch.title}</span>
+                        </div>
+
+                        {/* Nav buttons */}
+                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                          {branchHistory.length > 0 && (
+                            <button
+                              onClick={handleBranchBack}
+                              style={{
+                                padding: '4px 12px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'var(--color-gold-light)', cursor: 'pointer',
+                              }}
+                            >
+                              \u2190 Back
+                            </button>
+                          )}
+                          <button
+                            onClick={handleReturnToStory}
+                            style={{
+                              padding: '4px 12px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+                              background: 'rgba(212,168,71,0.15)', border: '1px solid rgba(212,168,71,0.35)',
+                              color: 'var(--color-gold-light)', cursor: 'pointer',
+                            }}
+                          >
+                            Return to Story
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {branchLoading && !activeBranch ? (
                       <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
@@ -1159,6 +1249,8 @@ export default function SceneViewer({
                                   key={i}
                                   onClick={() => {
                                     setActiveBranch(null);
+                                    clearBranchHistory(bookSlug);
+                                    setBranchHistory([]);
                                     openFlipbook('free', action, activeBranch.entityId, action);
                                   }}
                                   style={{

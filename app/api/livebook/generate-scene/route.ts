@@ -377,6 +377,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Generate Scene Error]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "We're having trouble with that request. Please try again." }, { status: 500 });
   }
 }

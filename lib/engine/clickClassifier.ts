@@ -87,7 +87,8 @@ Respond with JSON:
         max_tokens: 300,
         temperature: 0.3,
       });
-      result = JSON.parse(completion.choices[0]?.message?.content || '{}') as ClickClassification;
+      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}') as ClickClassification;
+      result = normalizeClassification(parsed);
       await setCachedResponse(cacheKey, result, 'click-classify');
       return result;
     } catch {
@@ -106,7 +107,8 @@ Respond with JSON:
         max_tokens: 300,
         temperature: 0.3,
       });
-      result = JSON.parse(completion.choices[0]?.message?.content || '{}') as ClickClassification;
+      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}') as ClickClassification;
+      result = normalizeClassification(parsed);
       await setCachedResponse(cacheKey, result, 'click-classify');
       return result;
     } catch {
@@ -124,7 +126,8 @@ Respond with JSON:
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: { temperature: 0.3, maxOutputTokens: 300, responseMimeType: 'application/json' },
       });
-      result = JSON.parse(res.text || '{}') as ClickClassification;
+      const parsed = JSON.parse(res.text || '{}') as ClickClassification;
+      result = normalizeClassification(parsed);
       await setCachedResponse(cacheKey, result, 'click-classify');
       return result;
     } catch {
@@ -139,6 +142,27 @@ Respond with JSON:
 /**
  * Simple position-based guess when no AI is available.
  */
+function normalizeClassification(raw: unknown): ClickClassification {
+  const r = raw as Record<string, unknown>;
+  const validEntityType = (v: unknown): ClickClassification['entityType'] => {
+    const s = String(v);
+    return ['character', 'object', 'location', 'background', 'unknown'].includes(s) ? (s as ClickClassification['entityType']) : 'unknown';
+  };
+  const validAction = (v: unknown): ClickClassification['suggestedAction'] => {
+    const s = String(v);
+    const actions: ClickClassification['suggestedAction'][] = ['generate_character_interaction', 'inspect_object', 'generate_new_scene', 'show_info_card', 'ignore'];
+    return actions.includes(s as ClickClassification['suggestedAction']) ? (s as ClickClassification['suggestedAction']) : 'ignore';
+  };
+  return {
+    meaningful: Boolean(r?.meaningful),
+    entityType: validEntityType(r?.entityType),
+    label: typeof r?.label === 'string' && r.label ? r.label : 'Unknown',
+    confidence: Number.isFinite(Number(r?.confidence)) ? Math.max(0, Math.min(1, Number(r.confidence))) : 0,
+    reason: typeof r?.reason === 'string' && r.reason ? r.reason : 'No reason provided.',
+    suggestedAction: validAction(r?.suggestedAction),
+  };
+}
+
 function positionHeuristic(x: number, y: number, characters: string[]): ClickClassification {
   // Top = sky/atmosphere
   if (y < 20) {

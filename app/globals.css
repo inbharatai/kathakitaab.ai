@@ -507,12 +507,13 @@ body {
     flex-direction: column;
   }
   /* Mobile reader: reserve a bounded viewport-aware card so the
-    full artwork can fit without cover-cropping. */
+    full artwork can fit without cover-cropping. Removed fixed min-height
+    that was forcing blank space below images shorter than the container. */
   .book-page .scene-container {
     aspect-ratio: auto;
     border-radius: 10px;
-   min-height: min(62vh, 62dvh);
-   max-height: calc(100dvh - 240px - env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+    max-height: calc(100dvh - 240px - env(safe-area-inset-bottom, 0px));
   }
   /* Tap targets — Apple HIG / Material both want 44-48px minimum
      to avoid mis-taps on dense hotspot layouts. */
@@ -566,7 +567,7 @@ body {
   .book-page .scene-container {
     aspect-ratio: auto;
     border-radius: 6px;
-    min-height: min(58vh, 58dvh);
+    min-height: 0;
     max-height: calc(100dvh - 255px - env(safe-area-inset-bottom, 0px));
   }
   .glass-card { border-radius: 14px; }

@@ -143,7 +143,8 @@ function buildAgentPrompt(ctx: AgentContext): string {
     lines.push(`\nUser Request: "${ctx.userInput}"`);
   }
 
-  lines.push(`\nRespond with valid JSON.`);
+  lines.push(`\nRespond with valid JSON using exactly this shape:`);
+  lines.push(`{\n  "label": "CANON" | "EXPLANATION" | "INTERPRETATION" | "CREATIVE",\n  "answer": "your response text here",\n  "source_note": "citation or source info",\n  "next_options": ["question 1", "question 2", "question 3"]\n}`);
 
   return lines.join('\n');
 }

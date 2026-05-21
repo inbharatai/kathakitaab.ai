@@ -348,7 +348,7 @@ Scene context: ${sceneNarration.slice(0, 300)}${canonFragment ? `\n\n${canonFrag
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Entity Interact Error]', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "We're having trouble with that request. Please try again." }, { status: 500 });
   }
 }
 

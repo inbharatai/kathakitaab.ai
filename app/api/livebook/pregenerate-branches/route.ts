@@ -128,7 +128,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Pre-generation failed';
     console.error('[PreGen Error]', msg);
-    return NextResponse.json({ status: 'error', error: msg }, { status: 500 });
+    return NextResponse.json({ status: 'error', error: "Pre-generation failed. Branches will be generated on demand." }, { status: 500 });
   }
 }
 

@@ -52,17 +52,24 @@ export async function POST(request: Request) {
       }
     }
 
+    // Validate coordinates before passing to classifier — prevents
+    // NaN from malformed requests leaking into the vision prompt.
+    const x = Number(body.xPercent);
+    const y = Number(body.yPercent);
+    const xPercent = Number.isFinite(x) ? Math.max(0, Math.min(100, x)) : 50;
+    const yPercent = Number.isFinite(y) ? Math.max(0, Math.min(100, y)) : 50;
+
     const result = await classifyImageClick(
       body.sceneTitle,
       body.sceneNarration,
       body.characters,
       body.imageUrl,
-      body.xPercent,
-      body.yPercent,
+      xPercent,
+      yPercent,
     );
     return NextResponse.json(result);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Classification failed';
-    return NextResponse.json({ meaningful: false, entityType: 'unknown', label: 'Unknown', confidence: 0, reason: msg, suggestedAction: 'ignore' });
+    console.error('[Classify Click Error]', error);
+    return NextResponse.json({ meaningful: false, entityType: 'unknown', label: 'Unknown', confidence: 0, reason: 'Could not understand this area. Try somewhere else!', suggestedAction: 'ignore' });
   }
 }

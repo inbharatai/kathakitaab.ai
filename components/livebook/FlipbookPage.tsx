@@ -17,6 +17,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useVisualViewport } from '@/lib/hooks/useVisualViewport';
 
 export interface FlipbookPageData {
   label: 'CANON' | 'EXPLANATION' | 'INTERPRETATION' | 'CREATIVE';
@@ -98,6 +99,8 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
   const [imageErrorNote, setImageErrorNote] = useState<string | null>(null);
   const [isResponseCollapsed, setIsResponseCollapsed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const askBarRef = useRef<HTMLDivElement>(null);
+  const { keyboardOpen } = useVisualViewport();
   const theme = entry.data ? LABEL_THEME[entry.data.label] : LABEL_THEME.EXPLANATION;
   const gradient = getVisualGradient(entry.targetId);
   const emblem = entry.targetId ? (CHARACTER_EMBLEMS[entry.targetId] || '✦') : '🔍';
@@ -173,6 +176,17 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
       return () => clearTimeout(t);
     }
   }, [entry.data, entry.loading]);
+
+  // When the virtual keyboard opens on mobile, the Ask bar can be
+  // covered. Scroll it into view so the user can see what they type.
+  useEffect(() => {
+    if (keyboardOpen && askBarRef.current) {
+      const t = setTimeout(() => {
+        askBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 180);
+      return () => clearTimeout(t);
+    }
+  }, [keyboardOpen]);
 
   const handleCustomQ = useCallback(() => {
     const q = customQ.trim();
@@ -448,7 +462,9 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
               padding: 16, background: 'rgba(220,50,50,0.1)',
               border: '1px solid rgba(220,50,50,0.3)', borderRadius: 10, marginBottom: 12,
             }}>
-              <p style={{ color: '#ff8a8a', margin: 0, fontSize: '0.9rem' }}>⚠️ {entry.error}</p>
+              <p style={{ color: '#ff8a8a', margin: 0, fontSize: '0.9rem' }}>
+                Something went wrong. Try asking again or continue the story.
+              </p>
             </div>
           )}
 
@@ -557,15 +573,6 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
                       📜 {entry.data.source_note}
                     </div>
 
-                    {entry.data.safety_note ? (
-                      <div style={{
-                        padding: '8px 14px', borderRadius: 8,
-                        background: 'rgba(255,153,51,0.06)', border: '1px solid rgba(255,153,51,0.2)',
-                        fontSize: '0.72rem', color: 'rgba(255,153,51,0.7)', fontStyle: 'italic',
-                      }}>
-                        ⚠️ {entry.data.safety_note}
-                      </div>
-                    ) : null}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -574,13 +581,16 @@ export default function FlipbookPage({ entry, onClose, onDiveDeeper, onXpEarned,
         </div>
 
         {/* ── Ask bar (sticky bottom) ── */}
-        <div style={{
-          padding: '12px 16px',
-          borderTop: '1px solid rgba(212,168,71,0.1)',
-          background: 'rgba(12,8,6,0.9)',
-          backdropFilter: 'blur(12px)',
-          flexShrink: 0,
-        }}>
+        <div
+          ref={askBarRef}
+          style={{
+            padding: '12px 16px',
+            borderTop: '1px solid rgba(212,168,71,0.1)',
+            background: 'rgba(12,8,6,0.9)',
+            backdropFilter: 'blur(12px)',
+            flexShrink: 0,
+          }}
+        >
           {/* Quick chips (character-specific) */}
           {entry.agentType === 'character' && !entry.loading && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>

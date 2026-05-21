@@ -116,6 +116,75 @@ export function getDiscoveryCount(bookSlug: string, sceneId: string): { discover
   return { discovered: node.discoveredEntities.length, total: node.branches.length };
 }
 
+// ── Branch Navigation History ────────────────────────────────
+// When users click multiple hotspots in succession (or explore
+// next-actions inside a branch), we keep a stack so they can
+// navigate back level-by-level instead of being trapped with
+// no breadcrumb trail.
+
+export interface BranchHistoryEntry {
+  branch: SceneBranch;
+  sceneId: string;
+  sceneTitle: string;
+  timestamp: number;
+}
+
+const branchHistoryMap = new Map<string, BranchHistoryEntry[]>();
+const MAX_BRANCH_HISTORY = 20;
+const BRANCH_HISTORY_KEY = 'kathakitaab_branch_history';
+
+export function getBranchHistory(bookSlug: string): BranchHistoryEntry[] {
+  return branchHistoryMap.get(bookSlug) ?? [];
+}
+
+export function pushBranchHistory(bookSlug: string, entry: BranchHistoryEntry): void {
+  const history = getBranchHistory(bookSlug);
+  history.push(entry);
+  if (history.length > MAX_BRANCH_HISTORY) history.shift();
+  branchHistoryMap.set(bookSlug, history);
+  saveBranchHistory(bookSlug);
+}
+
+export function popBranchHistory(bookSlug: string): BranchHistoryEntry | undefined {
+  const history = getBranchHistory(bookSlug);
+  const entry = history.pop();
+  branchHistoryMap.set(bookSlug, history);
+  saveBranchHistory(bookSlug);
+  return entry;
+}
+
+export function clearBranchHistory(bookSlug: string): void {
+  branchHistoryMap.set(bookSlug, []);
+  saveBranchHistory(bookSlug);
+}
+
+function saveBranchHistory(bookSlug: string) {
+  if (typeof window === 'undefined') return;
+  const history = getBranchHistory(bookSlug);
+  const sanitized = history.map(h => ({
+    ...h,
+    branch: {
+      ...h.branch,
+      imageUrl: h.branch.imageUrl?.startsWith('data:') ? null : h.branch.imageUrl,
+    },
+  }));
+  try {
+    localStorage.setItem(`${BRANCH_HISTORY_KEY}_${bookSlug}`, JSON.stringify(sanitized));
+  } catch {
+    /* localStorage full — history is session-only fallback */
+  }
+}
+
+export function loadBranchHistory(bookSlug: string) {
+  if (typeof window === 'undefined') return;
+  const raw = localStorage.getItem(`${BRANCH_HISTORY_KEY}_${bookSlug}`);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw) as BranchHistoryEntry[];
+    branchHistoryMap.set(bookSlug, data);
+  } catch { /* corrupt data, start fresh */ }
+}
+
 // ── Persistence ──────────────────────────────────────────────
 // Branches can carry base64 data URIs (gpt-image-1 returns ~200KB–2MB
 // per image). Multiplied across scenes × branches, that blows past

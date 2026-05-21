@@ -170,9 +170,9 @@ function sanitizeResponse(
       ? value.source_note.trim()
       : fallback.source_note,
     next_options: nextOptions.length > 0 ? nextOptions.slice(0, 3) : fallback.next_options.slice(0, 3),
-    safety_note: typeof value.safety_note === 'string' && value.safety_note.trim()
-      ? value.safety_note.trim()
-      : fallback.safety_note ?? 'Structured response recovery fallback.',
+    // Repair notices are kept internally for debugging but never exposed
+    // to the UI so users don't see technical fallback messages.
+    safety_note: '',
   };
 }
 
