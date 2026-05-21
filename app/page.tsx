@@ -27,24 +27,58 @@ const LANDING_TRAILER_FRAMES = computeTrailerFrames(LANDING_MANIFEST);
 // own scene list. No callers remain.
 
 const COMPARISON = [
-  { old: 'Static pages you flip through', new: 'Living scenes — figures breathe, sway, blink, and look around' },
-  { old: 'Read-only text and images', new: 'Highlighted characters and objects respond on click' },
-  { old: 'Same response no matter which action', new: 'Verb-aware AI — Talk, Fight, Honor, Comfort each feel different' },
-  { old: 'No reaction when you click', new: 'Camera dollies, characters pose, sprites flash — keyed to the verb' },
-  { old: 'Same experience every time', new: 'AI generates a fresh branch the first time, caches it after' },
-  { old: 'Silent or robotic narration', new: 'Sarvam Bulbul shaped per scene mood — sorrow plays slow, battle plays urgent' },
-  { old: 'Characters drift between scenes', new: 'Anchor portraits lock every face — same Rama, same Sita, every scene' },
-  { old: 'Locked into one art style', new: 'Pick from five visual styles — same story, different aesthetic, one consistent cast' },
-  { old: 'One linear path', new: 'Story graph with hidden discoveries via tap-anywhere' },
-  { old: 'Books vs. movies — pick one', new: 'Every book also plays as a cinematic movie' },
-  { old: 'Flat illustrations', new: 'Layered scenes with parallax, fog, particles, dust shafts per scene' },
+  { old: 'Fixed stories', new: 'Generates new stories from prompts' },
+  { old: 'Static pages', new: 'Interactive living scenes' },
+  { old: 'One-way reading', new: 'Clickable characters, objects, and hidden details' },
+  { old: 'Random images', new: 'Consistent character identity across scenes' },
+  { old: 'Text only', new: 'Story, images, narration, subtitles, quiz, and movie' },
+  { old: 'Video only', new: 'Book + interactive reader + movie mode' },
+  { old: 'Made by creators only', new: 'Created by anyone using prompts' },
+];
+
+const WHAT_IS_FEATURES = [
+  { icon: '📜', title: 'Story structure', desc: 'Scene-by-scene story arc generated from your prompt.' },
+  { icon: '👤', title: 'Consistent characters', desc: 'The same character look is maintained across every scene.' },
+  { icon: '🎨', title: 'Illustrated scenes', desc: 'AI-generated visuals in cinematic, storybook, comic, anime, or manga styles.' },
+  { icon: '🗣️', title: 'Narration and captions', desc: 'Voice narration, subtitles, mood-based storytelling, and sentence timing.' },
+  { icon: '👆', title: 'Clickable learning moments', desc: 'Characters, objects, and backgrounds respond with hidden details.' },
+  { icon: '🎬', title: 'Movie mode', desc: 'The same book plays as a cinematic narrated video experience.' },
+];
+
+const AUDIENCE_CARDS = [
+  {
+    icon: '🎓',
+    title: 'For Students',
+    desc: 'Turn lessons, chapters, and concepts into visual stories, narrated explainers, and interactive learning books.',
+  },
+  {
+    icon: '🏠',
+    title: 'For Parents',
+    desc: 'Create safe, engaging, illustrated stories for children in minutes.',
+  },
+  {
+    icon: '🍎',
+    title: 'For Teachers',
+    desc: 'Convert topics into story-based lessons with narration, scenes, questions, and visual explanations.',
+  },
+  {
+    icon: '✨',
+    title: 'For Creators',
+    desc: 'Generate mythology, fantasy, history, anime, manga, comic, and educational story videos from prompts.',
+  },
+  {
+    icon: '🇮🇳',
+    title: "For India's Stories",
+    desc: 'Bring Ramayana, Mahabharata, Panchatantra, Assam history, folk tales, and local stories into interactive AI format.',
+  },
 ];
 
 const STEPS = [
-  { num: '01', title: 'A scene appears', desc: 'Hand-painted illustration breathes with parallax + drifting fog, with a procedural mood bed underneath and emotional Sarvam narration shaped to the scene’s mood.' },
-  { num: '02', title: 'Click highlighted elements', desc: 'Characters and objects with golden glow rings respond instantly. Tap anywhere else and AI checks if there’s a hidden detail worth surfacing.' },
-  { num: '03', title: 'Pick a verb — the world reacts', desc: 'Camera dollies in for Talk, pushes + shakes for Fight, arcs upward for Leap. The figure quickens its breath, leans toward the addressee, and a verb-keyed sprite flashes — then a branch unfolds, action-keyed so Talk and Fight stay distinct.' },
-  { num: '04', title: 'Or watch it as a movie', desc: 'Same engine renders a cinematic cut: per-scene camera motion, sentence cues, mood music ducked under narration, the same effects DSL baked into the file. Plus a 45-second trailer cut on demand.' },
+  { num: '01', title: 'Type your idea', desc: 'Enter a title, topic, lesson, mythological story, history chapter, fantasy idea, or educational concept. The AI understands what you want.' },
+  { num: '02', title: 'AI plans the story', desc: 'The agent creates the story arc, scenes, characters, narration, clickable hotspots, and learning questions — all from one prompt.' },
+  { num: '03', title: 'Choose a visual style', desc: 'Pick cinematic, storybook, comic, anime/manga, or animation style. The same character face is locked across every scene by anchor portraits.' },
+  { num: '04', title: 'Experience the living book', desc: 'Read it interactively, click characters and objects, discover hidden details, and answer questions. Every click is cached so repeats are instant.' },
+  { num: '05', title: 'Watch it as a movie', desc: 'The same story becomes a cinematic narrated video experience — per-scene camera motion, sentence-timed captions, mood music, and effects.' },
 ];
 
 const SUPPORTED_WORLDS = [
@@ -59,29 +93,29 @@ const SUPPORTED_WORLDS = [
 const MAKE_YOUR_OWN_STEPS = [
   {
     num: '01',
-    title: 'Type any book title',
-    desc: 'Mahabharata. Panchatantra. NCERT Science Grade 6. Tenali Raman. The AI plans a 9–12 scene story arc — establish, raise the conflict, follow the rising action, turn, resolve.',
-    cta: { label: 'Open the library', href: '/books#create-story' },
+    title: 'Type any idea',
+    desc: 'Mahabharata. Panchatantra. NCERT Science Grade 6. Tenali Raman. A fantasy world. The AI plans a complete story arc — establish, raise the conflict, follow the rising action, turn, resolve.',
+    cta: { label: 'Create a story', href: '/books#create-story' },
     timing: '~10 seconds to plan',
   },
   {
     num: '02',
-    title: 'Pick a visual style — engine builds it',
-    desc: 'Photoreal cinematic, storybook watercolour, cinematic animation, comic book, or anime/manga adventure. gpt-4o-mini writes scene narration, hotspots, and a quiz. gpt-image-1 first bakes one canonical portrait per character, then uses it as an anchor so the same face shows up in every scene. Sarvam Bulbul records the narration in a voice the AI picked to match each character.',
-    cta: { label: 'See the engine', href: '/books/akbar-and-birbal' },
-    timing: '~3 minutes, ~$0.40 in API cost',
+    title: 'Pick a style — the engine builds everything',
+    desc: 'Choose photoreal cinematic, storybook watercolour, cinematic animation, comic book, or anime/manga. The AI writes scene narration, generates illustrations, creates clickable hotspots, and records voice narration — all with consistent character faces across every scene.',
+    cta: { label: 'See an example', href: '/books/akbar-and-birbal' },
+    timing: '~3 minutes to generate',
   },
   {
     num: '03',
-    title: 'Click anywhere',
-    desc: 'Highlighted characters and objects speak in their own voice — the LLM picks the archetype at gen time. Tap empty background and the AI checks what hidden detail belongs there. Every click is cached so repeats are instant.',
-    cta: { label: 'Try the live reader', href: '/books/akbar-and-birbal' },
+    title: 'Explore the living book',
+    desc: 'Click highlighted characters and objects. The AI responds with hidden details, backstory, and lore. Tap anywhere on the background and the AI discovers what belongs there. Every interaction is cached so repeats are instant.',
+    cta: { label: 'Try the reader', href: '/books/akbar-and-birbal' },
     timing: 'first reply ~5s, repeats <100ms',
   },
   {
     num: '04',
-    title: 'Watch as a movie',
-    desc: 'Same scenes, cinematic cut. Per-scene camera motion, ducked mood music, sentence-timed captions, particles + dust shafts + divine glow per the manifest. Ramayana ships pre-baked; AI books are synthesised live from the same engine.',
+    title: 'Watch it as a movie',
+    desc: 'The same scenes become a cinematic narrated video — per-scene camera motion, sentence-timed captions, mood music, and particle effects. Play the trailer or the full movie, entirely in-browser.',
     cta: { label: 'Open movie mode', href: '/books/akbar-and-birbal/movie' },
     timing: 'in-browser playback, no wait',
   },
@@ -300,28 +334,28 @@ export default function HomePage() {
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
             <div className="lp-hero-badge">
               <span className="lp-hero-badge-dot" />
-              Not a Flipbook. A Living Story Engine.
+              AI Story & Video Creation Engine
             </div>
 
             <h1 className="lp-hero-h1">
-              Where Stories<br /><span className="gradient-tricolor">Come Alive</span>
+              Turn Any Prompt Into a<br /><span className="gradient-tricolor">Living Storybook and AI Movie</span>
             </h1>
 
             <p className="lp-hero-sub font-serif">
-              Click highlighted characters and objects. Tap the background to discover hidden details.<br />
-              Figures breathe, sway, and glow as the scene comes alive. Or watch the whole book play as a cinematic movie.<br />
-              AI generates new scenes, narration, and images — in real time.
+              KathaKitaab is an AI agentic creation engine that plans the story arc,
+              generates illustrated scenes, builds clickable hotspots, records narration,
+              and creates a cinematic movie — all from one typed prompt.
             </p>
 
             <div className="lp-hero-ctas">
-              <Link href="/books/ramayana" className="lp-btn-primary">
-                <span>Enter the Ramayana</span>
+              <Link href="/books#create-story" className="lp-btn-primary">
+                <span>Create a Story</span>
                 <span className="lp-btn-arrow">{'\u2192'}</span>
               </Link>
-              <Link href="/books" className="lp-btn-outline">Browse Library</Link>
+              <Link href="/books/ramayana/movie" className="lp-btn-outline">Watch Demo</Link>
             </div>
 
-            <p className="lp-hero-hint">Free to explore. No signup required.</p>
+            <p className="lp-hero-hint">Explore the demo instantly. Create full AI-powered books and movies from your own prompts.</p>
           </motion.div>
         </motion.div>
 
@@ -329,6 +363,42 @@ export default function HomePage() {
         <div className="lp-hero-glow lp-hero-glow-1" />
         <div className="lp-hero-glow lp-hero-glow-2" />
         <div className="lp-hero-glow lp-hero-glow-3" />
+      </section>
+
+      {/* ── What is KathaKitaab? ── */}
+      <section className="lp-worlds" id="what-is" style={{ paddingTop: 48 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 32 }}>
+          <span className="lp-hero-badge">
+            <span className="lp-hero-badge-dot" />
+            What is KathaKitaab?
+          </span>
+          <p className="lp-section-sub" style={{ maxWidth: 780, margin: '16px auto 0' }}>
+            Not a story browser. An AI creation engine. Type a prompt and the agent plans, writes, illustrates, narrates, and films the story.
+          </p>
+        </motion.div>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: 18, maxWidth: 1100, margin: '0 auto',
+        }}>
+          {WHAT_IS_FEATURES.map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.06, duration: 0.5 }}
+              style={{
+                padding: 22, borderRadius: 14,
+                background: 'rgba(43,27,21,0.55)', border: '1px solid rgba(255,215,0,0.12)',
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}
+            >
+              <span style={{ fontSize: '1.6rem' }} aria-hidden>{f.icon}</span>
+              <h3 className="font-serif" style={{ fontSize: '1.1rem', color: 'var(--color-gold-light)', margin: 0 }}>{f.title}</h3>
+              <p style={{ color: 'rgba(232,219,196,0.88)', margin: 0, fontSize: '0.85rem', lineHeight: 1.55 }}>{f.desc}</p>
+            </motion.div>
+          ))}
+        </div>
       </section>
 
       {/* ── Dual experience: interactive reader + cinematic movie ──
@@ -651,7 +721,7 @@ export default function HomePage() {
       {/* ── How It Works ── */}
       <section className="lp-steps">
         <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-          How It Works
+          How the Engine Works
         </motion.h2>
         <div className="lp-steps-grid">
           {STEPS.map((step, i) => (
@@ -676,7 +746,7 @@ export default function HomePage() {
       {/* ── Flipbook vs KathaKitaab ── */}
       <section className="lp-compare">
         <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-          Normal Flipbook vs Living Story Engine
+          Not Just Stories. A Creation Engine.
         </motion.h2>
         <div className="lp-compare-table">
           <div className="lp-compare-header">
@@ -694,6 +764,42 @@ export default function HomePage() {
             >
               <span className="lp-compare-old">{row.old}</span>
               <span className="lp-compare-new">{row.new}</span>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Audience cards ── */}
+      <section className="lp-worlds" id="audience" style={{ paddingTop: 48 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 32 }}>
+          <span className="lp-hero-badge">
+            <span className="lp-hero-badge-dot" />
+            Who is it for?
+          </span>
+          <p className="lp-section-sub" style={{ maxWidth: 720, margin: '16px auto 0' }}>
+            Built for anyone who wants to turn knowledge, mythology, or imagination into an interactive experience.
+          </p>
+        </motion.div>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 18, maxWidth: 1100, margin: '0 auto',
+        }}>
+          {AUDIENCE_CARDS.map((card, i) => (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.06, duration: 0.5 }}
+              style={{
+                padding: 22, borderRadius: 14,
+                background: 'rgba(43,27,21,0.55)', border: '1px solid rgba(255,215,0,0.12)',
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}
+            >
+              <span style={{ fontSize: '1.6rem' }} aria-hidden>{card.icon}</span>
+              <h3 className="font-serif" style={{ fontSize: '1.1rem', color: 'var(--color-gold-light)', margin: 0 }}>{card.title}</h3>
+              <p style={{ color: 'rgba(232,219,196,0.88)', margin: 0, fontSize: '0.85rem', lineHeight: 1.55 }}>{card.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -741,14 +847,14 @@ export default function HomePage() {
       {/* ── Final CTA ── */}
       <section className="lp-final-cta">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-          <h2 className="lp-final-h2">Ready to enter a living story?</h2>
-          <p className="lp-final-sub">Click a character. Discover a hidden path. Hear the story narrated. Shape what happens next.</p>
+          <h2 className="lp-final-h2">Ready to turn your idea into a story?</h2>
+          <p className="lp-final-sub">Type a prompt. The engine plans the arc, illustrates the scenes, and builds the movie. Your story, your style, your cast \u2014 created in minutes.</p>
           <div className="lp-hero-ctas">
-            <Link href="/books/ramayana" className="lp-btn-primary">
-              <span>Start with Ramayana</span>
+            <Link href="/books#create-story" className="lp-btn-primary">
+              <span>Create a Story</span>
               <span className="lp-btn-arrow">{'\u2192'}</span>
             </Link>
-            <Link href="/books#create-story" className="lp-btn-outline">Create Your Own</Link>
+            <Link href="/books/ramayana/movie" className="lp-btn-outline">Watch Demo</Link>
           </div>
         </motion.div>
       </section>
