@@ -28,11 +28,21 @@ import { toFile } from 'openai';
 // regenerated or two books happen to converge on the same prompt.
 const IMAGE_CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
-function imageCacheKey(prompt: string, bookSlug: string | undefined, anchorIds: string[]): string {
+function imageCacheKey(
+  prompt: string,
+  bookSlug: string | undefined,
+  sceneId: string | undefined,
+  stylePreset: string | undefined,
+  anchorIds: string[],
+): string {
   const h = createHash('sha256')
     .update(prompt)
     .update('|')
     .update(bookSlug ?? '')
+    .update('|')
+    .update(sceneId ?? '')
+    .update('|')
+    .update(stylePreset ?? '')
     .update('|')
     .update([...anchorIds].sort().join(','))
     .digest('hex')
@@ -106,6 +116,8 @@ export interface VisualGenerationResult {
 export interface SceneImageContext {
   /** Book slug for canon lookup. Falls back to generic style if absent. */
   bookSlug?: string;
+  /** Scene identifier for cache key and status tracking. */
+  sceneId?: string;
   /** Characters known to be in the scene (e.g., scene metadata). */
   characters?: string[];
   /** Characters who must NOT appear in this scene image. */
@@ -174,82 +186,73 @@ export async function generateSceneImage(
     : [];
 
   // Prompt-level cache. The fingerprint is (full prompt, book,
-  // anchor IDs) — exactly the inputs to the image model. A hit
-  // returns the URL we generated last time; a miss falls through.
-  // Without this, regenerating the same book pays the full
-  // gpt-image-1 cost again, and orphans the previous Supabase
-  // bytes that nothing now points to.
-  const cacheKey = imageCacheKey(built.prompt, ctx.bookSlug, anchorRefs.map(a => a.id));
+  // scene, style, anchor IDs) — exactly the inputs to the image model.
+  const cacheKey = imageCacheKey(built.prompt, ctx.bookSlug, ctx.sceneId, ctx.stylePreset, anchorRefs.map(a => a.id));
   const cached = await getCachedResponse(cacheKey) as VisualGenerationResult | null;
   if (cached?.imageUrl) {
     return cached;
   }
 
-  // Try OpenAI gpt-image-1 first
+  // Try OpenAI gpt-image-1 with exponential-backoff retries.
+  const maxRetries = 3;
+  let lastErr: unknown;
   if (isOpenAIConfigured()) {
-    try {
-      const client = getOpenAIClient();
-      let b64: string | undefined;
-      if (anchorRefs.length > 0) {
-        // images.edit with anchor portraits as references — locks
-        // faces / setting to the canonical look. Falls through to
-        // plain generate if the edit call fails for any reason
-        // (e.g. anchor URL 404, network blip).
-        try {
-          const edited = await client.images.edit({
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const client = getOpenAIClient();
+        let b64: string | undefined;
+        if (anchorRefs.length > 0) {
+          try {
+            const edited = await client.images.edit({
+              model: 'gpt-image-1',
+              image: anchorRefs.map(r => r.file),
+              prompt: built.prompt,
+              size: '1536x1024',
+              quality: 'medium',
+              input_fidelity: 'high',
+            });
+            b64 = edited.data?.[0]?.b64_json;
+          } catch (editErr) {
+            console.error('[VisualAgent] images.edit with anchors failed, falling back to generate:', editErr);
+          }
+        }
+        if (!b64) {
+          const response = await client.images.generate({
             model: 'gpt-image-1',
-            image: anchorRefs.map(r => r.file),
             prompt: built.prompt,
             size: '1536x1024',
             quality: 'medium',
-            // Anchors exist *for* face fidelity — without 'high' the
-            // model is allowed to drift and the whole point is lost.
-            input_fidelity: 'high',
           });
-          b64 = edited.data?.[0]?.b64_json;
-        } catch (editErr) {
-          console.error('[VisualAgent] images.edit with anchors failed, falling back to generate:', editErr);
+          b64 = response.data?.[0]?.b64_json;
+        }
+
+        if (b64) {
+          const imageUrl = await uploadGeneratedImage(`data:image/png;base64,${b64}`, {
+            mimeType: 'image/png',
+            pathHint: ctx.bookSlug,
+          });
+          const result: VisualGenerationResult = {
+            imageUrl,
+            source: 'openai',
+            promptUsed: built.prompt,
+            charactersLocked: built.charactersInjected,
+          };
+          await setCachedResponse(cacheKey, result, 'gpt-image-1', IMAGE_CACHE_TTL_MS);
+          return result;
+        }
+      } catch (err) {
+        lastErr = err;
+        const delayMs = attempt < maxRetries ? Math.min(2000 * Math.pow(2, attempt - 1), 15000) : 0;
+        console.error(`[VisualAgent] OpenAI image generation attempt ${attempt}/${maxRetries} failed:`,
+          err instanceof Error ? err.message : err);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, delayMs));
         }
       }
-      if (!b64) {
-        const response = await client.images.generate({
-          model: 'gpt-image-1',
-          prompt: built.prompt,
-          size: '1536x1024', // 3:2 landscape, close to 16:9
-          quality: 'medium',
-        });
-        b64 = response.data?.[0]?.b64_json;
-      }
-
-      if (b64) {
-        // Upload to Supabase Storage and return the public URL.
-        // Falls back to the data URI when Supabase isn't configured.
-        const imageUrl = await uploadGeneratedImage(`data:image/png;base64,${b64}`, {
-          mimeType: 'image/png',
-          pathHint: ctx.bookSlug,
-        });
-        const result: VisualGenerationResult = {
-          imageUrl,
-          source: 'openai',
-          promptUsed: built.prompt,
-          charactersLocked: built.charactersInjected,
-        };
-        await setCachedResponse(cacheKey, result, 'gpt-image-1', IMAGE_CACHE_TTL_MS);
-        return result;
-      }
-    } catch (err) {
-      // Surface the failure loudly. Gemini Imagen fallback was retired
-      // per project directive (OpenAI + Sarvam only) — and Imagen 3 is
-      // 404'd anyway. If OpenAI returns a billing_hard_limit_reached,
-      // the only fix is bumping the cap on the OpenAI dashboard; no
-      // amount of retrying will help.
-      console.error('[VisualAgent] OpenAI image generation failed:',
-        err instanceof Error ? err.message : err);
     }
   }
 
-  // No image generation available — return the empty-URL marker so
-  // the caller can render a placeholder instead of crashing the book.
+  console.error('[VisualAgent] All image generation attempts failed. Last error:', lastErr instanceof Error ? lastErr.message : lastErr);
   return { imageUrl: '', source: 'fallback', promptUsed: built.prompt, charactersLocked: built.charactersInjected };
 }
 
@@ -274,33 +277,43 @@ export async function generateCharacterPortrait(
     stylePreset,
   });
 
+  const maxRetries = 3;
+  let lastErr: unknown;
   if (isOpenAIConfigured()) {
-    try {
-      const client = getOpenAIClient();
-      const response = await client.images.generate({
-        model: 'gpt-image-1',
-        prompt: built.prompt,
-        size: '1024x1024',
-        quality: 'medium',
-      });
-
-      const b64 = response.data?.[0]?.b64_json;
-      if (b64) {
-        const imageUrl = await uploadGeneratedImage(`data:image/png;base64,${b64}`, {
-          mimeType: 'image/png',
-          pathHint: bookSlug ? `${bookSlug}/portraits` : 'portraits',
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const client = getOpenAIClient();
+        const response = await client.images.generate({
+          model: 'gpt-image-1',
+          prompt: built.prompt,
+          size: '1024x1024',
+          quality: 'medium',
         });
-        return {
-          imageUrl,
-          source: 'openai',
-          promptUsed: built.prompt,
-          charactersLocked: built.charactersInjected,
-        };
+
+        const b64 = response.data?.[0]?.b64_json;
+        if (b64) {
+          const imageUrl = await uploadGeneratedImage(`data:image/png;base64,${b64}`, {
+            mimeType: 'image/png',
+            pathHint: bookSlug ? `${bookSlug}/portraits` : 'portraits',
+          });
+          return {
+            imageUrl,
+            source: 'openai',
+            promptUsed: built.prompt,
+            charactersLocked: built.charactersInjected,
+          };
+        }
+      } catch (err) {
+        lastErr = err;
+        const delayMs = attempt < maxRetries ? Math.min(2000 * Math.pow(2, attempt - 1), 15000) : 0;
+        console.error(`[VisualAgent] Portrait generation attempt ${attempt}/${maxRetries} failed:`, err instanceof Error ? err.message : err);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, delayMs));
+        }
       }
-    } catch (err) {
-      console.error('[VisualAgent] Portrait generation failed:', err);
     }
   }
 
+  console.error('[VisualAgent] All portrait generation attempts failed. Last error:', lastErr instanceof Error ? lastErr.message : lastErr);
   return { imageUrl: '', source: 'fallback', promptUsed: built.prompt };
 }

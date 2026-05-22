@@ -18,6 +18,8 @@ interface LibraryBook {
   visibility?: 'public' | 'private';
   isOwner?: boolean;
   accuracyLabel?: string;
+  hasMovie?: boolean;
+  movieStatus?: 'ready' | 'pending' | 'partial' | 'failed';
 }
 
 interface GenerationJob {

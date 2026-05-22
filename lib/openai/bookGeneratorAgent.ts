@@ -397,6 +397,10 @@ export interface GeneratedBook {
    *    UNVERIFIED         → AI-generated, no web research grounding
    *  Optional so legacy books still read. */
   accuracyLabel?: 'CANONICAL' | 'CREATIVE_RETELLING' | 'EDUCATIONAL_SUMMARY' | 'UNVERIFIED';
+  /** Movie readiness status — not just text-ready, but all assets validated. */
+  movieStatus?: 'ready' | 'pending' | 'partial' | 'failed';
+  /** List of missing assets when movieStatus is partial. */
+  movieMissingAssets?: Array<{ sceneId: string; missing: string }>;
 }
 
 /** Optional knobs for non-world generation modes. The pipeline is
@@ -543,7 +547,7 @@ async function generateBookOpenAI(
 
   const portraitTargets = characters.filter(c => c.appearance && c.appearance.length > 20);
   if (portraitTargets.length > 0) {
-    onProgress?.('Locking character looks...', 36);
+    onProgress?.('Locking character looks...', 15);
     let portraitsDone = 0;
     await pMapLimit(portraitTargets, 3, async (c) => {
       try {
@@ -564,7 +568,7 @@ async function generateBookOpenAI(
         portraitsDone++;
         onProgress?.(
           `Locked ${portraitsDone}/${portraitTargets.length} character looks`,
-          36 + (portraitsDone / portraitTargets.length) * 4,
+          15 + (portraitsDone / portraitTargets.length) * 5,
         );
       }
     });
@@ -747,6 +751,7 @@ motion guide:
         : present;
       const imageResult = await generateSceneImage(job.prompt, {
         bookSlug: slug,
+        sceneId: sceneOutline.scene_id,
         characters: fallbackCharacters,
         forbiddenCharacters: absent,
         mood: sceneOutline.mood ?? 'serene',
@@ -802,7 +807,7 @@ motion guide:
 
   await options.onStepComplete?.('images', { scenes: baseScenes });
 
-  onProgress?.('Book complete!', 100);
+  onProgress?.('Scenes illustrated', 80);
 
   const book: GeneratedBook = {
     id: `book-${slug}`,

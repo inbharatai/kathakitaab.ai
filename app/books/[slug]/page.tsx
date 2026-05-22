@@ -154,7 +154,24 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
 
 export default function BookPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
-  const title = toTitleCase(resolvedParams.slug);
+  const fallbackTitle = toTitleCase(resolvedParams.slug);
+  const [title, setTitle] = useState(fallbackTitle);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/books/${resolvedParams.slug}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const realTitle = data.book?.title || data.title;
+        if (realTitle && !cancelled) setTitle(realTitle);
+      } catch {
+        // keep fallback
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [resolvedParams.slug]);
 
   return (
     <main className="reader-page-main" style={{ minHeight: '100vh', padding: '20px 18px calc(52px + env(safe-area-inset-bottom, 0px))' }}>

@@ -63,5 +63,24 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({ manifest });
+  // Validate assets for AI-generated books. Static manifests (Ramayana)
+  // are always considered ready. For generated books, check that every
+  // scene has image and audio before claiming the movie is ready.
+  const hydratedBook = await getBook(slug);
+  const isStatic = !hydratedBook; // static manifests have no registry entry
+  if (!isStatic && hydratedBook) {
+    const missing: Array<{ sceneId: string; missing: string }> = [];
+    for (const s of hydratedBook.scenes) {
+      if (!s.background_asset_url) missing.push({ sceneId: s.scene_id, missing: 'image' });
+      if (!s.narration_audio_url) missing.push({ sceneId: s.scene_id, missing: 'audio' });
+    }
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { manifest, ready: false, missing },
+        { status: 202 },
+      );
+    }
+  }
+
+  return NextResponse.json({ manifest, ready: true });
 }

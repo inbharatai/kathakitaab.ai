@@ -58,6 +58,12 @@ export interface TTSResult {
   /** The tone label that was actually used to shape this audio. Lets
    *  the caller log + cache against the same key it was rendered with. */
   toneUsed: Tone;
+  /** Which provider was selected as primary for this language. */
+  ttsProviderSelected: 'sarvam' | 'gemini';
+  /** Which provider actually succeeded (may differ from selected if fallback occurred). */
+  ttsProviderUsed: 'sarvam' | 'gemini';
+  /** Number of retry attempts made across all providers. */
+  retryCount: number;
 }
 
 /**
@@ -96,58 +102,70 @@ export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
     })();
   const delivery = deliveryForTone(tone);
 
-  const providers = buildProviderChain();
+  const providers = buildProviderChain(language);
   if (providers.length === 0) {
-    throw new Error('No TTS provider configured. Set SARVAM_API_KEY. (Gemini fallback is disabled in production — KATHA_ENABLE_GEMINI=1 plus GEMINI_API_KEY to re-enable for an experiment.)');
+    throw new Error('No TTS provider configured. Set SARVAM_API_KEY or GEMINI_API_KEY.');
   }
 
+  const ttsProviderSelected = providers[0];
   let lastError: unknown;
+  let retryCount = 0;
+
   for (const provider of providers) {
-    try {
-      if (provider === 'sarvam') {
-        const result = await sarvamTTS({
-          text: req.text,
-          language,
-          speaker: voiceMap.sarvam,
-          pace: delivery.pace,
-          pitch: delivery.pitch,
-          loudness: delivery.loudness,
-        });
-        return {
-          audio: result.audio,
-          mimeType: result.mimeType,
-          provider: 'sarvam',
-          voiceUsed: voiceMap.sarvam,
-          language,
-          toneUsed: tone,
-        };
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (provider === 'sarvam') {
+          const result = await sarvamTTS({
+            text: req.text,
+            language,
+            speaker: voiceMap.sarvam,
+            pace: delivery.pace,
+            pitch: delivery.pitch,
+            loudness: delivery.loudness,
+          });
+          return {
+            audio: result.audio,
+            mimeType: result.mimeType,
+            provider: 'sarvam',
+            voiceUsed: voiceMap.sarvam,
+            language,
+            toneUsed: tone,
+            ttsProviderSelected,
+            ttsProviderUsed: 'sarvam',
+            retryCount,
+          };
+        }
+        if (provider === 'gemini') {
+          const direction = geminiToneDirection(tone);
+          const text = direction ? `${direction}\n${req.text}` : req.text;
+          const result = await geminiTTS({ text, language, voiceName: voiceMap.gemini });
+          return {
+            audio: result.audio,
+            mimeType: result.mimeType,
+            provider: 'gemini',
+            voiceUsed: voiceMap.gemini,
+            language,
+            toneUsed: tone,
+            ttsProviderSelected,
+            ttsProviderUsed: 'gemini',
+            retryCount,
+          };
+        }
+      } catch (err) {
+        lastError = err;
+        retryCount++;
+        const delayMs = attempt < maxRetries ? Math.min(1000 * Math.pow(3, attempt - 1), 10000) : 0;
+        console.warn(`[TTS] ${provider} attempt ${attempt}/${maxRetries} failed (delay ${delayMs}ms):`, err instanceof Error ? err.message : err);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, delayMs));
+        }
       }
-      if (provider === 'gemini') {
-        // Gemini doesn't expose pace/pitch/loudness controls but does
-        // respect a leading natural-language prosody instruction. We
-        // prepend a one-line stage direction so the fallback path
-        // still picks up the tone — empty for neutral so caching stays
-        // tight when no tone is needed.
-        const direction = geminiToneDirection(tone);
-        const text = direction ? `${direction}\n${req.text}` : req.text;
-        const result = await geminiTTS({ text, language, voiceName: voiceMap.gemini });
-        return {
-          audio: result.audio,
-          mimeType: result.mimeType,
-          provider: 'gemini',
-          voiceUsed: voiceMap.gemini,
-          language,
-          toneUsed: tone,
-        };
-      }
-    } catch (err) {
-      lastError = err;
-      console.warn(`[TTS] ${provider} failed, trying next:`, err instanceof Error ? err.message : err);
     }
   }
 
   throw new Error(
-    `All TTS providers failed. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+    `All TTS providers failed after ${retryCount} retries. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
   );
 }
 
@@ -165,10 +183,17 @@ export function resolveLanguage(text: string, hint?: TTSLanguage): 'hi' | 'en' {
   return 'en';
 }
 
-function buildProviderChain(): Array<'sarvam' | 'gemini'> {
+function buildProviderChain(language?: 'hi' | 'en'): Array<'sarvam' | 'gemini'> {
   const chain: Array<'sarvam' | 'gemini'> = [];
-  if (isSarvamConfigured()) chain.push('sarvam');
-  if (isGeminiConfigured()) chain.push('gemini');
+  // Hindi → Gemini primary (better multilingual quality), Sarvam fallback
+  // English → Sarvam primary (better Indic prosody), Gemini fallback
+  if (language === 'hi') {
+    if (isGeminiConfigured()) chain.push('gemini');
+    if (isSarvamConfigured()) chain.push('sarvam');
+  } else {
+    if (isSarvamConfigured()) chain.push('sarvam');
+    if (isGeminiConfigured()) chain.push('gemini');
+  }
   return chain;
 }
 

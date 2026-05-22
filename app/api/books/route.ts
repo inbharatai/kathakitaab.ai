@@ -45,6 +45,8 @@ export async function GET(request: Request) {
       source_tradition: 'public-domain',
       mode: 'world' as const,
       coverImage: scenes[0]?.background_asset_url || '',
+      hasMovie: true,
+      movieStatus: 'ready' as const,
       // First-beat of the first 4 scenes — drives the Ken-Burns
       // background cycle on the landing-page cards. Falls back to
       // background_asset_url for any scene without beats.
@@ -89,6 +91,8 @@ export async function GET(request: Request) {
         // So the UI can render owner-only edit/delete controls.
         visibility: b.visibility ?? 'public',
         isOwner: ownerId !== null && b.ownerId === ownerId,
+        hasMovie: b.movieStatus === 'ready',
+        movieStatus: b.movieStatus ?? 'pending',
       };
     });
 

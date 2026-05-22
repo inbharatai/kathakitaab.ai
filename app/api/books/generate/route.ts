@@ -4,7 +4,7 @@ import type { StylePreset } from '@/lib/types/style';
 import { defaultPresetForBook, STYLE_PRESETS, slugSuffixForPreset } from '@/lib/types/style';
 import { detectGenreProfile } from '@/lib/engine/genreDetector';
 import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
-import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
+import { hydrateBookAudio, synthesizeBookMovieManifest } from '@/lib/video/manifestSynthesizer';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit, checkOwnerDailyLimit } from '@/lib/middleware/rateLimit';
 import { moderatePrompt } from '@/lib/safety/moderation';
@@ -147,6 +147,25 @@ function validateBody(body: GenerateBody): string {
     return '';
   }
   return 'Unknown generation mode.';
+}
+
+/** Validate that a book has all assets required for movie playback.
+ *  Returns { ready, missing } so callers can decide between 100%
+ *  "ready" and a partial "some assets missing" state. */
+function validateBookAssets(book: GeneratedBook): { ready: boolean; missing: Array<{ sceneId: string; missing: string }> } {
+  const missing: Array<{ sceneId: string; missing: string }> = [];
+  for (const s of book.scenes) {
+    if (!s.background_asset_url || s.background_asset_url.length === 0) {
+      missing.push({ sceneId: s.scene_id, missing: 'image' });
+    }
+    if (!s.narration_audio_url || s.narration_audio_url.length === 0) {
+      missing.push({ sceneId: s.scene_id, missing: 'audio' });
+    }
+    if (!s.narration || s.narration.length === 0) {
+      missing.push({ sceneId: s.scene_id, missing: 'narration' });
+    }
+  }
+  return { ready: missing.length === 0, missing };
 }
 
 // ── Route handler ────────────────────────────────────────────
@@ -476,19 +495,49 @@ export async function POST(request: Request) {
       runningStep = 'scene_tts';
       try {
         await updateJob(job.id, { status: 'tts_generating', currentStep: 'scene_tts' });
-        await setProgress(slug, 'Recording narration...', 95);
+        await setProgress(slug, 'Recording narration...', 85);
         const hydrated = await hydrateBookAudio(finalBook);
         await saveGeneratedBook(hydrated);
       } catch (audioErr) {
-        // Don't fail the whole generation on audio hydration error —
-        // /api/livebook/tts will pick up the slack on first read.
         console.warn('[generate] audio hydration failed (live reader will use lazy TTS):',
           audioErr instanceof Error ? audioErr.message : audioErr);
       }
 
       runningStep = 'stitch';
       await updateJob(job.id, { status: 'tts_generated', currentStep: 'stitch', completedSteps: 5 });
-      await setProgress(slug, 'Complete!', 100, true);
+      await setProgress(slug, 'Preparing subtitles...', 90);
+
+      // Synthesize manifest (generates subtitles per scene). This is
+      // cheap and fast but marks the formal movie pipeline stage.
+      try {
+        const manifestBook = await getBook(slug);
+        if (manifestBook) {
+          synthesizeBookMovieManifest(manifestBook);
+        }
+      } catch (manifestErr) {
+        console.warn('[generate] manifest synthesis failed:', manifestErr instanceof Error ? manifestErr.message : manifestErr);
+      }
+
+      await setProgress(slug, 'Validating final assets...', 95);
+
+      // Validate all required assets before marking ready.
+      const validationBook = await getBook(slug);
+      if (validationBook) {
+        const validation = validateBookAssets(validationBook);
+        if (validation.ready) {
+          validationBook.movieStatus = 'ready';
+          validationBook.movieMissingAssets = undefined;
+          await saveGeneratedBook(validationBook);
+          await setProgress(slug, 'Ready', 100, true);
+        } else {
+          validationBook.movieStatus = 'partial';
+          validationBook.movieMissingAssets = validation.missing;
+          await saveGeneratedBook(validationBook);
+          await setProgress(slug, `Partial — ${validation.missing.length} assets missing`, 95, true);
+        }
+      } else {
+        await setProgress(slug, 'Ready (validation skipped)', 100, true);
+      }
       await completeJob(job.id, slug);
       void trackEvent({
         event: 'book_generated',

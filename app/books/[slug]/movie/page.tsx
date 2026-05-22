@@ -21,7 +21,8 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
   // books synth on the fly from the bookRegistry. Either way the
   // Player is the same.
   const [manifest, setManifest] = useState<BookMovieManifest | null>(null);
-  const [manifestStatus, setManifestStatus] = useState<'loading' | 'ready' | 'missing'>('loading');
+  const [manifestStatus, setManifestStatus] = useState<'loading' | 'ready' | 'partial' | 'missing'>('loading');
+  const [missingAssets, setMissingAssets] = useState<Array<{ sceneId: string; missing: string }>>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +36,12 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
         const data = await res.json();
         if (!cancelled) {
           setManifest(data.manifest);
-          setManifestStatus('ready');
+          if (data.ready === false) {
+            setManifestStatus('partial');
+            setMissingAssets(data.missing ?? []);
+          } else {
+            setManifestStatus('ready');
+          }
         }
       } catch {
         if (!cancelled) setManifestStatus('missing');
@@ -65,16 +71,16 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
     if (!el) return;
     try {
       if (!document.fullscreenElement) {
-        const req = el.requestFullscreen || (el as any).webkitRequestFullscreen;
+        const req = el.requestFullscreen || (el as unknown as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen;
         if (req) {
           await req.call(el);
-          try { await (screen.orientation as any).lock?.('landscape'); } catch { /* ignore */ }
+          try { await (screen.orientation as unknown as { lock?: (o: string) => Promise<void> }).lock?.('landscape'); } catch { /* ignore */ }
         }
       } else {
-        const exit = document.exitFullscreen || (document as any).webkitExitFullscreen;
+        const exit = document.exitFullscreen || (document as unknown as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen;
         if (exit) {
           await exit.call(document);
-          try { (screen.orientation as any).unlock?.(); } catch { /* ignore */ }
+          try { (screen.orientation as unknown as { unlock?: () => void }).unlock?.(); } catch { /* ignore */ }
         }
       }
     } catch { /* fullscreen may be blocked by browser policy */ }
@@ -102,6 +108,29 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
             background: 'rgba(43,27,21,0.4)',
           }}>
             <div style={{ color: 'var(--color-gold)' }}>Loading the cinematic cut…</div>
+          </div>
+        ) : manifestStatus === 'partial' ? (
+          <div style={{
+            padding: '60px 24px', textAlign: 'center',
+            borderRadius: 16, border: '1px dashed rgba(255,215,0,0.2)',
+            background: 'rgba(43,27,21,0.4)',
+          }}>
+            <div className="font-serif" style={{ fontSize: '1.4rem', color: 'var(--color-gold)', marginBottom: 12 }}>
+              Still preparing the movie
+            </div>
+            <p style={{ color: 'var(--color-text-dim)', maxWidth: 540, margin: '0 auto 16px' }}>
+              Some scenes are still being processed. The movie will be ready shortly.
+            </p>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '0 auto 20px', maxWidth: 400, textAlign: 'left', fontSize: '0.8rem', color: 'var(--color-text-dim)' }}>
+              {missingAssets.map((m, i) => (
+                <li key={i} style={{ padding: '4px 0', borderBottom: '1px solid rgba(255,215,0,0.08)' }}>
+                  Scene {m.sceneId}: missing {m.missing}
+                </li>
+              ))}
+            </ul>
+            <Link href={`/books/${slug}`} className="btn-primary" style={{ textDecoration: 'none' }}>
+              Read the Book
+            </Link>
           </div>
         ) : manifest ? (
           <>

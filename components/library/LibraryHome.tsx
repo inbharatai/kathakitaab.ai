@@ -15,6 +15,7 @@ interface LibraryBook {
   isOwner?: boolean;
   accuracyLabel?: string;
   hasMovie?: boolean;
+  movieStatus?: 'ready' | 'pending' | 'partial' | 'failed';
   progress?: number;
 }
 
@@ -58,7 +59,7 @@ export default function LibraryHome({ books, loading = false, userBooks }: Libra
       b.mode === 'world' && !seedSlugs.has(b.slug)
     );
 
-    const watchAsMovie = books.filter(b => b.hasMovie !== false);
+    const watchAsMovie = books.filter(b => b.movieStatus === 'ready');
 
     // Sort by most recently created (fallback to existing order)
     const recentlyCreated = [...books]

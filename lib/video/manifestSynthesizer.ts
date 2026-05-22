@@ -153,6 +153,39 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
 }
 
 /**
+ * Pick a background music track based on mood and visual style.
+ * Only 6 tracks exist today; the mapping is a best-effort heuristic.
+ * When no style-specific override exists, falls back to mood → track.
+ */
+function selectBackgroundMusic(mood: string, stylePreset?: string): string {
+  const moodTrack = `audio/mood/${mood}.wav`;
+  // Style-aware overrides — only when the mood+style combo strongly
+  // suggests a different energy level than the default mood track.
+  if (stylePreset === 'anime_manga' || stylePreset === 'cinematic_animation') {
+    if (mood === 'dramatic' || mood === 'joyful' || mood === 'tense') {
+      return 'audio/mood/dramatic.wav';
+    }
+    if (mood === 'serene') {
+      return 'audio/mood/joyful.wav';
+    }
+  }
+  if (stylePreset === 'storybook_watercolor') {
+    if (mood === 'dramatic') {
+      return 'audio/mood/somber.wav';
+    }
+  }
+  if (stylePreset === 'comic_book') {
+    if (mood === 'dramatic' || mood === 'tense') {
+      return 'audio/mood/dramatic.wav';
+    }
+    if (mood === 'joyful') {
+      return 'audio/mood/joyful.wav';
+    }
+  }
+  return moodTrack;
+}
+
+/**
  * Convert a GeneratedBook into a BookMovieManifest the Remotion
  * BookMovie/BookTrailer compositions can render directly.
  *
@@ -226,9 +259,10 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
         durationSeconds,
         mood: s.mood ?? 'serene',
         motion,
-        // backgroundMusicUrl unset → BookMovie picks the procedural
-        // mood bed at the right tempo for s.mood. Universal.
-        backgroundMusicUrl: undefined,
+        // BGM selected by mood + style. Falls back to mood-only if
+        // style mapping doesn't exist. Explicit URL prevents BookMovie
+        // from guessing and lets us track which track was used.
+        backgroundMusicUrl: selectBackgroundMusic(s.mood ?? 'serene', book.stylePreset),
         ambientSoundUrl: s.ambient_sound || undefined,
         effects,
         subtitles: planSubtitles(s.narration, durationSeconds),

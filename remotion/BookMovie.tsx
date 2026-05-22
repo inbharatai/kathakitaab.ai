@@ -284,15 +284,29 @@ function fallbackCues(narration: string, totalFrames: number, audioStartFrame: n
 // during narration and rises gently between cues.
 //   base            : volume between cues / outside the audio window
 //   ducked          : volume during a sentence
-// Defaults give the music a clear "I am there" presence (0.28) that
-// drops to 0.10 under speech, with a small fade between the two.
+//   totalFrames     : scene duration for fade-out envelope
+//   fadeInFrames    : ramp from 0 to base at scene start
+//   fadeOutFrames   : ramp from base to 0 at scene end
+// Reduced base (0.18) keeps BGM quieter under narration; fade in/out
+// prevents abrupt BGM starts/ends that can sound like hiss.
 function makeMusicVolume(
   cues: FrameCue[],
   base: number,
   ducked: number,
   rampFrames: number,
+  totalFrames: number,
+  fadeInFrames: number,
+  fadeOutFrames: number,
 ): (frame: number) => number {
   return (frame: number) => {
+    // Scene-level fade-in envelope
+    if (frame < fadeInFrames) {
+      return (frame / fadeInFrames) * base;
+    }
+    // Scene-level fade-out envelope
+    if (frame > totalFrames - fadeOutFrames) {
+      return ((totalFrames - frame) / fadeOutFrames) * base;
+    }
     const inCue = cues.some(c => frame >= c.fromFrame && frame < c.toFrame);
     if (inCue) return ducked;
     // Look for a cue starting within rampFrames so we anticipate
@@ -412,13 +426,13 @@ const SceneShot: React.FC<{
   const activeCueIndex = cues.findIndex(c => frame >= c.fromFrame && frame < c.toFrame);
   const activeCue = activeCueIndex >= 0 ? cues[activeCueIndex] : null;
 
-  // Music ducking — base 0.28, ducked 0.10, ramps over 18 frames
-  // (~600ms at 30fps). The mood bed source comes from the manifest
-  // (`backgroundMusicUrl`) when present, else the procedural mood
-  // WAV inferred from the mood tag.
+  // Music ducking — base 0.18, ducked 0.10, ramps over 18 frames
+  // (~600ms at 30fps). Fade in over 18 frames, fade out over 18.
+  // The mood bed source comes from the manifest (`backgroundMusicUrl`)
+  // when present, else the procedural mood WAV inferred from the mood tag.
   const musicVolume = React.useMemo(
-    () => makeMusicVolume(cues, 0.28, 0.10, 18),
-    [cues],
+    () => makeMusicVolume(cues, 0.18, 0.10, 18, durationInFrames, 18, 18),
+    [cues, durationInFrames],
   );
   const musicSrc = scene.backgroundMusicUrl
     ? resolveAsset(scene.backgroundMusicUrl)
@@ -581,23 +595,30 @@ const SceneShot: React.FC<{
         <Audio src={resolveAsset(scene.audioPath)} />
       </Sequence>
 
-      {/* ── Mood bed with frame-accurate ducking ── */}
+      {/* ── Mood bed with frame-accurate ducking ──
+          Delayed by 9 frames (~300ms) so BGM doesn't clash with the
+          scene transition / title card. Fade in/out is handled by
+          musicVolume. */}
       {musicSrc && (
-        <Audio
-          src={musicSrc}
-          volume={musicVolume}
-          loop
-        />
+        <Sequence from={9}>
+          <Audio
+            src={musicSrc}
+            volume={musicVolume}
+            loop
+          />
+        </Sequence>
       )}
 
-      {/* ── Ambient soundscape ── low-level texture that grounds the
-          scene in its location without competing with narration. */}
+      {/* ── Ambient soundscape ── disabled by default to avoid hiss.
+          Only plays when an explicit ambientSoundUrl is set. */}
       {scene.ambientSoundUrl && (
-        <Audio
-          src={resolveAsset(scene.ambientSoundUrl)}
-          volume={0.15}
-          loop
-        />
+        <Sequence from={12}>
+          <Audio
+            src={resolveAsset(scene.ambientSoundUrl)}
+            volume={0.12}
+            loop
+          />
+        </Sequence>
       )}
 
       {/* ── One-shot SFX per beat ── fires at the start of each beat

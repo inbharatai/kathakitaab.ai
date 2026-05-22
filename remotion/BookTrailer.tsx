@@ -122,8 +122,8 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
   const captionAlpha = interpolate(frame, [16, 40, durationInFrames - 24, durationInFrames - 8], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
   // Tease the narration audio for ~5s — start at scene start, fade
-  // out in the last 1s. Mood bed plays at 0.32 (louder than the full
-  // movie's 0.28 base) for a punchier trailer feel.
+  // out in the last 1s. Mood bed plays at 0.22 with 18-frame fade
+  // in/out so trailer BGM doesn't start or end abruptly.
   const audioVolume = (f: number) => interpolate(f, [0, durationInFrames - 24, durationInFrames], [0.85, 0.85, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
   const moodSrc = scene.backgroundMusicUrl
@@ -131,6 +131,12 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
     : scene.mood
       ? staticFile(`audio/mood/${scene.mood}.wav`)
       : null;
+
+  const moodVolume = (f: number) => {
+    const fadeIn = interpolate(f, [0, 18], [0, 0.22], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+    const fadeOut = interpolate(f, [durationInFrames - 18, durationInFrames], [0.22, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+    return Math.min(fadeIn, fadeOut);
+  };
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806', opacity }}>
@@ -173,7 +179,9 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
       </Sequence>
 
       {moodSrc && (
-        <Audio src={moodSrc} volume={0.32} loop />
+        <Sequence from={6}>
+          <Audio src={moodSrc} volume={moodVolume} loop />
+        </Sequence>
       )}
     </AbsoluteFill>
   );
