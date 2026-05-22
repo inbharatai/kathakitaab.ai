@@ -244,6 +244,43 @@ export default function BooksPage() {
       {/* Netflix-style rails */}
       <LibraryHome books={books} loading={!loaded} />
 
+      {/* Empty-library nudge — when only Ramayana exists, prompt the
+          user to generate stories or restore the showcase books. */}
+      {loaded && books.length <= 1 && (
+        <div style={{ maxWidth: 1200, margin: '24px auto 0', padding: '0 16px' }}>
+          <div style={{
+            padding: '28px 24px', borderRadius: 16, textAlign: 'center',
+            background: 'rgba(43,27,21,0.45)',
+            border: '1px dashed rgba(255,215,0,0.18)',
+          }}>
+            <div className="font-serif" style={{ fontSize: '1.3rem', color: 'var(--color-gold-light)', marginBottom: 8 }}>
+              Build your library
+            </div>
+            <p style={{ color: 'var(--color-text-dim)', maxWidth: 520, margin: '0 auto 18px', lineHeight: 1.6 }}>
+              The showcase books (Mahabharata, Akbar and Birbal, Vikram and Betaal)
+              were cleared from storage. Generate them from the admin panel,
+              or create your own stories above.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link
+                href="/admin"
+                className="btn-primary"
+                style={{ textDecoration: 'none' }}
+              >
+                Restore Showcase Books →
+              </Link>
+              <Link
+                href="#create-story"
+                className="btn-secondary"
+                style={{ textDecoration: 'none' }}
+              >
+                Create New Story
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Generation Queue — active and failed jobs */}
       {jobsLoaded && jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled').length > 0 && (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px 40px' }}>

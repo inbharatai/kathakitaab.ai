@@ -615,7 +615,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Featured books — only show books that actually exist ── */}
+      {/* ── Featured books — always show all 4, with real images when
+          available and honest placeholders when missing from Redis. ── */}
       <section className="lp-worlds" id="featured-books" style={{ paddingBottom: 0 }}>
         <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
           Live in the engine right now
@@ -626,23 +627,61 @@ export default function HomePage() {
         </p>
         <StoryRail
           title=""
-          items={FEATURED_BOOKS
-            .filter(b => b.slug === 'ramayana' || (bookPreviews[b.slug]?.length ?? 0) > 0)
-            .map(b => ({
+          items={FEATURED_BOOKS.map(b => {
+            const existsInRedis = (bookPreviews[b.slug]?.length ?? 0) > 0;
+            return {
               slug: b.slug,
               title: b.title,
               subtitle: b.subtitle,
-              // Only Ramayana has local preview images. Generated books pull
-              // from /api/books. If a generated book is missing from Redis,
-              // it is filtered out above instead of showing a wrong image.
+              // Real images from API; nothing when missing so the card
+              // renders its icon fallback honestly.
               coverImage: bookPreviews[b.slug]?.[0],
               previewImages: bookPreviews[b.slug] ?? [],
-              hasMovie: true,
-              badge: b.badge,
+              hasMovie: existsInRedis,
+              badge: existsInRedis ? b.badge : 'Generate',
               accuracyLabel: b.slug === 'ramayana' ? 'CANONICAL' : undefined,
-            }))}
+            };
+          })}
           linkMode="read"
         />
+
+        {/* When showcase books are missing from Redis, show a direct
+            regeneration CTA instead of leaving the section half-empty. */}
+        {FEATURED_BOOKS.some(b => b.slug !== 'ramayana' && (bookPreviews[b.slug]?.length ?? 0) === 0) && (
+          <div style={{
+            marginTop: 18,
+            padding: '14px 18px',
+            borderRadius: 12,
+            background: 'rgba(43,27,21,0.45)',
+            border: '1px dashed rgba(255,215,0,0.18)',
+            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+          }}>
+            <span aria-hidden style={{ fontSize: '1.2rem' }}>⚡</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--color-gold-light)', fontWeight: 600 }}>
+                Showcase books need regeneration
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', marginTop: 2, lineHeight: 1.5 }}>
+                The AI-generated showcase books (Mahabharata, Akbar and Birbal, Vikram and Betaal)
+                were cleared from storage. Click below to rebuild them, or go to
+                <Link href="/books#create-story" style={{ color: 'var(--color-gold-light)', textDecoration: 'underline' }}>Studio</Link>
+                {' '}to create your own.
+              </div>
+            </div>
+            <Link
+              href="/admin"
+              style={{
+                textDecoration: 'none',
+                padding: '7px 14px', borderRadius: 999,
+                background: 'linear-gradient(135deg, #E8832A, #D4A847)',
+                color: '#0C0806', fontSize: '0.78rem', fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Restore Showcase →
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ── How to make your own ── */}
