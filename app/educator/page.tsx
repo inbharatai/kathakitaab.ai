@@ -19,17 +19,42 @@ const STARTING_POINTS: { label: string; example: string }[] = [
   { label: 'Buddha Stories',       example: 'Stories from the Life of Buddha' },
 ];
 
-// Real pipeline phases — these match what bookGeneratorAgent.ts
-// actually does, and what the README describes. The earlier
-// "Agent Swarm" copy implied OpenAI Agents SDK with 6+ named
-// agents; the engine doesn't use that framework. These four are
-// the real concurrent phases the user's title goes through.
-const PIPELINE_PHASES = [
-  { num: '1', title: 'Outline + characters', desc: 'gpt-4o-mini drafts a 9–12 scene arc and assigns each character a voice archetype.' },
-  { num: '2', title: 'Scene details',         desc: 'Per-scene narration, hotspot positions, quiz questions, and camera motion. Concurrency 4.' },
-  { num: '3', title: 'Scene images',          desc: 'gpt-image-1 paints each scene at 1536×1024. Concurrency 3.' },
-  { num: '4', title: 'Scene narration',       desc: 'Sarvam Bulbul records each scene shaped to its mood. Concurrency 6.' },
+const AGENT_FLOW = [
+  {
+    num: '1', title: 'Story Architect',
+    desc: 'Understands the user prompt, builds the plot, decides the story arc, and creates the chapter or scene structure.',
+  },
+  {
+    num: '2', title: 'Character Keeper',
+    desc: 'Creates the main characters, remembers their look, personality, role, and keeps them consistent across scenes.',
+  },
+  {
+    num: '3', title: 'Scene Director',
+    desc: 'Breaks the story into cinematic scenes with narration, emotions, camera movement, and visual instructions.',
+  },
+  {
+    num: '4', title: 'Art & World Builder',
+    desc: 'Generates the visual world of the story — characters, places, backgrounds, mood, and scene illustrations.',
+  },
+  {
+    num: '5', title: 'Narration & Voice Agent',
+    desc: 'Turns the story into spoken narration with mood, pacing, and child-friendly storytelling flow.',
+  },
+  {
+    num: '6', title: 'Interaction Agent',
+    desc: 'Adds hotspots, choices, questions, activities, and learning moments so the book becomes interactive.',
+  },
+  {
+    num: '7', title: 'Movie & Book Assembler',
+    desc: 'Combines scenes, images, narration, subtitles, and interactions into a playable storybook or movie format.',
+  },
+  {
+    num: '8', title: 'Quality Guard',
+    desc: 'Checks consistency, missing scenes, broken assets, unsafe content, and final user experience before delivery.',
+  },
 ];
+
+const FLOW_STEPS = ['Prompt', 'Story', 'Characters', 'Scenes', 'Art', 'Voice', 'Interaction', 'Book/Movie'];
 
 export default function EducatorPage() {
   return (
@@ -118,38 +143,140 @@ export default function EducatorPage() {
         </div>
 
 
-        {/* How the engine actually builds your book — replaces the old
-            "Agent Swarm" diagram. Names match the real concurrent
-            phases in lib/openai/bookGeneratorAgent.ts and the README. */}
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-          className="glass-card" style={{ marginTop: 40, padding: 32, borderTop: '2px solid rgba(212,168,71,0.2)' }}>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-gold-light)', marginBottom: 6 }}>
-            How KathaKitaab builds your book
+        {/* How KathaKitaab works — public-facing agent flow. No backend
+            implementation details, no model names, no provider names. */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="glass-card"
+          style={{
+            marginTop: 32,
+            padding: '28px 20px 32px',
+            borderTop: '2px solid rgba(212,168,71,0.2)',
+            borderRadius: 16,
+          }}
+        >
+          <h2 style={{
+            fontSize: 'clamp(1.05rem, 2.5vw, 1.25rem)',
+            fontWeight: 700,
+            color: 'var(--color-gold-light)',
+            marginBottom: 6,
+            textAlign: 'center',
+          }}>
+            How KathaKitaab turns one prompt into a living story
           </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-dim)', marginBottom: 22, lineHeight: 1.55, maxWidth: 600 }}>
-            Four concurrent phases inside one Vercel function. About 25 seconds for the outline, two to three minutes for the art, ten seconds for the narration — running in parallel.
+          <p style={{
+            fontSize: '0.84rem',
+            color: 'var(--color-text-dim)',
+            margin: '0 auto 24px',
+            lineHeight: 1.6,
+            maxWidth: 620,
+            textAlign: 'center',
+          }}>
+            A coordinated AI agent flow plans the story, designs characters, creates scenes, adds narration, builds interactions, and prepares the final book or movie experience.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-            {PIPELINE_PHASES.map(p => (
-              <div key={p.num} style={{
-                padding: '14px 16px', borderRadius: 12,
-                background: 'rgba(12,8,6,0.55)',
-                border: '1px solid rgba(255,215,0,0.08)',
-              }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--color-saffron)', marginBottom: 6 }}>
-                  Phase {p.num}
-                </div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gold-light)', marginBottom: 4 }}>
-                  {p.title}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-dim)', lineHeight: 1.55 }}>
-                  {p.desc}
-                </div>
+
+          {/* Subtle flow pipeline — mobile scrolls horizontally, desktop wraps */}
+          <div style={{
+            display: 'flex',
+            gap: 6,
+            overflowX: 'auto',
+            paddingBottom: 8,
+            marginBottom: 20,
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+          }}>
+            {FLOW_STEPS.map((step, i) => (
+              <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <span style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  color: 'var(--color-gold)',
+                  background: 'rgba(212,168,71,0.12)',
+                  padding: '3px 10px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(212,168,71,0.25)',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {step}
+                </span>
+                {i < FLOW_STEPS.length - 1 && (
+                  <span style={{ color: 'rgba(212,168,71,0.35)', fontSize: '0.7rem' }}>→</span>
+                )}
               </div>
             ))}
           </div>
-          <p style={{ fontSize: '0.74rem', color: 'var(--color-text-dim)', marginTop: 18, fontStyle: 'italic' }}>
-            These are concurrent functions, not OpenAI Agents SDK instances — the README documents this honestly.
+
+          {/* Agent cards — mobile 1-col, tablet 2-col, desktop 4-col */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 14,
+          }}>
+            {AGENT_FLOW.map((a, i) => (
+              <motion.div
+                key={a.num}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.05 * i }}
+                style={{
+                  padding: '16px 16px 18px',
+                  borderRadius: 14,
+                  background: 'rgba(12,8,6,0.55)',
+                  border: '1px solid rgba(255,215,0,0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    width: 28, height: 28, borderRadius: 999,
+                    background: 'linear-gradient(135deg, #E8832A, #D4A847)',
+                    color: '#0C0806',
+                    fontSize: '0.72rem', fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {a.num}
+                  </span>
+                  <span style={{
+                    fontSize: '0.7rem', fontWeight: 700,
+                    color: 'var(--color-saffron)',
+                    textTransform: 'uppercase', letterSpacing: 1.2,
+                  }}>
+                    Agent {a.num}
+                  </span>
+                </div>
+                <div style={{
+                  fontSize: '0.92rem', fontWeight: 700,
+                  color: 'var(--color-gold-light)',
+                  lineHeight: 1.35,
+                }}>
+                  {a.title}
+                </div>
+                <div style={{
+                  fontSize: '0.78rem', color: 'var(--color-text-dim)',
+                  lineHeight: 1.55,
+                }}>
+                  {a.desc}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <p style={{
+            fontSize: '0.8rem',
+            color: 'var(--color-text-dim)',
+            marginTop: 22,
+            lineHeight: 1.65,
+            textAlign: 'center',
+            maxWidth: 640,
+            marginInline: 'auto',
+          }}>
+            From one idea to a complete interactive story — KathaKitaab coordinates multiple AI agents so children can read, watch, listen, and explore stories in a magical way.
           </p>
         </motion.div>
       </div>
