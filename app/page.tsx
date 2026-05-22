@@ -157,7 +157,6 @@ const FEATURED_BOOKS = [
     accent: 'rgba(255,215,0,0.5)',
     href: '/books/mahabharata',
     movieHref: '/books/mahabharata/movie',
-    coverImage: '/images/scene_battle_lanka.png',
   },
   {
     slug: 'akbar-and-birbal',
@@ -168,7 +167,6 @@ const FEATURED_BOOKS = [
     accent: 'rgba(255,215,0,0.45)',
     href: '/books/akbar-and-birbal',
     movieHref: '/books/akbar-and-birbal/movie',
-    coverImage: '/images/scene_return_ayodhya.png',
   },
   {
     slug: 'vikram-and-betaal',
@@ -179,7 +177,6 @@ const FEATURED_BOOKS = [
     accent: 'rgba(212,168,71,0.5)',
     href: '/books/vikram-and-betaal',
     movieHref: '/books/vikram-and-betaal/movie',
-    coverImage: '/images/scene_forest_life.png',
   },
 ];
 
@@ -618,30 +615,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Featured books — what's actually generated ── */}
+      {/* ── Featured books — only show books that actually exist ── */}
       <section className="lp-worlds" id="featured-books" style={{ paddingBottom: 0 }}>
         <motion.h2 className="lp-section-title" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
           Live in the engine right now
         </motion.h2>
         <p className="lp-section-sub">
-          One curated, three generated end-to-end by KathaKitaab from a typed title.
-          All four read interactively. All four play as a cinematic cut in the browser.
+          One curated showcase and AI-generated stories built end-to-end from a typed title.
+          Every book reads interactively and plays as a cinematic cut in the browser.
         </p>
         <StoryRail
           title=""
-          items={FEATURED_BOOKS.map(b => ({
-            slug: b.slug,
-            title: b.title,
-            subtitle: b.subtitle,
-            // API preview images take precedence; fallback to the static
-            // coverImage baked into FEATURED_BOOKS so cards never render
-            // without an image when Redis books are temporarily missing.
-            coverImage: bookPreviews[b.slug]?.[0] ?? b.coverImage,
-            previewImages: bookPreviews[b.slug] ?? (b.coverImage ? [b.coverImage] : []),
-            hasMovie: true,
-            badge: b.badge,
-            accuracyLabel: b.slug === 'ramayana' ? 'CANONICAL' : undefined,
-          }))}
+          items={FEATURED_BOOKS
+            .filter(b => b.slug === 'ramayana' || (bookPreviews[b.slug]?.length ?? 0) > 0)
+            .map(b => ({
+              slug: b.slug,
+              title: b.title,
+              subtitle: b.subtitle,
+              // Only Ramayana has local preview images. Generated books pull
+              // from /api/books. If a generated book is missing from Redis,
+              // it is filtered out above instead of showing a wrong image.
+              coverImage: bookPreviews[b.slug]?.[0],
+              previewImages: bookPreviews[b.slug] ?? [],
+              hasMovie: true,
+              badge: b.badge,
+              accuracyLabel: b.slug === 'ramayana' ? 'CANONICAL' : undefined,
+            }))}
           linkMode="read"
         />
       </section>

@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [seedMessage, setSeedMessage] = useState('');
 
   const isAdmin = user?.email === 'reetu004@gmail.com';
 
@@ -97,6 +98,19 @@ export default function AdminPage() {
     } else {
       const data = await res.json().catch(() => ({}));
       setError(data.error || 'Resume failed');
+    }
+  }
+
+  async function seedShowcase(force = false) {
+    setBusy(true);
+    setSeedMessage('');
+    const res = await fetch(`/api/admin/seed-showcase${force ? '?force=true' : ''}`, { method: 'POST' });
+    setBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setSeedMessage(data.message || 'Seed initiated.');
+    } else {
+      setError(data.error || 'Seed failed');
     }
   }
 
@@ -225,6 +239,36 @@ export default function AdminPage() {
           {error}
         </div>
       )}
+      {seedMessage && (
+        <div style={{ color: '#4ade80', marginBottom: 16, padding: 12, borderRadius: 8, background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)' }}>
+          {seedMessage}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+        <button
+          disabled={busy}
+          onClick={() => seedShowcase(false)}
+          style={{
+            fontSize: '0.85rem', padding: '8px 16px', borderRadius: 999,
+            background: 'rgba(212,168,71,0.15)', color: 'var(--color-gold-light)',
+            border: '1px solid rgba(212,168,71,0.35)', cursor: 'pointer',
+          }}
+        >
+          Seed Missing Showcase Books
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => seedShowcase(true)}
+          style={{
+            fontSize: '0.85rem', padding: '8px 16px', borderRadius: 999,
+            background: 'rgba(255,107,107,0.1)', color: '#ff6b6b',
+            border: '1px solid rgba(255,107,107,0.25)', cursor: 'pointer',
+          }}
+        >
+          Force-Rebuild All Showcase
+        </button>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
         {books.map(book => (

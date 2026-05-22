@@ -44,8 +44,11 @@ export default function LibraryHome({ books, loading = false, userBooks }: Libra
     watchAsMovie,
     recentlyCreated,
   } = useMemo(() => {
-    // Seed books (canonical reference stories)
-    const seedSlugs = new Set(['ramayana', 'mahabharata', 'panchatantra']);
+    // Seed books (canonical reference stories) — only Ramayana has
+    // actual seed data in ramayanaSeed.ts. The others were AI-generated
+    // showcase books stored in Redis. If Redis is empty, only Ramayana
+    // shows as a seed; generated books reappear once they are recreated.
+    const seedSlugs = new Set(['ramayana']);
 
     const continueReading = books.filter(b => (b.progress ?? 0) > 0);
 
