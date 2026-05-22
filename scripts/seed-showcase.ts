@@ -32,6 +32,7 @@ const SHOWCASE = [
   { slug: 'akbar-and-birbal', title: 'Akbar and Birbal' },
   { slug: 'vikram-and-betaal', title: 'Vikram and Betaal' },
   { slug: 'panchatantra', title: 'Panchatantra' },
+  { slug: 'tenali-raman', title: 'Tenali Raman' },
 ];
 
 const force = process.argv.slice(2).includes('--force');
