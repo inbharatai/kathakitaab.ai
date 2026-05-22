@@ -33,20 +33,41 @@ export interface ImageValidationInput {
 }
 
 /**
+ * Normalise a name for fuzzy matching in prompts.
+ *   - Replace hyphens with spaces ("wise-crow" → "wise crow")
+ *   - Lowercase for case-insensitive comparison.
+ * This handles the common case where character slugs use kebab-case
+ * but the prompt uses natural language spacing.
+ */
+function normaliseName(s: string): string {
+  return s.toLowerCase().replace(/-/g, ' ');
+}
+
+/**
  * Synchronous prompt-level validation. Catches the most common
  * pipeline bug — the full cast being injected into every scene.
  */
 export function validateImagePrompt(input: ImageValidationInput): ImageValidationResult {
   const issues: string[] = [];
-  const promptLower = input.prompt.toLowerCase();
+  const promptNormalised = normaliseName(input.prompt);
 
   // 1. Required characters must be mentioned as whole words in the prompt.
+  //    We normalise both the prompt and the character name so kebab-case
+  //    slugs like "wise-crow" still match "wise crow" in the prompt.
   let requiredCharactersPresent = true;
   if (input.visibleCharacters?.length) {
     for (const name of input.visibleCharacters) {
       if (!name) continue;
-      const re = new RegExp(`\\b${escapeRegex(name.toLowerCase())}\\b`);
-      if (!re.test(promptLower)) {
+      const normalised = normaliseName(name);
+      const parts = normalised.split(/\s+/).filter(Boolean);
+      if (parts.length === 0) continue;
+      // Every word part of the normalised name must appear somewhere
+      // in the normalised prompt as a whole word.
+      const allPartsFound = parts.every(part => {
+        const re = new RegExp(`\\b${escapeRegex(part)}\\b`);
+        return re.test(promptNormalised);
+      });
+      if (!allPartsFound) {
         issues.push(`Prompt missing required character: ${name}`);
         requiredCharactersPresent = false;
       }
@@ -58,11 +79,15 @@ export function validateImagePrompt(input: ImageValidationInput): ImageValidatio
   let forbiddenCharactersExcluded = true;
   if (input.forbiddenCharacters?.length) {
     // Split prompt at "Avoid:" — everything before is the positive prompt.
-    const positivePart = promptLower.split('avoid:')[0] ?? promptLower;
+    const positivePart = promptNormalised.split('avoid:')[0] ?? promptNormalised;
     for (const name of input.forbiddenCharacters) {
       if (!name) continue;
-      const re = new RegExp(`\\b${escapeRegex(name.toLowerCase())}\\b`);
-      if (re.test(positivePart)) {
+      const parts = normaliseName(name).split(/\s+/).filter(Boolean);
+      const anyPartFound = parts.some(part => {
+        const re = new RegExp(`\\b${escapeRegex(part)}\\b`);
+        return re.test(positivePart);
+      });
+      if (anyPartFound) {
         issues.push(`Forbidden character appears in positive prompt: ${name}`);
         forbiddenCharactersExcluded = false;
       }
@@ -77,7 +102,7 @@ export function validateImagePrompt(input: ImageValidationInput): ImageValidatio
       .split(/\s+/)
       .filter(w => w.length > 4)
       .slice(0, 6);
-    const hits = sceneWords.filter(w => promptLower.includes(w)).length;
+    const hits = sceneWords.filter(w => promptNormalised.includes(w)).length;
     if (hits < 2) {
       issues.push('Prompt may not be grounded in the scene description');
       promptGroundedToScene = false;

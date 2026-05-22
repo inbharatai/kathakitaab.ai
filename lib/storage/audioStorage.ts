@@ -18,7 +18,10 @@
 import { createHash } from 'node:crypto';
 import { getSupabaseService } from '@/lib/supabase';
 
-const BUCKET = process.env.SUPABASE_AUDIO_BUCKET ?? 'scene-audio';
+// Audio storage bucket. Falls back to the same bucket as images
+// (scene-images) with a subfolder prefix so we don't need a separate
+// bucket. Some Supabase projects only ship one public bucket by default.
+const BUCKET = process.env.SUPABASE_AUDIO_BUCKET ?? 'scene-images';
 
 export interface UploadAudioOpts {
   /** Folder prefix inside the bucket — usually the book slug, so
