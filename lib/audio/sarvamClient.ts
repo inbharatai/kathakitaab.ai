@@ -64,8 +64,7 @@ export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult>
   const inputs = chunkForSarvam(text);
 
   // v2 accepts pace + pitch + loudness; v3 only accepts pace. Detect
-  // the model and gate the prosody fields. Default model is v2 so
-  // emotional delivery is on by default.
+  // the model and gate the prosody fields. Default model is v3 (Bulbul v3).
   const isV3 = /v3/i.test(getSarvamModel());
   const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 

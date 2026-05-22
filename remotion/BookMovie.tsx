@@ -966,6 +966,9 @@ const SubtitlePanel: React.FC<{
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
+          // Fallback for headless Chromium where WebkitLineClamp
+          // may not be honoured — hard cap at ~2 lines (60px * 1.42 * 2).
+          maxHeight: 170,
         }}>
           {activeCue?.text ?? ''}
         </p>

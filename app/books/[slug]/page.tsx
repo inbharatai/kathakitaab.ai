@@ -6,14 +6,6 @@ import Link from 'next/link';
 import SceneViewer from '@/components/livebook/SceneViewer';
 import DeleteBookButton from '@/components/library/DeleteBookButton';
 
-function toTitleCase(slug: string): string {
-  return slug
-    .split(/[-_]/g)
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 // Fallback default for the curated Ramayana — the first scene there
 // is `ayodhya_intro`. Any other book gets its first scene id by
 // fetching /api/books/<slug>, since AI-generated books each have
@@ -162,15 +154,15 @@ export default function BookPage({ params }: { params: Promise<{ slug: string }>
       try {
         const res = await fetch(`/api/books/${resolvedParams.slug}`);
         if (!res.ok) {
-          if (!cancelled) setTitle(toTitleCase(resolvedParams.slug));
+          if (!cancelled) setTitle('Your Story');
           return;
         }
         const data = await res.json();
         const realTitle = data.book?.title || data.title;
         if (realTitle && !cancelled) setTitle(realTitle);
-        else if (!cancelled) setTitle(toTitleCase(resolvedParams.slug));
+        else if (!cancelled) setTitle('Your Story');
       } catch {
-        if (!cancelled) setTitle(toTitleCase(resolvedParams.slug));
+        if (!cancelled) setTitle('Your Story');
       }
     })();
     return () => { cancelled = true; };

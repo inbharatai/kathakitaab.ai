@@ -38,11 +38,12 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 }
 
 export function isAdminSession(session: AuthSession | null): boolean {
-  // Auth is disabled for Play Store beta review. When no session exists,
-  // treat the caller as admin so the owner can seed showcase books and
-  // manage the library without a login system. The /admin page itself
-  // is gated by an owner query-param check, so this backend leniency is
-  // safe. Revert to session-based checks once auth is re-enabled.
-  if (!session) return true;
+  // During local development ONLY, an explicit env var can grant admin
+  // privileges to unauthenticated requests so the owner can seed books
+  // without logging in. NEVER enable this in production, preview, or
+  // staging — it would let any visitor bypass quotas and moderation.
+  if (!session) {
+    return process.env.KATHA_DEV_ADMIN_BYPASS === 'true' && process.env.NODE_ENV === 'development';
+  }
   return isAdminEmail(session.email);
 }

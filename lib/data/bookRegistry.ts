@@ -259,6 +259,14 @@ export async function setProgress(
   done = false,
   error?: string,
 ): Promise<void> {
+  // Monotonic guard: never overwrite a higher percent with a lower
+  // one unless we're resetting to 0 (fresh start) or setting an error.
+  // This prevents race conditions where a slow late-stage callback
+  // overwrites a fast early-stage callback and the UI regresses.
+  const existing = memProgress.get(slug);
+  if (existing && percent < existing.percent && percent !== 0 && !error) {
+    percent = existing.percent;
+  }
   const entry: ProgressEntry = { step, percent, done, error };
   memProgress.set(slug, entry);
   capMap(memProgress, MAX_MEM_PROGRESS);

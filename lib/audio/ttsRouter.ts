@@ -77,7 +77,9 @@ export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
   // ── TTS cache lookup ──
   // Cache key includes book + scene + language + provider + text hash
   // so identical text re-renders are free. 90-day TTL.
-  const cacheKey = `tts:${req.bookSlug ?? 'global'}:${req.characterSlug ?? 'narrator'}:${language}:${hashText(req.text.slice(0, 120))}`;
+  // Hash the FULL text so two narrations that differ only after the
+  // first 120 characters don't collide (previously sliced to 120).
+  const cacheKey = `tts:${req.bookSlug ?? 'global'}:${req.characterSlug ?? 'narrator'}:${language}:${hashText(req.text)}`;
   const cached = await getCachedResponse(cacheKey);
   if (cached && typeof cached === 'object' && 'audio' in cached) {
     const c = cached as TTSResult;

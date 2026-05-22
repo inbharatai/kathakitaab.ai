@@ -171,21 +171,10 @@ export async function bookGenerationConsumed(session: AuthSession | null): Promi
   if (isAdminSession(session)) return;
   const supabase = getSupabaseService();
   if (!supabase) return;
-  // Prefer the SQL function (atomic, race-safe). If it isn't deployed
-  // yet — pre-migration boot — fall back to a read-modify-write, which
-  // is good enough for a free-era counter that tolerates ±1 drift.
-  const { error } = await supabase.rpc('increment_books_generated', { user_id: session.userId });
-  if (!error) return;
-  const { data } = await supabase
-    .from('users')
-    .select('books_generated_lifetime')
-    .eq('id', session.userId)
-    .maybeSingle();
-  const cur = (data?.books_generated_lifetime as number | undefined) ?? 0;
-  await supabase
-    .from('users')
-    .update({ books_generated_lifetime: cur + 1, updated_at: new Date().toISOString() })
-    .eq('id', session.userId);
+  // Atomic RPC only — no read-modify-write fallback. If the SQL function
+  // isn't deployed yet, the counter simply won't increment. That prevents
+  // race-condition drift under concurrent generators.
+  await supabase.rpc('increment_books_generated', { user_id: session.userId });
 }
 
 /**
@@ -202,21 +191,8 @@ export async function bookGenerationRefund(session: AuthSession | null): Promise
   if (isAdminSession(session)) return;
   const supabase = getSupabaseService();
   if (!supabase) return;
-  const { error } = await supabase.rpc('decrement_books_generated', { user_id: session.userId });
-  if (!error) return;
-  // Fallback: read-modify-write, clamped at zero.
-  const { data } = await supabase
-    .from('users')
-    .select('books_generated_lifetime')
-    .eq('id', session.userId)
-    .maybeSingle();
-  const cur = (data?.books_generated_lifetime as number | undefined) ?? 0;
-  const next = Math.max(0, cur - 1);
-  if (next === cur) return;
-  await supabase
-    .from('users')
-    .update({ books_generated_lifetime: next, updated_at: new Date().toISOString() })
-    .eq('id', session.userId);
+  // Atomic RPC only — no read-modify-write fallback.
+  await supabase.rpc('decrement_books_generated', { user_id: session.userId });
 }
 
 /**

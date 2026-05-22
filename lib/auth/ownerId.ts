@@ -69,8 +69,19 @@ export function newOwnerId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
     crypto.getRandomValues(buf);
   } else {
-    // Last resort for extremely old runtimes — still better than Math.random()
-    for (let i = 0; i < 16; i++) buf[i] = Math.floor(Math.random() * 256);
+    // Node.js runtime where web crypto isn't polyfilled yet.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const nodeCrypto = require('crypto');
+      if (nodeCrypto.randomBytes) {
+        const bytes = nodeCrypto.randomBytes(16);
+        for (let i = 0; i < 16; i++) buf[i] = bytes[i];
+      }
+    } catch {
+      // If absolutely nothing is available, throw rather than fall back
+      // to Math.random() which is NOT cryptographically secure.
+      throw new Error('No cryptographically secure random source available. Cannot generate owner ID.');
+    }
   }
   let s = '';
   for (let i = 0; i < 16; i++) s += buf[i].toString(16).padStart(2, '0');
