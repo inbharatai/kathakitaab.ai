@@ -19,10 +19,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/gpt--4o--mini-Text%20%2B%20Images-412991?logo=openai" />
-  <img src="https://img.shields.io/badge/gpt--image--1-1536x1024-412991?logo=openai" />
-  <img src="https://img.shields.io/badge/Sarvam-Bulbul%20v2-FF9933" />
-  <img src="https://img.shields.io/badge/Gemini-2.5%20Flash-8E75B2?logo=google" />
+  <img src="https://img.shields.io/badge/AI%20Text%20Engine-Outline%20%2B%20Scenes-412991" />
+  <img src="https://img.shields.io/badge/AI%20Illustration%20Engine-1536x1024-412991" />
+  <img src="https://img.shields.io/badge/AI%20Narration%20Engine-Multilingual%20TTS-FF9933" />
+  <img src="https://img.shields.io/badge/Fallback%20AI-Gemini%20Native%20Audio-8E75B2?logo=google" />
 </p>
 
 </div>
@@ -47,7 +47,7 @@ Type any title ("Mahabharata", "Akbar and Birbal", "NCERT History — Ancient In
 |---|---|---|
 | **Content creation** | Hand-authored, months of work | Type a title → AI builds the book in ~3 min |
 | **Visual storytelling** | Single static image per scene | **Multi-shot cinema** — 2–5 distinct camera shots per scene with hard cuts |
-| **Audio** | Silent or generic background | **Sarvam Bulbul narration** shaped by scene mood + ambient soundscapes + SFX |
+| **Audio** | Silent or generic background | **AI narration engine** shaped by scene mood + ambient soundscapes + SFX |
 | **Interactivity** | Linear scroll or simple tap | **17 verbs** → Talk, Fight, Leap, Honor, Comfort… each with unique camera + character motion + AI branch |
 | **Movie export** | None or manual video editing | **One-click MP4** — same manifest powers both the live player and the rendered film |
 | **Resilience** | Lose progress on refresh | **Persistent jobs** in Redis — resume from the exact failed step |
@@ -89,10 +89,10 @@ Type any title ("Mahabharata", "Akbar and Birbal", "NCERT History — Ancient In
 
 When you POST `/api/books/generate { title: "..." }`, the engine immediately creates a **persistent generation job** in Redis (`kk:job:{id}`, 7-day TTL) and runs four parallel phases inside one Vercel function (300s budget):
 
-1. **Outline + characters** — gpt-4o-mini drafts a 9–12 scene chronological arc. Each character gets a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). The LLM sets `mood`, `theme`, and `shot_type` per visual beat up front. Requests **shot-reverse-shot** for dialogue scenes. Suggests `ambient_sound` per scene and `sfx` per beat.
+1. **Outline + characters** — a compact LLM drafts a 9–12 scene chronological arc. Each character gets a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). The LLM sets `mood`, `theme`, and `shot_type` per visual beat up front. Requests **shot-reverse-shot** for dialogue scenes. Suggests `ambient_sound` per scene and `sfx` per beat.
 2. **Scene details** (concurrency 4) — per-scene narration, hotspot positions, quiz questions, camera motion, and per-beat descriptions. ~25s for 11 scenes.
-3. **Scene images** (concurrency 3) — gpt-image-1 paints each scene at 1536×1024. Cached at the prompt level on Supabase. ~120–180s.
-4. **Scene narration** (concurrency 6) — Sarvam Bulbul records each scene shaped to its mood. ~10–15s.
+3. **Scene images** (concurrency 3) — the illustration engine paints each scene at 1536×1024 with character face-locking via anchor portraits. Cached at the prompt level on Supabase. ~120–180s.
+4. **Scene narration** (concurrency 6) — the TTS engine records each scene shaped to its mood, with automatic fallback if the primary provider is unavailable. ~10–15s.
 
 The result lands in Redis and is immediately playable at `/books/<slug>` interactively or at `/books/<slug>/movie` as a synthesised cinematic cut.
 
@@ -235,7 +235,7 @@ Create `.env.local` with at minimum:
 
 ```env
 SARVAM_API_KEY=...
-SARVAM_TTS_MODEL=bulbul:v2
+SARVAM_TTS_MODEL=bulbul:v3
 
 GEMINI_API_KEY=...
 GEMINI_TEXT_MODEL=gemini-2.5-flash
@@ -268,7 +268,7 @@ Open [http://localhost:5009](http://localhost:5009).
 ### 4. Full User Journey
 
 **Step 1 — Pick or type a book**
-- Open `/books`. The featured world is **Ramayana** (curated, pre-baked manifest).
+- Open `/books`. The showcase library includes **Ramayana, Mahabharata, Panchatantra, Akbar and Birbal, Vikram and Betaal,** and **Tenali Raman** (curated, pre-baked manifests).
 - To make your own: scroll to "Create a Story", type any title, hit **Create Story**.
 
 **Step 2 — Watch it build in real time**
@@ -290,6 +290,11 @@ Open [http://localhost:5009](http://localhost:5009).
 ## Tests
 
 ```bash
+# Platform integrity — 16 regression tests covering admin access,
+# library accuracy, multi-beat rendering, provider name leak prevention,
+# mobile overflow, API integrity, and generation pipeline.
+npx playwright test tests/e2e/platform-integrity.spec.ts --project=chromium --workers=1
+
 # Priority sweep — serial, no flakes. ~45s warm.
 npx playwright test --project=chromium --workers=1 \
   character-state.spec.ts hotspot-branch.spec.ts \
@@ -389,7 +394,9 @@ scripts/
 - **Lip-pulse is amplitude-driven, not phoneme-aligned.** Reads as "they're talking", not "their lips are forming these words".
 - **Music is procedural.** Synthesized mood beds — don't expect a film soundtrack.
 - **No game engine.** Plain DOM + CSS + framer-motion. Deliberately no PixiJS/Phaser/Spine to keep Playwright a11y and Remotion parity.
+- **Auth is currently disabled** for Google Play Store review. Anonymous ownership + quota gates are active. Supabase auth can be re-enabled by flipping the auth flag.
 - **Resume has four fixed branches.** Unexpected sub-step failures may re-run more than strictly necessary.
+- **OpenAI billing must be active** for image generation to work. If the quota is exhausted, the engine falls back to the Gemini image provider (when configured) or returns empty placeholders.
 
 ---
 
@@ -400,11 +407,11 @@ scripts/
 | ✅ SSE progress streaming | Real-time job + book updates via EventSource | **Shipped** |
 | ✅ Multi-shot cinema | Hard-cut between beats, shot-reverse-shot | **Shipped** |
 | ✅ Sound design | Ambient loops + one-shot SFX per beat | **Shipped** |
+| ✅ Multi-book canon | Ramayana, Mahabharata, Panchatantra, Akbar & Birbal, Vikram & Betaal, Tenali Raman | **Shipped** |
+| ✅ Platform integrity audit | Security, validation, TTS, caching, UX, mobile | **Shipped** |
 | 🔄 Puppet rigging | Per-body-part cutouts (head/eyes/mouth/torso/arms) | Next |
 | 🔄 Phoneme lip-sync | Whisper-aligned mouth shapes replacing amplitude pulse | Planned |
 | 🔄 AI video inserts | SVD/Runway for hero moments only (deer running, Hanuman flying) | Planned |
-| 🔄 Multi-book canon | Mahabharata + Panchatantra manifests | Planned |
-| 🔄 Agents SDK | OpenAI Agents handoffs + guardrails | Planned |
 
 ---
 

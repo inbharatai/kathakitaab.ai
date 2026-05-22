@@ -645,43 +645,6 @@ export default function HomePage() {
           linkMode="read"
         />
 
-        {/* When showcase books are missing from Redis, show a direct
-            regeneration CTA instead of leaving the section half-empty. */}
-        {FEATURED_BOOKS.some(b => b.slug !== 'ramayana' && (bookPreviews[b.slug]?.length ?? 0) === 0) && (
-          <div style={{
-            marginTop: 18,
-            padding: '14px 18px',
-            borderRadius: 12,
-            background: 'rgba(43,27,21,0.45)',
-            border: '1px dashed rgba(255,215,0,0.18)',
-            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-          }}>
-            <span aria-hidden style={{ fontSize: '1.2rem' }}>⚡</span>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--color-gold-light)', fontWeight: 600 }}>
-                Showcase books need regeneration
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', marginTop: 2, lineHeight: 1.5 }}>
-                The AI-generated showcase books (Mahabharata, Akbar and Birbal, Vikram and Betaal)
-                were cleared from storage. Click below to rebuild them, or go to
-                <Link href="/books#create-story" style={{ color: 'var(--color-gold-light)', textDecoration: 'underline' }}>Studio</Link>
-                {' '}to create your own.
-              </div>
-            </div>
-            <Link
-              href="/admin"
-              style={{
-                textDecoration: 'none',
-                padding: '7px 14px', borderRadius: 999,
-                background: 'linear-gradient(135deg, #E8832A, #D4A847)',
-                color: '#0C0806', fontSize: '0.78rem', fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Restore Showcase →
-            </Link>
-          </div>
-        )}
       </section>
 
       {/* ── How to make your own ── */}
