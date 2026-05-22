@@ -14,7 +14,7 @@ import {
   saveScenes,
   type PersistedScene,
 } from '@/lib/data/sceneRegistry';
-import { getBook, saveGeneratedBook, setProgress } from '@/lib/data/bookRegistry';
+import { getBook, saveGeneratedBook, setProgress, acquireGenerationLock, releaseGenerationLock } from '@/lib/data/bookRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
 import { generateSceneImage } from '@/lib/agents/visualAgent';
 import { generateBook } from '@/lib/openai/bookGeneratorAgent';
@@ -86,6 +86,11 @@ export async function POST(request: Request) {
   await setProgress(slug, 'Resuming...', 0);
 
   after(async () => {
+    const locked = await acquireGenerationLock(slug);
+    if (!locked) {
+      console.log(`[resume] ${slug} is already being resumed — skipping duplicate after().`);
+      return;
+    }
     let runningStep: GenerationStep = job.failedStep ?? 'outline';
 
     try {
@@ -178,7 +183,6 @@ export async function POST(request: Request) {
         }
 
         // Assemble the book from persisted scenes and save it.
-        const staticCanonSlugs = new Set(['ramayana', 'mahabharata', 'panchatantra']);
         const book = await assembleBookFromScenes(slug, {
           id: `book-${slug}`,
           slug,
@@ -194,9 +198,7 @@ export async function POST(request: Request) {
             'Public domain traditions',
           characters,
           generatedAt: Date.now(),
-          accuracyLabel: staticCanonSlugs.has(slug)
-            ? 'CANONICAL'
-            : 'CREATIVE_RETELLING',
+          accuracyLabel: 'CREATIVE_RETELLING',
           mode: job.mode,
           ownerId: job.userId ?? undefined,
           visibility: job.mode === 'world' ? 'public' : 'private',
@@ -233,7 +235,6 @@ export async function POST(request: Request) {
         runningStep = 'stitch';
         // Stitch failure: assemble from scenes and save.
         const characters = (await getBookCharacters(slug)) ?? [];
-        const staticCanonSlugs = new Set(['ramayana', 'mahabharata', 'panchatantra']);
         const book = await assembleBookFromScenes(slug, {
           id: `book-${slug}`,
           slug,
@@ -249,9 +250,7 @@ export async function POST(request: Request) {
             'Public domain traditions',
           characters,
           generatedAt: Date.now(),
-          accuracyLabel: staticCanonSlugs.has(slug)
-            ? 'CANONICAL'
-            : 'CREATIVE_RETELLING',
+          accuracyLabel: 'CREATIVE_RETELLING',
           mode: job.mode,
           ownerId: job.userId ?? undefined,
           visibility: job.mode === 'world' ? 'public' : 'private',
@@ -282,8 +281,9 @@ export async function POST(request: Request) {
     } catch (err: unknown) {
       const safe = scrubError(err);
       console.error('[resume] failed for', slug, ':', safe.message);
-      const userMsg = err instanceof Error ? err.message : 'Resume failed';
-      await failJob(job.id, runningStep, userMsg);
+      const rawMsg = err instanceof Error ? err.message : 'Resume failed';
+      const userMsg = scrubError(new Error(rawMsg)).message;
+      await failJob(job.id, runningStep, rawMsg);
       await setProgress(slug, 'Error', 0, true, userMsg);
       captureException(err, {
         tags: { route: 'books_resume', mode: job.mode || 'world' },
@@ -299,6 +299,8 @@ export async function POST(request: Request) {
           error: safe.message,
         },
       });
+    } finally {
+      await releaseGenerationLock(slug);
     }
   });
 

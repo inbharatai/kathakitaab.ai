@@ -156,7 +156,7 @@ export default function SceneViewer({
   const [mode, setMode]                   = useState<'story' | 'learn' | 'quiz'>('story');
   const [activeBranch, setActiveBranch]   = useState<SceneBranch | null>(null);
   const activeBranchRef = useRef<SceneBranch | null>(null);
-  const [branchHistory, setBranchHistory] = useState<BranchHistoryEntry[]>([]);
+  const [branchHistory, setBranchHistory] = useState<BranchHistoryEntry[]>(() => getBranchHistory(bookSlug));
   const [branchLoading, setBranchLoading] = useState(false);
   const [transitionDir, setTransitionDir] = useState<1 | -1>(1);
   const [textExpanded, setTextExpanded]   = useState(false);
@@ -653,7 +653,6 @@ export default function SceneViewer({
     // Load scene graph + branch navigation history
     loadGraph(bookSlug);
     loadBranchHistory(bookSlug);
-    setBranchHistory(getBranchHistory(bookSlug));
 
     return () => {
       window.clearTimeout(initialLoadTimeout);

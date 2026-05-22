@@ -101,7 +101,7 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
     while (attempt < 2 && !succeeded) {
       try {
         const result = await speakTTS({
-          text: s.narration.slice(0, 1500),
+          text: s.narration,
           mood: s.mood,
         });
         const ext = result.mimeType.includes('wav') ? 'wav'

@@ -49,8 +49,8 @@ export default function PrivacyPage() {
         We use third-party AI providers to generate content. Your prompt and the resulting scenes are sent to them under their data-processing terms. The current subprocessors:
       </p>
       <ul>
-        <li><b>OpenAI</b> — narrative text and scene images (gpt-4o-mini, gpt-image-1).</li>
-        <li><b>Sarvam AI</b> — narration audio (Bulbul v3).</li>
+        <li><b>AI narration engine</b> — generates scene text and illustrations.</li>
+        <li><b>AI voice engine</b> — generates narration audio.</li>
         <li><b>Supabase</b> — storage and database.</li>
         <li><b>Upstash</b> — Redis cache.</li>
         <li><b>Vercel</b> — hosting.</li>

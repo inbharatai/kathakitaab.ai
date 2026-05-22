@@ -69,6 +69,7 @@ export async function POST(request: Request) {
 
     // Visibility check for AI-generated books.
     const session = await getSessionFromRouteRequest(request);
+    let isPrivateBook = false;
     if (bookSlug) {
       const book = await getBook(bookSlug);
       if (book) {
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
         if (!isAdmin && !canReadBook(book, ownerId)) {
           return NextResponse.json({ error: 'Book not found' }, { status: 404 });
         }
+        isPrivateBook = book.visibility === 'private';
       }
     }
 
@@ -111,7 +113,7 @@ export async function POST(request: Request) {
           'Content-Type': cached.mime,
           'X-Cached': 'true',
           'X-TTS-Provider': cached.provider,
-          'Cache-Control': 'public, max-age=86400',
+          'Cache-Control': isPrivateBook ? 'private, max-age=86400' : 'public, max-age=86400',
         },
       });
     }
@@ -174,7 +176,7 @@ export async function POST(request: Request) {
         'X-TTS-Provider': result.provider,
         'X-TTS-Voice': result.voiceUsed,
         'X-TTS-Language': result.language,
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': isPrivateBook ? 'private, max-age=86400' : 'public, max-age=86400',
       },
     });
 

@@ -123,20 +123,20 @@ export async function GET(
     );
   }
 
-  // Authorize: seed books are always public; generated books need ownership.
-  if (bookSlug !== 'ramayana') {
-    const book = await getBook(bookSlug);
-    if (book && resolveBookVisibility(book) === 'private') {
-      const ownerId = getOwnerIdFromRequest(request);
-      const session = await getSessionFromRouteRequest(request);
-      const isAdmin = isAdminSession(session);
-      const callerId = session?.userId ?? ownerId;
-      if (!isAdmin && book.ownerId !== callerId) {
-        return NextResponse.json(
-          { error: `Scene not found: ${sceneId} in book ${bookSlug}` },
-          { status: 404 },
-        );
-      }
+  // Authorize: all books require ownership check if private.
+  // Previously 'ramayana' was hardcoded as public, but a private AI book
+  // with slug 'ramayana' would bypass this check — fixed now.
+  const book = await getBook(bookSlug);
+  if (book && resolveBookVisibility(book) === 'private') {
+    const ownerId = getOwnerIdFromRequest(request);
+    const session = await getSessionFromRouteRequest(request);
+    const isAdmin = isAdminSession(session);
+    const callerId = session?.userId ?? ownerId;
+    if (!isAdmin && book.ownerId !== callerId) {
+      return NextResponse.json(
+        { error: `Scene not found: ${sceneId} in book ${bookSlug}` },
+        { status: 404 },
+      );
     }
   }
 

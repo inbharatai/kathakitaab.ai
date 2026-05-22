@@ -17,10 +17,6 @@ export interface ImageValidationResult {
   promptGroundedToScene: boolean;
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 export interface ImageValidationInput {
   /** Final assembled positive prompt. */
   prompt: string;
@@ -34,13 +30,27 @@ export interface ImageValidationInput {
 
 /**
  * Normalise a name for fuzzy matching in prompts.
- *   - Replace hyphens with spaces ("wise-crow" → "wise crow")
+ *   - Replace hyphens/underscores with spaces ("wise-crow" → "wise crow")
  *   - Lowercase for case-insensitive comparison.
  * This handles the common case where character slugs use kebab-case
  * but the prompt uses natural language spacing.
  */
 function normaliseName(s: string): string {
-  return s.toLowerCase().replace(/-/g, ' ');
+  return s.toLowerCase().replace(/[-_]/g, ' ');
+}
+
+/**
+ * Unicode-aware word containment check. `\b` only works for ASCII word
+ * boundaries and fails for Devanagari and other scripts. This helper
+ * splits on any non-letter/non-number Unicode characters and checks
+ * for exact word presence — safe for Hindi, English, and mixed text.
+ */
+function containsWord(text: string, word: string): boolean {
+  if (!word) return false;
+  // Split on any sequence of characters that are NOT letters or numbers
+  // (Unicode-aware so Devanagari, Tamil, etc. are treated as letters).
+  const words = text.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return words.includes(word);
 }
 
 /**
@@ -63,10 +73,7 @@ export function validateImagePrompt(input: ImageValidationInput): ImageValidatio
       if (parts.length === 0) continue;
       // Every word part of the normalised name must appear somewhere
       // in the normalised prompt as a whole word.
-      const allPartsFound = parts.every(part => {
-        const re = new RegExp(`\\b${escapeRegex(part)}\\b`);
-        return re.test(promptNormalised);
-      });
+      const allPartsFound = parts.every(part => containsWord(promptNormalised, part));
       if (!allPartsFound) {
         issues.push(`Prompt missing required character: ${name}`);
         requiredCharactersPresent = false;
@@ -83,10 +90,7 @@ export function validateImagePrompt(input: ImageValidationInput): ImageValidatio
     for (const name of input.forbiddenCharacters) {
       if (!name) continue;
       const parts = normaliseName(name).split(/\s+/).filter(Boolean);
-      const anyPartFound = parts.some(part => {
-        const re = new RegExp(`\\b${escapeRegex(part)}\\b`);
-        return re.test(positivePart);
-      });
+      const anyPartFound = parts.some(part => containsWord(positivePart, part));
       if (anyPartFound) {
         issues.push(`Forbidden character appears in positive prompt: ${name}`);
         forbiddenCharactersExcluded = false;
@@ -107,6 +111,14 @@ export function validateImagePrompt(input: ImageValidationInput): ImageValidatio
       issues.push('Prompt may not be grounded in the scene description');
       promptGroundedToScene = false;
     }
+  }
+
+  // 4. Prompt length sanity check (gpt-image-1 limit ~4000 chars).
+  if (input.prompt.length > 4000) {
+    issues.push(`Prompt exceeds 4000 characters (${input.prompt.length}) — may be truncated by image model`);
+  }
+  if (input.prompt.length < 30) {
+    issues.push('Prompt is suspiciously short (< 30 chars) — may not describe the scene adequately');
   }
 
   return {

@@ -101,7 +101,11 @@ function parseCookies(header: string): Array<[string, string]> {
     if (!trimmed) continue;
     const eq = trimmed.indexOf('=');
     if (eq < 0) continue;
-    out.push([trimmed.slice(0, eq), decodeURIComponent(trimmed.slice(eq + 1))]);
+    try {
+      out.push([trimmed.slice(0, eq), decodeURIComponent(trimmed.slice(eq + 1))]);
+    } catch {
+      // Malformed percent-encoding — skip this cookie silently.
+    }
   }
   return out;
 }

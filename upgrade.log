@@ -1,0 +1,105 @@
+
+=== ayodhya_intro (The Princes of Ayodhya) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (pan_right)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (battle_push)… cache hit
+
+=== mithila_bow (Sita and the Bow of Shiva) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (slow_zoom_out)… cache hit
+
+=== exile (The Exile) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (pan_left)… cache hit
+
+=== forest_life (Life in the Forest) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (pan_left)… cache hit
+
+=== ravana_jatayu (Ravana's Deception and Jatayu's Courage) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (pan_left)… cache hit
+
+=== hanuman_meets_rama (The Search and the Meeting with Hanuman) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (pan_right)… cache hit
+
+=== hanuman_lanka (Hanuman's Leap to Lanka) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (pan_right)… cache hit
+
+=== bridge_to_lanka (The Bridge to Lanka) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (pan_right)… cache hit
+
+=== battle_lanka (The Battle in Lanka) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (pan_left)… cache hit
+    beat 5/5 (slow_zoom_out)… cache hit
+
+=== return_ayodhya (Return to Ayodhya) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (pan_right)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (divine_glow)… cache hit
+
+=== lessons (What the Ramayana Teaches) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (pan_left)… cache hit
+
+=== closing (The Light of Dharma) ===
+  planned 5 beats
+    beat 1/5 (slow_zoom_in)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (fade_only)… cache hit
+    beat 5/5 (slow_zoom_out)… cache hit
+
+[upgrade] rewriting scenes.ts with new beats...
+
+[upgrade] refreshing static manifest...
+
+[refresh] wrote C:\Users\reetu\Desktop\KathaKitaab.ai\remotion\manifests\ramayana.json
+  scenes: 12  runtime: 366s ≈ 6.1 min  beats: 60
+
+[upgrade] done in 98.1s

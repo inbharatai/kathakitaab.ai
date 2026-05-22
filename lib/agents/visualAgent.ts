@@ -13,6 +13,7 @@
 
 import { createHash } from 'node:crypto';
 import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai/openaiClient';
+import { getGeminiClient, isGeminiConfigured } from '@/lib/openai/client';
 import { buildVisualPrompt } from './visualPromptBuilder';
 import { uploadGeneratedImage } from '@/lib/storage/imageStorage';
 import { getCanonEntry } from '@/lib/data/canonLookup';
@@ -249,6 +250,40 @@ export async function generateSceneImage(
           await new Promise(r => setTimeout(r, delayMs));
         }
       }
+    }
+  }
+
+  // ── Gemini Imagen fallback ──
+  // Only when OpenAI fails entirely and Gemini is configured.
+  if (isGeminiConfigured()) {
+    try {
+      const gemini = getGeminiClient();
+      const response = await gemini.models.generateImages({
+        model: 'imagen-3.0-generate-002',
+        prompt: built.prompt,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: '16:9',
+        },
+      });
+      const generated = response?.generatedImages?.[0];
+      if (generated?.image?.imageBytes) {
+        const b64 = generated.image.imageBytes;
+        const imageUrl = await uploadGeneratedImage(`data:image/png;base64,${b64}`, {
+          mimeType: 'image/png',
+          pathHint: ctx.bookSlug,
+        });
+        const result: VisualGenerationResult = {
+          imageUrl,
+          source: 'gemini',
+          promptUsed: built.prompt,
+          charactersLocked: built.charactersInjected,
+        };
+        await setCachedResponse(cacheKey, result, 'gemini-imagen', IMAGE_CACHE_TTL_MS);
+        return result;
+      }
+    } catch (geminiErr) {
+      console.error('[VisualAgent] Gemini Imagen fallback failed:', geminiErr instanceof Error ? geminiErr.message : geminiErr);
     }
   }
 

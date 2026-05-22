@@ -193,8 +193,12 @@ export async function POST(request: Request) {
   }
 }
 
-// GET — cache stats (dev tool)
-export async function GET() {
+// GET — cache stats (dev tool, admin-only)
+export async function GET(request: Request) {
+  const session = await getSessionFromRouteRequest(request);
+  if (!isAdminSession(session)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   const stats = getCacheStats();
   return NextResponse.json({ cache: stats });
 }

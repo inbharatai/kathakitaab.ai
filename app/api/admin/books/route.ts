@@ -34,7 +34,10 @@ export async function GET(request: Request) {
   });
 
   const generatedAsBook = generated.map(b => {
-    const firstScene = [...b.scenes].sort((a, b) => a.order_index - b.order_index)[0];
+    // Defensive: Redis-deserialized books may have missing or
+    // non-array scenes. Treat as empty so the listing never crashes.
+    const scenes = Array.isArray(b.scenes) ? b.scenes : [];
+    const firstScene = [...scenes].sort((a, b) => a.order_index - b.order_index)[0];
     const coverImage =
       firstScene?.beats?.[0]?.imageUrl
       || firstScene?.background_asset_url

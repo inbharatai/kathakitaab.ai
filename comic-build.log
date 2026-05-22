@@ -1,0 +1,115 @@
+[comic] tagging dialogue for 12 scenes...
+  ayodhya_intro: 5 dialogue beats
+  mithila_bow: 5 dialogue beats
+  exile: 4 dialogue beats
+  forest_life: 4 dialogue beats
+  ravana_jatayu: 4 dialogue beats
+  hanuman_meets_rama: 4 dialogue beats
+  hanuman_lanka: 4 dialogue beats
+  bridge_to_lanka: 5 dialogue beats
+  battle_lanka: 1 dialogue beats
+  return_ayodhya: 5 dialogue beats
+  lessons: 5 dialogue beats
+  closing: 5 dialogue beats
+
+=== ayodhya_intro (The Princes of Ayodhya) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (slow_zoom_in)… cache hit
+
+=== mithila_bow (Sita and the Bow of Shiva) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (slow_zoom_in)… cache hit
+
+=== exile (The Exile) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (slow_zoom_in)… cache hit
+
+=== forest_life (Life in the Forest) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (slow_zoom_in)… cache hit
+
+=== ravana_jatayu (Ravana's Deception and Jatayu's Courage) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (slow_zoom_in)… cache hit
+
+=== hanuman_meets_rama (The Search and the Meeting with Hanuman) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (slow_zoom_in)… cache hit
+
+=== hanuman_lanka (Hanuman's Leap to Lanka) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… cache hit
+    beat 4/5 (slow_zoom_in)… cache hit
+    beat 5/5 (slow_zoom_in)… cache hit
+
+=== bridge_to_lanka (The Bridge to Lanka) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… cache hit
+    beat 2/5 (slow_zoom_in)… cache hit
+    beat 3/5 (battle_push)… ✓ 2882842 bytes
+    beat 4/5 (slow_zoom_in)… ✓ 2782030 bytes
+    beat 5/5 (slow_zoom_in)… ✓ 2940474 bytes
+
+=== battle_lanka (The Battle in Lanka) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… ✓ 3254662 bytes
+    beat 2/5 (slow_zoom_in)… ✓ 3472853 bytes
+    beat 3/5 (battle_push)… ✓ 3088270 bytes
+    beat 4/5 (slow_zoom_in)… ✓ 4003891 bytes
+    beat 5/5 (slow_zoom_in)… ✓ 3201303 bytes
+
+=== return_ayodhya (Return to Ayodhya) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… ✓ 2915352 bytes
+    beat 2/5 (slow_zoom_in)… ✓ 2906337 bytes
+    beat 3/5 (battle_push)… ✓ 2637935 bytes
+    beat 4/5 (slow_zoom_in)… ✓ 3122487 bytes
+    beat 5/5 (slow_zoom_in)… ✓ 2613397 bytes
+
+=== lessons (What the Ramayana Teaches) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… ✓ 3323369 bytes
+    beat 2/5 (slow_zoom_in)… ✓ 3172933 bytes
+    beat 3/5 (battle_push)… ✓ 3152581 bytes
+    beat 4/5 (slow_zoom_in)… ✓ 3412950 bytes
+    beat 5/5 (slow_zoom_in)… ✓ 3229510 bytes
+
+=== closing (The Light of Dharma) ===
+  planned 5 comic panels
+    beat 1/5 (slow_zoom_out)… ✓ 3103088 bytes
+    beat 2/5 (slow_zoom_in)… ✓ 2718282 bytes
+    beat 3/5 (battle_push)… ✓ 3049104 bytes
+    beat 4/5 (slow_zoom_in)… ✓ 2553382 bytes
+    beat 5/5 (slow_zoom_in)… ✓ 3447580 bytes
+
+[comic] wrote c:\Users\reetu\Desktop\KathaKitaab.ai\remotion\manifests\ramayana-comic.json
+  scenes: 12  runtime: 366s ≈ 6.1 min
+  beats: 60  dialogue: 51 bubbles
+
+[comic] done in 1091.8s

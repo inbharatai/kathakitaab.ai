@@ -23,17 +23,26 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
   const [manifest, setManifest] = useState<BookMovieManifest | null>(null);
   const [manifestStatus, setManifestStatus] = useState<'loading' | 'ready' | 'partial' | 'missing'>('loading');
   const [missingAssets, setMissingAssets] = useState<Array<{ sceneId: string; missing: string }>>([]);
+  const [bookTitle, setBookTitle] = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/livebook/manifest?slug=${encodeURIComponent(slug)}`);
-        if (!res.ok) {
+        // Fetch book title in parallel with manifest
+        const [bookRes, manifestRes] = await Promise.all([
+          fetch(`/api/books/${encodeURIComponent(slug)}`),
+          fetch(`/api/livebook/manifest?slug=${encodeURIComponent(slug)}`),
+        ]);
+        if (bookRes.ok) {
+          const bookData = await bookRes.json();
+          if (!cancelled) setBookTitle(bookData.book?.title || bookData.title || '');
+        }
+        if (!manifestRes.ok) {
           if (!cancelled) setManifestStatus('missing');
           return;
         }
-        const data = await res.json();
+        const data = await manifestRes.json();
         if (!cancelled) {
           setManifest(data.manifest);
           if (data.ready === false) {
@@ -97,7 +106,7 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.68rem', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 2 }}>Movie Mode</div>
-            <div className="font-serif" style={{ fontSize: '1.15rem', color: 'var(--color-gold-light)' }}>{manifest?.bookTitle || slug}</div>
+            <div className="font-serif" style={{ fontSize: '1.15rem', color: 'var(--color-gold-light)' }}>{bookTitle || manifest?.bookTitle || 'Loading...'}</div>
           </div>
         </div>
 

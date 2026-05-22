@@ -1,0 +1,73 @@
+
+> kathakitaab@0.1.0 build
+> next build
+
+▲ Next.js 16.2.4 (Turbopack)
+- Environments: .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 32.1s
+  Running TypeScript ...
+  Finished TypeScript in 25.1s ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/35) ...
+  Generating static pages using 15 workers (8/35) 
+  Generating static pages using 15 workers (17/35) 
+  Generating static pages using 15 workers (26/35) 
+Note: Some companies are required to obtain a license to use Remotion. See: https://remotion.dev/license
+Pass the `acknowledgeRemotionLicense` prop to `<Player />` function to make this message disappear.
+✓ Generating static pages using 15 workers (35/35) in 445ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ƒ /api/admin/books
+├ ƒ /api/admin/books/[slug]
+├ ƒ /api/admin/jobs
+├ ƒ /api/admin/jobs/[id]
+├ ƒ /api/books
+├ ƒ /api/books/[slug]
+├ ƒ /api/books/[slug]/scenes/[sceneId]
+├ ƒ /api/books/generate
+├ ƒ /api/books/resume
+├ ƒ /api/books/stream
+├ ƒ /api/jobs
+├ ƒ /api/jobs/stream
+├ ƒ /api/livebook/agent
+├ ƒ /api/livebook/ask-character
+├ ƒ /api/livebook/branch-image
+├ ƒ /api/livebook/classify-click
+├ ƒ /api/livebook/entity-interact
+├ ƒ /api/livebook/generate-image
+├ ƒ /api/livebook/generate-scene
+├ ƒ /api/livebook/manifest
+├ ƒ /api/livebook/pregenerate-branches
+├ ƒ /api/livebook/quiz-answer
+├ ƒ /api/livebook/render-movie
+├ ƒ /api/livebook/scene-stream/[sceneId]
+├ ƒ /api/livebook/stream-updates/[sceneId]
+├ ƒ /api/livebook/tts
+├ ƒ /api/play/action
+├ ƒ /api/report
+├ ƒ /api/status
+├ ƒ /auth/callback
+├ ƒ /auth/signout
+├ ○ /books
+├ ƒ /books/[slug]
+├ ƒ /books/[slug]/movie
+├ ○ /educator
+├ ƒ /play/[slug]
+├ ○ /privacy
+├ ○ /signin
+├ ○ /status
+└ ○ /terms
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

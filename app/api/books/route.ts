@@ -71,14 +71,17 @@ export async function GET(request: Request) {
       return ownerId !== null && b.ownerId === ownerId;
     })
     .map(b => {
+      // Defensive: books deserialized from Redis may have corrupted
+      // or missing scenes arrays. Treat missing/non-array as empty.
+      const scenes = Array.isArray(b.scenes) ? b.scenes : [];
       // Prefer the first scene's first beat image (multi-beat books)
       // and fall back to background_asset_url (single-beat / legacy).
-      const firstScene = [...b.scenes].sort((a, b) => a.order_index - b.order_index)[0];
+      const firstScene = [...scenes].sort((a, b) => a.order_index - b.order_index)[0];
       const coverImage =
         firstScene?.beats?.[0]?.imageUrl
         || firstScene?.background_asset_url
         || '';
-      const orderedScenes = [...b.scenes].sort((a, b) => a.order_index - b.order_index);
+      const orderedScenes = [...scenes].sort((a, b) => a.order_index - b.order_index);
 
       // Backward compatibility: books created before the movieStatus
       // field was added (or where validation was skipped) should still

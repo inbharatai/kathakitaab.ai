@@ -33,23 +33,29 @@ export async function claimAnonymousBooks(
   const r = getRedis();
   if (!r) return out;
 
-  const keys = await r.keys('kk:book:*');
-  for (const key of keys) {
-    out.scanned++;
-    try {
-      const book = await r.get<GeneratedBook>(key);
-      if (!book) continue;
-      if (book.ownerId !== legacyOwnerId) continue;
-      const updated: GeneratedBook = {
-        ...book,
-        ownerId: userId,
-        updatedAt: Date.now(),
-      };
-      await r.set(key, updated, { ex: 60 * 60 * 24 * 30 });
-      out.claimed++;
-    } catch {
-      // Skip malformed entries — they'll be cleaned up by TTL.
+  // SCAN instead of KEYS to avoid blocking the Redis event loop.
+  let cursor = 0;
+  do {
+    const scanResult = await r.scan(cursor, { match: 'kk:book:*', count: 50 });
+    cursor = Number(scanResult[0]);
+    const keys = scanResult[1] as string[];
+    for (const key of keys) {
+      out.scanned++;
+      try {
+        const book = await r.get<GeneratedBook>(key);
+        if (!book) continue;
+        if (book.ownerId !== legacyOwnerId) continue;
+        const updated: GeneratedBook = {
+          ...book,
+          ownerId: userId,
+          updatedAt: Date.now(),
+        };
+        await r.set(key, updated, { ex: 60 * 60 * 24 * 30 });
+        out.claimed++;
+      } catch {
+        // Skip malformed entries — they'll be cleaned up by TTL.
+      }
     }
-  }
+  } while (cursor !== 0);
   return out;
 }

@@ -36,6 +36,32 @@ function estimateNarrationSeconds(narration: string): number {
 }
 
 /**
+ * Retry an async operation with exponential backoff.
+ * Used for LLM calls so a single transient error doesn't kill the book.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  { attempts = 3, baseDelayMs = 1000, maxDelayMs = 10000 }: {
+    attempts?: number;
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+  } = {},
+): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i >= attempts - 1) break;
+      const delay = Math.min(baseDelayMs * (2 ** i), maxDelayMs);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Validate an LLM-supplied camera_action against the SceneMotion union.
  * Returns the typed motion or undefined when the value is missing,
  * malformed, or a token we don't render. Used to safely persist beat
@@ -453,7 +479,7 @@ async function generateBookOpenAI(
   const { worldOutlinePrompt } = await import('./modePrompts');
   const outlineUserContent = options.outlinePrompt ?? worldOutlinePrompt(bookTitle);
   onProgress?.('Planning the story...', 10);
-  const outlineRes = await client.chat.completions.create({
+  const outlineRes = await withRetry(() => client.chat.completions.create({
     model,
     messages: [
       { role: 'system', content: 'You are an expert educational book architect. Create engaging, accurate, age-appropriate interactive books. Respond with valid JSON.' },
@@ -462,7 +488,7 @@ async function generateBookOpenAI(
     response_format: { type: 'json_object' },
     temperature: 0.7,
     max_tokens: 4000,
-  });
+  }), { attempts: 3, baseDelayMs: 1000 });
 
   let outline: Record<string, unknown>;
   try {
@@ -503,6 +529,39 @@ async function generateBookOpenAI(
     characters_present?: string[]; characters_absent?: string[];
     dialogue?: Array<{ speaker?: string; text?: string; kind?: string }>;
   }>);
+
+  // ── Outline validation + repair ──
+  // If the LLM returns an out-of-range scene count, retry once with
+  // a stricter prompt before giving up. This recovers from vague
+  // prompts that cause the model to under- or over-generate.
+  if (sceneOutlines.length < 3 || sceneOutlines.length > 20) {
+    console.warn(`[BookGenerator] Outline has ${sceneOutlines.length} scenes (target 6-12). Retrying with stricter prompt...`);
+    const strictOutlineRes = await withRetry(() => client.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: 'You are an expert educational book architect. Create engaging, accurate, age-appropriate interactive books. Respond with valid JSON. IMPORTANT: produce EXACTLY 8-10 scenes. No more, no less.' },
+        { role: 'user', content: outlineUserContent + '\n\nSTRICT REQUIREMENT: Return exactly 8-10 scenes. Not fewer than 8, not more than 10.' },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.6,
+      max_tokens: 4000,
+    }), { attempts: 2, baseDelayMs: 1000 });
+
+    let strictOutline: Record<string, unknown>;
+    try {
+      strictOutline = JSON.parse(strictOutlineRes.choices[0]?.message?.content || '{}');
+    } catch {
+      strictOutline = {};
+    }
+    const strictScenes = ((strictOutline.scenes ?? []) as typeof sceneOutlines);
+    if (strictScenes.length >= 3 && strictScenes.length <= 20) {
+      sceneOutlines.length = 0;
+      sceneOutlines.push(...strictScenes);
+      console.log(`[BookGenerator] Repair succeeded: ${strictScenes.length} scenes.`);
+    } else {
+      throw new Error(`Outline repair failed. Got ${strictScenes.length} scenes after retry. Minimum 3, maximum 20.`);
+    }
+  }
   const charactersRaw: GeneratedCharacter[] = ((outline.characters ?? []) as GeneratedCharacter[]);
   // Backstop the LLM's voice_archetype: if it returned an unknown
   // value (typo, omitted entry), infer from the role text. The
@@ -515,6 +574,47 @@ async function generateBookOpenAI(
   }));
 
   if (sceneOutlines.length === 0) throw new Error('Failed to generate scene outline');
+
+  // ── Visual beats backstop ──
+  // The outline prompt asks for 2-3 visual beats per scene, but the
+  // LLM sometimes omits them. Without beats every scene renders as a
+  // single static image — children lose attention and the user sees
+  // "just one image". We backfill missing beats with deterministic
+  // heuristics (close-up, reaction, detail) so every scene ALWAYS has
+  // at least one follow-up shot.
+  for (const scene of sceneOutlines) {
+    const hasBeats = Array.isArray(scene.visual_beats) && scene.visual_beats.length > 0
+      && scene.visual_beats.some(b => {
+        const desc = typeof b === 'string' ? b : b?.description;
+        return (desc ?? '').trim().length > 8;
+      });
+    if (!hasBeats) {
+      const present = scene.characters_present ?? [];
+      const mood = scene.mood ?? 'serene';
+      const synthetic: Array<{ description: string; camera_action: string; shot_type: string }> = [];
+      if (present.length > 0) {
+        synthetic.push({
+          description: `Close-up on ${present[0]}'s face — eyes, expression, and subtle emotional reaction during this ${mood} moment. Intimate framing that connects the viewer to the character's inner state.`,
+          camera_action: 'slow_zoom_in',
+          shot_type: 'close_up',
+        });
+      }
+      if (present.length > 1) {
+        synthetic.push({
+          description: `Medium shot of ${present[1]} responding — body language, gesture, or posture that reveals their emotional reaction. Natural framing with soft background depth.`,
+          camera_action: 'pan_right',
+          shot_type: 'medium',
+        });
+      } else if (synthetic.length === 0) {
+        synthetic.push({
+          description: `Detail shot — a key object, symbolic element, or environmental texture from the scene that carries narrative weight. Intimate framing inviting closer inspection.`,
+          camera_action: 'slow_zoom_out',
+          shot_type: 'detail',
+        });
+      }
+      scene.visual_beats = synthetic;
+    }
+  }
 
   await options.onStepComplete?.('outline', { outline, characters });
 
@@ -583,18 +683,11 @@ async function generateBookOpenAI(
   // complete in ~25-30s instead of 80s+ serial.
   onProgress?.('Writing all scenes...', 22);
   let completedDetails = 0;
-  const details = await pMapLimit(sceneOutlines, 4, async (scene, i) => {
-    const detailRes = await client.chat.completions.create({
+  const details = await pMapLimit(sceneOutlines, 4, async (scene) => {
+    const detailRes = await withRetry(() => client.chat.completions.create({
       model,
       messages: [
-        { role: 'system', content: 'You create detailed scene content for interactive storybooks. Respond with valid JSON.' },
-        { role: 'user', content: `Book: "${bookTitle}"
-Scene: "${scene.title}" — ${scene.short_summary}
-Mood: ${scene.mood ?? 'serene'}
-Visual: ${scene.visual_description}
-Characters: ${characters.map(c => c.name).join(', ')}
-
-Generate JSON:
+        { role: 'system', content: `You create detailed scene content for interactive storybooks. Respond with valid JSON matching this exact schema:
 {
   "narration": "string (150-200 words, warm storytelling voice; match the mood — sorrow plays slow, action plays urgent)",
   "learning_points": ["string", "string", "string"],
@@ -615,11 +708,18 @@ motion guide:
 - divine_glow: blessings, miracles, transformative moments
 - pan_left / pan_right: travel, journey, reveal-by-sweep
 - fade_only: dialogue scenes where the camera should stay still` },
+        { role: 'user', content: `Book: "${bookTitle}"
+Scene: "${scene.title}" — ${scene.short_summary}
+Mood: ${scene.mood ?? 'serene'}
+Visual: ${scene.visual_description}
+Characters: ${characters.map(c => c.name).join(', ')}
+
+Generate the scene JSON now.` },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.65,
       max_tokens: 2000,
-    });
+    }), { attempts: 3, baseDelayMs: 800 });
     completedDetails++;
     onProgress?.(`Wrote ${completedDetails}/${sceneOutlines.length} scenes`, 22 + (completedDetails / sceneOutlines.length) * 18);
     try {
@@ -832,14 +932,9 @@ motion guide:
   }
 
   // ── Accuracy / canon label ──
-  // AI-generated world books are creative retellings unless they
-  // collide with a static canon slug (Ramayana, Mahabharata, Panchatantra).
-  const staticCanonSlugs = new Set(['ramayana', 'mahabharata', 'panchatantra']);
-  if (Array.from(staticCanonSlugs).some(s => slug === s || slug.endsWith(`-${s}`))) {
-    book.accuracyLabel = 'CANONICAL';
-  } else {
-    book.accuracyLabel = 'CREATIVE_RETELLING';
-  }
+  // AI-generated books are ALWAYS creative retellings. The CANONICAL label
+  // is reserved for curated static seeds loaded from canon JSON files.
+  book.accuracyLabel = 'CREATIVE_RETELLING';
 
   return book;
 }

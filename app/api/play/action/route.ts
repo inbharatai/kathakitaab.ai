@@ -23,8 +23,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err) {
+    console.error('[play/action]', err instanceof Error ? err.message : err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { error: 'Something went wrong. Please try again.' },
       { status: 500 }
     );
   }

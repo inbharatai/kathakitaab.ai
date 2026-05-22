@@ -3,7 +3,7 @@ import { generateBook, type GeneratedBook, type GeneratedScene, type GeneratedCh
 import type { StylePreset } from '@/lib/types/style';
 import { defaultPresetForBook, STYLE_PRESETS, slugSuffixForPreset } from '@/lib/types/style';
 import { detectGenreProfile } from '@/lib/engine/genreDetector';
-import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress } from '@/lib/data/bookRegistry';
+import { saveGeneratedBook, getBook, setProgress, isBookGenerating, getProgress, acquireGenerationLock, releaseGenerationLock } from '@/lib/data/bookRegistry';
 import { hydrateBookAudio, synthesizeBookMovieManifest } from '@/lib/video/manifestSynthesizer';
 import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { checkRateLimit, checkOwnerDailyLimit } from '@/lib/middleware/rateLimit';
@@ -365,6 +365,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ generating: true, slug });
   }
 
+  const locked = await acquireGenerationLock(slug);
+  if (!locked) {
+    return NextResponse.json({ generating: true, slug });
+  }
+
   // Create a persistent generation job before any LLM calls.
   // The job is the source of truth for resumable generation.
   const stylePreset = resolveStylePreset(body, bookTitle);
@@ -409,6 +414,11 @@ export async function POST(request: Request) {
   }
 
   after(async () => {
+    const locked = await acquireGenerationLock(slug);
+    if (!locked) {
+      console.log(`[generate] ${slug} is already being generated — skipping duplicate after().`);
+      return;
+    }
     let runningStep: GenerationStep = 'outline';
 
     const onStepComplete = async (step: 'outline' | 'portraits' | 'scenes' | 'images', data: unknown) => {
@@ -551,8 +561,9 @@ export async function POST(request: Request) {
       // original text — that one only goes back to the cookie owner.
       const safe = scrubError(err);
       console.error('[generate] failed for', safe.name, ':', safe.message);
-      const userMsg = err instanceof Error ? err.message : 'Generation failed';
-      await failJob(job.id, runningStep, userMsg);
+      const rawMsg = err instanceof Error ? err.message : 'Generation failed';
+      const userMsg = scrubError(new Error(rawMsg)).message;
+      await failJob(job.id, runningStep, rawMsg);
       await setProgress(slug, 'Error', 0, true, userMsg);
       // Refund the quota we burned at request entry — a failed
       // generation shouldn't cost the user their one allowance.
@@ -577,6 +588,8 @@ export async function POST(request: Request) {
         distinctId: session?.userId ?? ownerId ?? slug,
         properties: { slug, mode, stylePreset, error: safe.message },
       }).catch(() => { /* analytics fire-and-forget */ });
+    } finally {
+      await releaseGenerationLock(slug);
     }
   });
 

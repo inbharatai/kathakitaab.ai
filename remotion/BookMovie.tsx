@@ -1067,7 +1067,7 @@ const EndCard: React.FC = () => {
           padding: '18px 56px', borderRadius: 16, display: 'inline-block',
           boxShadow: '0 12px 36px rgba(255,153,51,0.4)',
         }}>
-          https://www.kathakitaab.com
+          {process.env.NEXT_PUBLIC_SITE_URL || 'kathakitaab.com'}
         </div>
       </div>
     </AbsoluteFill>

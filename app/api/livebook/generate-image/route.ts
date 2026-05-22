@@ -124,7 +124,7 @@ export async function POST(request: Request) {
     });
 
     if (!result.imageUrl) {
-      return NextResponse.json({ error: 'No image generated', fallback: true }, { status: 200 });
+      return NextResponse.json({ error: 'No image generated', fallback: true }, { status: 502 });
     }
 
     // Cache for 24h
@@ -135,6 +135,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Generate Image Error]', message);
-    return NextResponse.json({ error: "Image generation is temporarily unavailable.", fallback: true }, { status: 200 });
+    return NextResponse.json({ error: "Image generation is temporarily unavailable.", fallback: true }, { status: 503 });
   }
 }

@@ -47,7 +47,9 @@ export function isSarvamConfigured(): boolean {
 }
 
 function getSarvamModel(): string {
-  return process.env.SARVAM_TTS_MODEL || 'bulbul:v2';
+  // Default to v3 — the codebase and docs have always claimed Bulbul v3,
+  // but the previous default was v2 which silently degraded quality.
+  return process.env.SARVAM_TTS_MODEL || 'bulbul:v3';
 }
 
 export async function sarvamTTS(req: SarvamTTSRequest): Promise<SarvamTTSResult> {

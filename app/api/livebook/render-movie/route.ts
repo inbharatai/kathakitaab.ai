@@ -292,9 +292,9 @@ export async function POST(request: Request) {
       storageMode,
     });
   } catch (err) {
+    console.error('[render-movie]', err instanceof Error ? err.message : err);
     return NextResponse.json({
-      error: 'Render failed',
-      detail: err instanceof Error ? err.message : String(err),
+      error: 'Render failed. Please try again or contact support if the issue persists.',
     }, { status: 500 });
   } finally {
     // Best-effort cleanup of the tmp DIRECTORY (not just the file).

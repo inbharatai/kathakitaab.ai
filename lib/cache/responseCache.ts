@@ -44,14 +44,28 @@ function redisKey(k: string): string {
 
 // ---- Key Builder ----
 export function buildCacheKey(parts: Record<string, string | undefined>): string {
-  return Object.entries(parts)
+  const raw = Object.entries(parts)
     .filter(([, v]) => v)
     .map(([k, v]) => `${k}:${normalize(v!)}`)
     .join('|');
+  // Append a content hash of the raw prompt so prompts that differ
+  // only by punctuation / special chars don't collide.
+  const content = parts.prompt ?? parts.text ?? '';
+  return content ? `${raw}|h:${hashString(content)}` : raw;
 }
 
 function normalize(s: string): string {
-  return s.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
+  return s.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/** Simple djb2 hash to disambiguate prompts that differ only by
+ *  punctuation or special characters (prevents cache collisions). */
+function hashString(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) + h) + s.charCodeAt(i);
+  }
+  return (h >>> 0).toString(36);
 }
 
 // ---- Read ----
@@ -76,7 +90,7 @@ function getLocalCached(key: string): unknown | null {
   return entry.data;
 }
 
-const MAX_ENTRIES = numEnv('RESPONSE_CACHE_MAX_ENTRIES', 200);
+const MAX_ENTRIES = numEnv('RESPONSE_CACHE_MAX_ENTRIES', 2000);
 
 function numEnv(key: string, fallback: number): number {
   const raw = process.env[key];

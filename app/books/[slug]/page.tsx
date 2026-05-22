@@ -154,20 +154,23 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
 
 export default function BookPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
-  const fallbackTitle = toTitleCase(resolvedParams.slug);
-  const [title, setTitle] = useState(fallbackTitle);
+  const [title, setTitle] = useState('Loading...');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`/api/books/${resolvedParams.slug}`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!cancelled) setTitle(toTitleCase(resolvedParams.slug));
+          return;
+        }
         const data = await res.json();
         const realTitle = data.book?.title || data.title;
         if (realTitle && !cancelled) setTitle(realTitle);
+        else if (!cancelled) setTitle(toTitleCase(resolvedParams.slug));
       } catch {
-        // keep fallback
+        if (!cancelled) setTitle(toTitleCase(resolvedParams.slug));
       }
     })();
     return () => { cancelled = true; };

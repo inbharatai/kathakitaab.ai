@@ -1,0 +1,60 @@
+{
+  "packageId": "com.kathakitaab.app",
+  "host": "kathakitaab.com",
+  "name": "KathaKitaab — A Living Storybook",
+  "launcherName": "KathaKitaab",
+  "display": "standalone",
+  "themeColor": "#E8832A",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#0C0806",
+  "enableNotifications": true,
+  "startUrl": "/?source=pwa",
+  "iconUrl": "https://kathakitaab.com/icons/icon-512.png",
+  "maskableIconUrl": "https://kathakitaab.com/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1.0.2",
+  "appVersionCode": 5,
+  "shortcuts": [
+    {
+      "name": "Create a story",
+      "shortName": "Create",
+      "url": "https://kathakitaab.com/educator",
+      "chosenIconUrl": "https://kathakitaab.com/icons/icon-192.png"
+    },
+    {
+      "name": "Library",
+      "shortName": "Library",
+      "url": "https://kathakitaab.com/books",
+      "chosenIconUrl": "https://kathakitaab.com/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://kathakitaab.com/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://kathakitaab.com/",
+  "minSdkVersion": 21,
+  "orientation": "portrait-primary",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1.0.2"
+}

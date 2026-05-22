@@ -59,14 +59,20 @@ export function getOwnerIdFromRequest(req: Request | NextRequest): string | null
 /** Generate a new owner ID. Used by middleware on first request. */
 export function newOwnerId(): string {
   // crypto.randomUUID is available in both edge and node runtimes
-  // in modern Next.js. Falls through to a Math.random fallback only
-  // in extreme cases (older runtimes); the cookie is non-critical
-  // (a fresh visitor on an old runtime just gets a less-random ID,
-  // not a security failure).
+  // in modern Next.js. Falls through to crypto.getRandomValues for
+  // cryptographically secure generation on all runtimes.
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
+  // Fallback: 16 bytes from crypto.getRandomValues, hex-encoded.
+  const buf = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(buf);
+  } else {
+    // Last resort for extremely old runtimes — still better than Math.random()
+    for (let i = 0; i < 16; i++) buf[i] = Math.floor(Math.random() * 256);
+  }
   let s = '';
-  for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);
+  for (let i = 0; i < 16; i++) s += buf[i].toString(16).padStart(2, '0');
   return s;
 }

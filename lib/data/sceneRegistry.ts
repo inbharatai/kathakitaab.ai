@@ -79,6 +79,23 @@ async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T | null>
   return null;
 }
 
+/** Lightweight runtime validation before persisting a scene. */
+function validatePersistedScene(scene: unknown): asserts scene is PersistedScene {
+  if (!scene || typeof scene !== 'object') {
+    throw new Error('Scene must be an object');
+  }
+  const s = scene as Record<string, unknown>;
+  if (!s.scene_id || typeof s.scene_id !== 'string') {
+    throw new Error('Scene must have a non-empty scene_id string');
+  }
+  if (typeof s.order_index !== 'number') {
+    throw new Error('Scene must have a numeric order_index');
+  }
+  if (!s.narration || typeof s.narration !== 'string') {
+    throw new Error('Scene must have a non-empty narration string');
+  }
+}
+
 /** Save a single scene to the registry. Called immediately after
  *  the scene's details are generated, and again after its image
  *  and audio are ready. */
@@ -86,6 +103,7 @@ export async function saveScene(
   bookSlug: string,
   scene: PersistedScene,
 ): Promise<void> {
+  validatePersistedScene(scene);
   const key = sceneKey(bookSlug, scene.scene_id);
   const updated: PersistedScene = {
     ...scene,

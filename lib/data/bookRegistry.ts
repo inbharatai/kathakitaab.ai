@@ -163,7 +163,33 @@ export async function getBook(slug: string): Promise<GeneratedBook | null> {
   return null;
 }
 
+/** Lightweight runtime validation before persisting a book to Redis.
+ *  Catches malformed LLM output or corrupted objects before they break
+ *  downstream consumers (scene-stream, movie renderer, library UI). */
+function validateGeneratedBook(book: unknown): asserts book is GeneratedBook {
+  if (!book || typeof book !== 'object') {
+    throw new Error('Book must be an object');
+  }
+  const b = book as Record<string, unknown>;
+  if (!b.slug || typeof b.slug !== 'string') {
+    throw new Error('Book must have a non-empty slug string');
+  }
+  if (!b.title || typeof b.title !== 'string') {
+    throw new Error('Book must have a non-empty title string');
+  }
+  if (!Array.isArray(b.scenes)) {
+    throw new Error('Book.scenes must be an array');
+  }
+  if (!Array.isArray(b.characters)) {
+    throw new Error('Book.characters must be an array');
+  }
+  if (typeof b.generatedAt !== 'number') {
+    throw new Error('Book.generatedAt must be a number timestamp');
+  }
+}
+
 export async function saveGeneratedBook(book: GeneratedBook): Promise<void> {
+  validateGeneratedBook(book);
   const result = await withLock(bookKey(book.slug), async () => {
     memBooks.set(book.slug, book);
     capMap(memBooks, MAX_MEM_BOOKS);
@@ -258,6 +284,26 @@ export async function getProgress(slug: string): Promise<ProgressEntry | null> {
 export async function isBookGenerating(slug: string): Promise<boolean> {
   const p = await getProgress(slug);
   return !!p && !p.done;
+}
+
+// ── Generation lock ── prevents two concurrent jobs (user-driven or
+// background seeding) from overwriting the same book simultaneously.
+// Redis SET NX with a 15-min TTL — if a process crashes the lock
+// auto-expires so the book isn't stuck forever.
+const GENERATION_LOCK_TTL_SEC = 60 * 15;
+const lockKey = (slug: string) => `kk:gen:lock:${slug}`;
+
+export async function acquireGenerationLock(slug: string): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return true; // dev mode without Redis — allow
+  const result = await r.set(lockKey(slug), '1', { nx: true, ex: GENERATION_LOCK_TTL_SEC });
+  return result === 'OK';
+}
+
+export async function releaseGenerationLock(slug: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.del(lockKey(slug));
 }
 
 export async function getAllBooks(): Promise<GeneratedBook[]> {

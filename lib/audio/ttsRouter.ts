@@ -23,6 +23,7 @@ import {
   type CharacterArchetype,
 } from './characterVoices';
 import { deliveryForTone, toneFromMood, detectTone, type Tone } from './emotionTagger';
+import { getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
 
 export type TTSLanguage = 'hi' | 'en' | 'auto';
 
@@ -72,6 +73,26 @@ export interface TTSResult {
  */
 export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
   const language = resolveLanguage(req.text, req.language);
+
+  // ── TTS cache lookup ──
+  // Cache key includes book + scene + language + provider + text hash
+  // so identical text re-renders are free. 90-day TTL.
+  const cacheKey = `tts:${req.bookSlug ?? 'global'}:${req.characterSlug ?? 'narrator'}:${language}:${hashText(req.text.slice(0, 120))}`;
+  const cached = await getCachedResponse(cacheKey);
+  if (cached && typeof cached === 'object' && 'audio' in cached) {
+    const c = cached as TTSResult;
+    return {
+      audio: Buffer.from(c.audio as unknown as ArrayBufferLike),
+      mimeType: c.mimeType,
+      provider: c.provider,
+      voiceUsed: c.voiceUsed,
+      language: c.language,
+      toneUsed: c.toneUsed,
+      ttsProviderSelected: c.ttsProviderSelected,
+      ttsProviderUsed: c.ttsProviderUsed,
+      retryCount: 0,
+    };
+  }
 
   // Voice resolution priority:
   //   1. Caller passed an explicit archetype  — honour it
@@ -124,7 +145,7 @@ export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
             pitch: delivery.pitch,
             loudness: delivery.loudness,
           });
-          return {
+          const ttsResult: TTSResult = {
             audio: result.audio,
             mimeType: result.mimeType,
             provider: 'sarvam',
@@ -135,12 +156,14 @@ export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
             ttsProviderUsed: 'sarvam',
             retryCount,
           };
+          await setCachedResponse(cacheKey, ttsResult, 'tts', 90 * 24 * 60 * 60 * 1000);
+          return ttsResult;
         }
         if (provider === 'gemini') {
           const direction = geminiToneDirection(tone);
           const text = direction ? `${direction}\n${req.text}` : req.text;
           const result = await geminiTTS({ text, language, voiceName: voiceMap.gemini });
-          return {
+          const ttsResult: TTSResult = {
             audio: result.audio,
             mimeType: result.mimeType,
             provider: 'gemini',
@@ -151,6 +174,8 @@ export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
             ttsProviderUsed: 'gemini',
             retryCount,
           };
+          await setCachedResponse(cacheKey, ttsResult, 'tts', 90 * 24 * 60 * 60 * 1000);
+          return ttsResult;
         }
       } catch (err) {
         lastError = err;
@@ -167,6 +192,15 @@ export async function speakTTS(req: TTSRequest): Promise<TTSResult> {
   throw new Error(
     `All TTS providers failed after ${retryCount} retries. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
   );
+}
+
+/** Quick djb2 hash for TTS cache keys. */
+function hashText(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) + h) + s.charCodeAt(i);
+  }
+  return (h >>> 0).toString(36);
 }
 
 // ── Helpers ──

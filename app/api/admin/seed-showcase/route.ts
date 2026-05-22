@@ -2,7 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { generateBook } from '@/lib/openai/bookGeneratorAgent';
-import { saveGeneratedBook, deleteBook, getBook } from '@/lib/data/bookRegistry';
+import { saveGeneratedBook, deleteBook, getBook, acquireGenerationLock, releaseGenerationLock } from '@/lib/data/bookRegistry';
 import { saveScenes, type PersistedScene } from '@/lib/data/sceneRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
 
@@ -49,6 +49,11 @@ export async function POST(request: Request) {
 
   after(async () => {
     for (const entry of toRegenerate) {
+      const locked = await acquireGenerationLock(entry.slug);
+      if (!locked) {
+        console.log(`[seed-showcase] ${entry.slug} is already being generated — skipping.`);
+        continue;
+      }
       try {
         if (entry.exists && force) {
           await deleteBook(entry.slug);
@@ -90,6 +95,8 @@ export async function POST(request: Request) {
         console.log(`[seed-showcase] done: ${entry.slug} (${hydrated.scenes.length} scenes)`);
       } catch (err) {
         console.error(`[seed-showcase] failed for ${entry.slug}:`, err instanceof Error ? err.message : err);
+      } finally {
+        await releaseGenerationLock(entry.slug);
       }
     }
   });

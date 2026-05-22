@@ -20,7 +20,7 @@ export default function TermsPage() {
 
       <h2>1. What KathaKitaab is</h2>
       <p>
-        KathaKitaab is an AI storybook engine. You type a title and prompt; we use third-party AI models (currently OpenAI for text and images, Sarvam AI for narration) to generate an interactive storybook and a cinematic movie cut.
+        KathaKitaab is an AI storybook engine. You type a title and prompt; we use coordinated AI agents to plan stories, design characters, create scenes, generate visuals, add narration, build interactions, and assemble books or movies.
       </p>
 
       <h2>2. Eligibility</h2>
@@ -43,7 +43,7 @@ export default function TermsPage() {
         <li>Content that violates Indian law, including but not limited to the IT Act 2000 and the Bharatiya Nyaya Sanhita.</li>
       </ul>
       <p>
-        We use automated moderation (OpenAI Moderation API) and reserve the right to remove content and suspend accounts that violate this section.
+        We use automated content moderation and reserve the right to remove content and suspend accounts that violate this section.
       </p>
 
       <h2>5. Ownership of generated content</h2>
@@ -61,7 +61,7 @@ export default function TermsPage() {
 
       <h2>7. Service availability</h2>
       <p>
-        KathaKitaab is provided &quot;as is.&quot; We aim for high availability but make no SLA during the beta period. We may pause generation if our third-party providers (OpenAI, Sarvam) are unavailable or have rate-limited us.
+        KathaKitaab is provided &quot;as is.&quot; We aim for high availability but make no SLA during the beta period. We may pause generation if our AI providers are unavailable or have rate-limited us.
       </p>
 
       <h2>8. Termination</h2>
