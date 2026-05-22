@@ -38,5 +38,12 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 }
 
 export function isAdminSession(session: AuthSession | null): boolean {
+  // Dev bypass: when auth is disabled (no session) and we're not in
+  // production, allow admin access so the admin panel and seeding
+  // endpoints remain usable. Auth beta removal means no Google
+  // sign-in — the owner still needs to manage showcase books.
+  if (!session && process.env.NODE_ENV !== 'production') {
+    return true;
+  }
   return !!session && isAdminEmail(session.email);
 }
