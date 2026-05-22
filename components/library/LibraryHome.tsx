@@ -59,7 +59,11 @@ export default function LibraryHome({ books, loading = false, userBooks }: Libra
       b.mode === 'world' && !seedSlugs.has(b.slug)
     );
 
-    const watchAsMovie = books.filter(b => b.movieStatus === 'ready');
+    // Watch as Movie: books explicitly ready OR legacy books that have
+    // hasMovie=true but no explicit movieStatus (backward compat).
+    const watchAsMovie = books.filter(
+      b => b.movieStatus === 'ready' || (b.hasMovie === true && !b.movieStatus)
+    );
 
     // Sort by most recently created (fallback to existing order)
     const recentlyCreated = [...books]

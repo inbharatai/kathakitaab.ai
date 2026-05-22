@@ -164,13 +164,17 @@ export async function getBook(slug: string): Promise<GeneratedBook | null> {
 }
 
 export async function saveGeneratedBook(book: GeneratedBook): Promise<void> {
-  await withLock(bookKey(book.slug), async () => {
+  const result = await withLock(bookKey(book.slug), async () => {
     memBooks.set(book.slug, book);
     capMap(memBooks, MAX_MEM_BOOKS);
     syncCanonFromBook(book);
     const r = getRedis();
     if (r) await r.set(bookKey(book.slug), book, { ex: BOOK_TTL_SEC });
+    return true;
   });
+  if (result === null) {
+    throw new Error(`Failed to save book "${book.slug}" — could not acquire registry lock`);
+  }
 }
 
 /**

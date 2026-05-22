@@ -30,6 +30,12 @@ export async function GET(request: Request) {
   const generated = await getRegistryBooks();
   const ownerId = getOwnerIdFromRequest(request);
 
+  // Debug logging to help trace why books may be missing from the
+  // public listing. This fires once per cold-start lambda and helps
+  // diagnose Redis scan vs memory-cache mismatches.
+  console.log('[api/books] ownerId=%s seedCount=%d generatedCount=%d',
+    ownerId ? 'present' : 'none', seed.length, generated.length);
+
   // Cover for seed books = first scene's background image. Without
   // this, the library shows a placeholder gradient for Ramayana while
   // every AI book gets a real cover from its first scene — the
@@ -73,6 +79,18 @@ export async function GET(request: Request) {
         || firstScene?.background_asset_url
         || '';
       const orderedScenes = [...b.scenes].sort((a, b) => a.order_index - b.order_index);
+
+      // Backward compatibility: books created before the movieStatus
+      // field was added (or where validation was skipped) should still
+      // show as having a movie if their scenes have image + audio assets.
+      const hasSceneAssets = orderedScenes.some(
+        s => s.background_asset_url && s.narration_audio_url
+      );
+      const explicitReady = b.movieStatus === 'ready';
+      const inferredReady = !b.movieStatus && hasSceneAssets;
+      const hasMovie = explicitReady || inferredReady;
+      const movieStatus = b.movieStatus ?? (hasSceneAssets ? 'ready' : 'pending');
+
       return {
         id: b.id,
         slug: b.slug,
@@ -91,8 +109,8 @@ export async function GET(request: Request) {
         // So the UI can render owner-only edit/delete controls.
         visibility: b.visibility ?? 'public',
         isOwner: ownerId !== null && b.ownerId === ownerId,
-        hasMovie: b.movieStatus === 'ready',
-        movieStatus: b.movieStatus ?? 'pending',
+        hasMovie,
+        movieStatus,
       };
     });
 
