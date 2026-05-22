@@ -446,7 +446,7 @@ const SceneShot: React.FC<{
   // spaced thirds — the difference between "slideshow pacing" and
   // "narrative pacing". Single-beat (or legacy) scenes fall back to
   // a one-shot timeline.
-  const beats: BookMovieBeat[] = scene.beats && scene.beats.length >= 2
+  const beats: BookMovieBeat[] = scene.beats && scene.beats.length >= 1
     ? scene.beats
     : [{ imagePath: scene.imagePath, motion: sceneMotion }];
   const beatWindows = React.useMemo(
