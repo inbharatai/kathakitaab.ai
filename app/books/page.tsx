@@ -244,8 +244,8 @@ export default function BooksPage() {
       {/* Netflix-style rails */}
       <LibraryHome books={books} loading={!loaded} />
 
-      {/* Empty-library nudge — when only Ramayana exists, prompt the
-          user to generate stories or restore the showcase books. */}
+      {/* Empty-library nudge — when only the fallback exists, prompt the
+          user to create their own stories. */}
       {loaded && books.length <= 1 && (
         <div style={{ maxWidth: 1200, margin: '24px auto 0', padding: '0 16px' }}>
           <div style={{
@@ -257,21 +257,13 @@ export default function BooksPage() {
               Build your library
             </div>
             <p style={{ color: 'var(--color-text-dim)', maxWidth: 520, margin: '0 auto 18px', lineHeight: 1.6 }}>
-              The showcase books (Mahabharata, Akbar and Birbal, Vikram and Betaal)
-              were cleared from storage. Generate them from the admin panel,
-              or create your own stories above.
+              Your library is getting started. Create your first story above
+              and it will appear here alongside the classics.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link
-                href="/admin"
-                className="btn-primary"
-                style={{ textDecoration: 'none' }}
-              >
-                Restore Showcase Books →
-              </Link>
-              <Link
                 href="#create-story"
-                className="btn-secondary"
+                className="btn-primary"
                 style={{ textDecoration: 'none' }}
               >
                 Create New Story

@@ -64,6 +64,8 @@ export async function GET(request: Request) {
 
   const generatedAsBook = generated
     .filter(b => {
+      // Defensive: skip corrupted Redis entries with no slug or title.
+      if (!b || !b.slug || !b.title) return false;
       const effective = resolveBookVisibility(b);
       // Public AI-generated books: always visible.
       if (effective === 'public') return true;

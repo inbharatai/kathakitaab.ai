@@ -11,6 +11,7 @@ const SHOWCASE = [
   { slug: 'akbar-and-birbal', title: 'Akbar and Birbal' },
   { slug: 'vikram-and-betaal', title: 'Vikram and Betaal' },
   { slug: 'panchatantra', title: 'Panchatantra' },
+  { slug: 'tenali-raman', title: 'Tenali Raman' },
 ];
 
 /** Admin-only endpoint to batch-regenerate showcase books.

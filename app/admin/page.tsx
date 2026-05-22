@@ -39,12 +39,23 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [seedMessage, setSeedMessage] = useState('');
 
-  // Auth is disabled for beta / Play Store review. Allow admin access
-  // unconditionally in development; require email match in production.
-  const isAdmin = !user || user?.email === 'reetu004@gmail.com';
+  // Normal admin: logged-in owner email. When auth is disabled (Play Store
+  // review), the owner can pass ?owner=1 to prove access.
+  const isLoggedInOwner = !!user && user?.email === 'reetu004@gmail.com';
+  const [ownerGatePassed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('owner') === '1') {
+      sessionStorage.setItem('katha_admin_gate', '1');
+      return true;
+    }
+    return sessionStorage.getItem('katha_admin_gate') === '1';
+  });
+
+  const showAdmin = isLoggedInOwner || ownerGatePassed;
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!showAdmin) return;
     let cancelled = false;
     fetch('/api/admin/books')
       .then(r => (r.ok ? r.json() : null))
@@ -59,7 +70,7 @@ export default function AdminPage() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [isAdmin]);
+  }, [showAdmin]);
 
   async function deleteBook(slug: string) {
     if (!confirm(`Delete ${slug}?`)) return;
@@ -137,7 +148,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!showAdmin) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
         <div style={{ color: 'var(--color-gold)', fontSize: '1.2rem' }}>Admin access only.</div>

@@ -16,6 +16,7 @@
 // can never be admin.
 // ============================================================
 import type { AuthSession } from './session';
+import { isSupabaseAuthConfigured } from './supabaseAuthClient';
 
 let cached: Set<string> | null = null;
 
@@ -38,11 +39,14 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 }
 
 export function isAdminSession(session: AuthSession | null): boolean {
-  // Dev bypass: only when explicitly enabled via env var. Never
-  // default to true for non-production — staging/preview deployments
-  // would otherwise grant admin to every unauthenticated caller.
-  if (!session && process.env.KATHA_DEV_ADMIN_BYPASS === 'true') {
-    return true;
+  if (!session) {
+    // When Supabase auth is not configured, the app runs in anonymous-only
+    // mode (e.g., Play Store review). Treat the caller as admin so the
+    // owner can seed showcase books and manage the library without a
+    // login system. When auth IS configured, unauthenticated callers are
+    // never admin unless the explicit dev bypass env var is set.
+    if (!isSupabaseAuthConfigured()) return true;
+    return process.env.KATHA_DEV_ADMIN_BYPASS === 'true';
   }
-  return !!session && isAdminEmail(session.email);
+  return isAdminEmail(session.email);
 }
