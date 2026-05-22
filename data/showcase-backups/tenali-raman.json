@@ -1,0 +1,1400 @@
+{
+  "book": {
+    "id": "book-tenali-raman",
+    "slug": "tenali-raman",
+    "title": "Tenali Raman",
+    "subtitle": "The Wit and Wisdom of Tenali Raman",
+    "description": "Explore the life of Tenali Raman, a clever courtier known for his quick wit and insightful wisdom in ancient India.",
+    "source_tradition": "Indian folklore",
+    "scenes": [
+      {
+        "scene_id": "introduction_world",
+        "title": "The Kingdom of Vijayanagara",
+        "order_index": 1,
+        "short_summary": "The story begins in the vibrant kingdom of Vijayanagara, setting the stage for Tenali Raman's adventures.",
+        "visual_description": "A panoramic view of the bustling city of Vijayanagara, with palaces and markets, people in traditional attire, and the sun shining brightly.",
+        "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/c87ce9e06229c2f8497a04e7eb1feb62db283135.png",
+        "narration": "In the heart of the vibrant kingdom of Vijayanagara, the sun shone brightly over the bustling markets and grand palaces. The air was filled with the sounds of laughter, chatter, and the delightful aroma of delicious street food. People dressed in colorful traditional attire moved about, exchanging greetings and smiles, their faces reflecting the joy of everyday life. Among them was the clever and witty Tenali Raman, known for his sharp mind and quick solutions to the kingdom's troubles. He walked through the market, observing the lively exchanges and the vibrant atmosphere, ready for the adventures that lay ahead. The King, wise and benevolent, watched over his people from his splendid palace, ensuring peace and happiness flourished in his realm. This was a place where stories unfolded, and wisdom prevailed, setting the perfect stage for Tenali Raman's clever escapades.",
+        "learning_points": [
+          "The importance of community and joy in daily life.",
+          "The value of wit and intelligence in solving problems.",
+          "Understanding the diverse cultural heritage of Vijayanagara."
+        ],
+        "source_notes": "The opening scene introduces the vibrant setting of Vijayanagara, focusing on the joyful atmosphere and key characters.",
+        "hotspots": [
+          {
+            "label": "Tenali Raman",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "tenali_raman",
+            "x": 30,
+            "y": 50,
+            "width": 10,
+            "height": 15,
+            "tooltip": "Meet Tenali Raman, the clever hero!",
+            "quick_speak": "Hello! Ready for some adventures?",
+            "id": "hs-introduction_world-0"
+          },
+          {
+            "label": "The King",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "the_king",
+            "x": 70,
+            "y": 40,
+            "width": 10,
+            "height": 15,
+            "tooltip": "Gaze upon the wise King of Vijayanagara.",
+            "quick_speak": "Welcome to my kingdom!",
+            "id": "hs-introduction_world-1"
+          }
+        ],
+        "quiz_questions": [
+          {
+            "question": "What is the atmosphere like in the kingdom of Vijayanagara?",
+            "options": [
+              "Joyful and vibrant",
+              "Dark and gloomy",
+              "Silent and empty",
+              "Chaotic and disorganized"
+            ],
+            "correct_answer": 0,
+            "explanation": "The kingdom is described as bustling with laughter, chatter, and vibrant life.",
+            "id": "quiz-introduction_world-0",
+            "scene_id": "introduction_world"
+          }
+        ],
+        "previous_scene_id": null,
+        "next_scene_id": "introduction_character",
+        "mood": "joyful",
+        "theme": "community",
+        "characters_present": [],
+        "characters_absent": [],
+        "motion": "slow_zoom_in",
+        "duration_seconds": 58,
+        "beats": [
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/c87ce9e06229c2f8497a04e7eb1feb62db283135.png",
+            "visualDescription": "A panoramic view of the bustling city of Vijayanagara, with palaces and markets, people in traditional attire, and the sun shining brightly."
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/44eb13e9f0c723cfd725b4382bb41608c7726d78.png",
+            "visualDescription": "A medium shot of children playing in the market, their laughter filling the air as they chase each other.",
+            "motion": "pan_right",
+            "shotType": "medium",
+            "sfx": ""
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/6999156f6d6250a0276a55696e2a5c702df10f3e.png",
+            "visualDescription": "A close-up of a merchant selling colorful spices, his hands animatedly gesturing as he promotes his goods.",
+            "motion": "slow_zoom_in",
+            "shotType": "close_up",
+            "sfx": ""
+          }
+        ],
+        "ambient_sound": "market_chatter",
+        "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/introduction_world.wav",
+        "audio_provider": "sarvam"
+      },
+      {
+        "scene_id": "introduction_character",
+        "title": "Meet Tenali Raman",
+        "order_index": 2,
+        "short_summary": "We are introduced to Tenali Raman, a witty and resourceful courtier known for his clever tricks.",
+        "visual_description": "Tenali Raman stands confidently in front of the palace, wearing vibrant traditional attire, with a mischievous smile.",
+        "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/ea9ba62f8f3bb58ea600188bd53fa27c9acb0bc4.png",
+        "narration": "In the bustling kingdom of Vijayanagara, where the sun shines brightly and laughter fills the air, there lived a man named Tenali Raman. With his vibrant robes fluttering in the gentle breeze, he stood before the grand palace, a mischievous smile dancing on his lips. Known for his quick wit and clever tricks, Tenali was no ordinary courtier; he was a master of turning everyday situations into delightful tales. His reputation for outsmarting even the wisest of men had spread far and wide. Today, as he prepared to engage in yet another playful encounter with the King, the warmth of the sun seemed to echo the joy in his heart. Little did he know, the day would unfold with challenges that would test his cleverness like never before!",
+        "learning_points": [
+          "The importance of wit and intelligence in problem-solving.",
+          "How humor can brighten the mood and foster friendships.",
+          "The value of being resourceful in difficult situations."
+        ],
+        "source_notes": "Inspired by traditional stories of Tenali Raman, a historical figure known for his wisdom and humor.",
+        "hotspots": [
+          {
+            "label": "Tenali Raman",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "tenali_raman",
+            "x": 50,
+            "y": 70,
+            "width": 10,
+            "height": 20,
+            "tooltip": "Meet the clever Tenali Raman!",
+            "quick_speak": "Hello! Ready for some fun?",
+            "id": "hs-introduction_character-0"
+          },
+          {
+            "label": "The King",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "the_king",
+            "x": 70,
+            "y": 70,
+            "width": 10,
+            "height": 20,
+            "tooltip": "The wise King who loves a good joke.",
+            "quick_speak": "What trick do you have for me today, Raman?",
+            "id": "hs-introduction_character-1"
+          }
+        ],
+        "quiz_questions": [
+          {
+            "question": "What is Tenali Raman known for?",
+            "options": [
+              "His strength in battle",
+              "His clever tricks",
+              "His musical talent",
+              "His cooking skills"
+            ],
+            "correct_answer": 1,
+            "explanation": "Tenali Raman is famous for his clever tricks and wit, often using them to solve problems and entertain the King.",
+            "id": "quiz-introduction_character-0",
+            "scene_id": "introduction_character"
+          }
+        ],
+        "previous_scene_id": "introduction_world",
+        "next_scene_id": "central_conflict",
+        "mood": "joyful",
+        "theme": "wit",
+        "characters_present": [
+          "tenali_raman"
+        ],
+        "characters_absent": [],
+        "motion": "slow_zoom_in",
+        "duration_seconds": 54,
+        "beats": [
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/ea9ba62f8f3bb58ea600188bd53fa27c9acb0bc4.png",
+            "visualDescription": "Tenali Raman stands confidently in front of the palace, wearing vibrant traditional attire, with a mischievous smile."
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/9a7aafcd9cca7fe0695b9c311677bbad6c6a7a44.png",
+            "visualDescription": "A close-up of Tenali Raman's face as he grins, his eyes sparkling with intelligence and mischief.",
+            "motion": "slow_zoom_in",
+            "shotType": "close_up",
+            "sfx": ""
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/20dae36ce777feeb78d5c17fa511b7993455265d.png",
+            "visualDescription": "A medium shot of Tenali Raman engaging with the townsfolk, sharing a joke as they laugh together.",
+            "motion": "pan_left",
+            "shotType": "medium",
+            "sfx": ""
+          }
+        ],
+        "dialogue": [
+          {
+            "speaker": "tenali_raman",
+            "text": "Life is a puzzle, and I love solving it!",
+            "kind": "speech"
+          }
+        ],
+        "ambient_sound": "night_crickets",
+        "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/introduction_character.wav",
+        "audio_provider": "sarvam"
+      },
+      {
+        "scene_id": "central_conflict",
+        "title": "The King's Challenge",
+        "order_index": 3,
+        "short_summary": "The king announces a challenge to find the wisest man in the kingdom, setting the stage for Tenali's cleverness.",
+        "visual_description": "Inside the grand palace hall, the king sits on his throne, addressing a crowd of courtiers and townsfolk with an air of authority.",
+        "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/cbf75334d9adac341d174682b9e7e1823014f99a.png",
+        "narration": "In the grand hall of the palace, the air was thick with anticipation as the king, adorned in his regal attire, sat upon his magnificent throne. His voice boomed through the chamber, compelling the attention of every courtier and townsfolk present. 'Hear me, my loyal subjects!' he declared, his eyes gleaming with authority. 'I seek the wisest man in the kingdom! A challenge shall be set, and the cleverest among you shall be rewarded handsomely.' The crowd murmured with excitement and nervousness, for the challenge would test not only their intellect but their cunning as well. Among them stood Tenali Raman, a humble man with a sharp wit. As he listened intently, a spark of determination ignited within him. Could he rise to the occasion and prove his wisdom once again? The tension in the room was palpable, as everyone awaited the details of the king's challenge, and the fate of their kingdom hung in the balance.",
+        "learning_points": [
+          "Wisdom can be found in unexpected places.",
+          "Challenges often bring out the best in people.",
+          "Cleverness is as valuable as strength."
+        ],
+        "source_notes": "Inspired by the tales of Tenali Raman, a legendary figure known for his intelligence and wit.",
+        "hotspots": [
+          {
+            "label": "The King",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "king",
+            "x": 50,
+            "y": 20,
+            "width": 10,
+            "height": 15,
+            "tooltip": "The authoritative king",
+            "quick_speak": "I declare a challenge!",
+            "id": "hs-central_conflict-0"
+          },
+          {
+            "label": "Tenali Raman",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "tenali_raman",
+            "x": 30,
+            "y": 50,
+            "width": 10,
+            "height": 15,
+            "tooltip": "The clever challenger",
+            "quick_speak": "I must think fast!",
+            "id": "hs-central_conflict-1"
+          }
+        ],
+        "quiz_questions": [
+          {
+            "question": "What is the king searching for?",
+            "options": [
+              "The strongest warrior",
+              "The wisest man",
+              "The fastest runner",
+              "The best musician"
+            ],
+            "correct_answer": 1,
+            "explanation": "The king is seeking the wisest man in the kingdom to present a challenge.",
+            "id": "quiz-central_conflict-0",
+            "scene_id": "central_conflict"
+          }
+        ],
+        "previous_scene_id": "introduction_character",
+        "next_scene_id": "rising_action",
+        "mood": "tense",
+        "theme": "challenge",
+        "characters_present": [
+          "king",
+          "tenali_raman"
+        ],
+        "characters_absent": [],
+        "motion": "pan_left",
+        "duration_seconds": 65,
+        "beats": [
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/cbf75334d9adac341d174682b9e7e1823014f99a.png",
+            "visualDescription": "Inside the grand palace hall, the king sits on his throne, addressing a crowd of courtiers and townsfolk with an air of authority."
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/3f9d77a8fe77d99b720ac3ffef3573c052aedf25.png",
+            "visualDescription": "A medium shot of the king raising his hand, commanding attention as he speaks boldly.",
+            "motion": "battle_push",
+            "shotType": "medium",
+            "sfx": ""
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/d019dd4c2bcdbd8f4939dd1f20916a89d75d06c8.png",
+            "visualDescription": "A reaction shot of the courtiers' faces, filled with surprise and intrigue at the king's announcement.",
+            "motion": "slow_zoom_in",
+            "shotType": "reaction",
+            "sfx": ""
+          }
+        ],
+        "dialogue": [
+          {
+            "speaker": "king",
+            "text": "I seek the wisest among you to solve a riddle!",
+            "kind": "speech"
+          },
+          {
+            "speaker": "tenali_raman",
+            "text": "A riddle? Count me in!",
+            "kind": "speech"
+          }
+        ],
+        "ambient_sound": "palace_hall",
+        "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/central_conflict.wav",
+        "audio_provider": "sarvam"
+      },
+      {
+        "scene_id": "rising_action",
+        "title": "The Riddle of the King",
+        "order_index": 4,
+        "short_summary": "Tenali Raman faces the king's complex riddle, showcasing his cleverness and wit.",
+        "visual_description": "The setting shifts to a tense atmosphere in the palace courtyard where the crowd gathers to witness the challenge.",
+        "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/69a430cad46e5f068a91aa5dcaf411ae4f870d5e.png",
+        "narration": "In the heart of the grand palace, a hush fell over the crowd as Tenali Raman stood before the king, confidence radiating from him like the sun breaking through a stormy sky. The king, a figure of authority cloaked in regal splendor, presented a riddle that twisted and turned like the intricate patterns of a peacock's feather. The tension in the air was palpable, as the onlookers leaned in closer, their breaths held in anticipation. Would the clever Raman unravel the king's intricate puzzle, or would he falter under the weight of the challenge? With his mind racing and his heart steady, Tenali Raman prepared to engage in a battle of wits that would determine not only his fate but also the whispers of wisdom that danced around the court. The crowd buzzed with excitement, their eyes wide with hope and curiosity, as the moment of truth approached. This was not just a test of intelligence; it was a showcase of the brilliance that lay within the heart of a true thinker.",
+        "learning_points": [
+          "Cleverness can solve complex problems.",
+          "Confidence is key in the face of challenges.",
+          "The importance of wit in communication."
+        ],
+        "source_notes": "Inspired by traditional tales of Tenali Raman, emphasizing his cleverness and intelligence.",
+        "hotspots": [
+          {
+            "label": "Tenali Raman",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "tenali_raman",
+            "x": 30,
+            "y": 50,
+            "width": 10,
+            "height": 20,
+            "tooltip": "The clever thinker ready to face the riddle.",
+            "quick_speak": "I will unravel this riddle, just watch!",
+            "id": "hs-rising_action-0"
+          },
+          {
+            "label": "The King",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "the_king",
+            "x": 70,
+            "y": 50,
+            "width": 10,
+            "height": 20,
+            "tooltip": "The ruler who presents the challenge.",
+            "quick_speak": "Can you solve my riddle, Tenali?",
+            "id": "hs-rising_action-1"
+          }
+        ],
+        "quiz_questions": [
+          {
+            "question": "What is the key quality displayed by Tenali Raman in this scene?",
+            "options": [
+              "Bravery",
+              "Cleverness",
+              "Strength",
+              "Fearlessness"
+            ],
+            "correct_answer": 1,
+            "explanation": "Tenali Raman uses his cleverness to tackle the king's riddle.",
+            "id": "quiz-rising_action-0",
+            "scene_id": "rising_action"
+          },
+          {
+            "question": "What does the crowd's reaction signify?",
+            "options": [
+              "Boredom",
+              "Excitement",
+              "Indifference",
+              "Fear"
+            ],
+            "correct_answer": 1,
+            "explanation": "The crowd is excited and eager to see how Tenali will respond.",
+            "id": "quiz-rising_action-1",
+            "scene_id": "rising_action"
+          }
+        ],
+        "previous_scene_id": "central_conflict",
+        "next_scene_id": "turning_point",
+        "mood": "dramatic",
+        "theme": "wit",
+        "characters_present": [
+          "king",
+          "tenali_raman"
+        ],
+        "characters_absent": [],
+        "motion": "slow_zoom_in",
+        "duration_seconds": 71,
+        "beats": [
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/69a430cad46e5f068a91aa5dcaf411ae4f870d5e.png",
+            "visualDescription": "The setting shifts to a tense atmosphere in the palace courtyard where the crowd gathers to witness the challenge."
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/f6125a395a8147100aa2dcd388da107367e8956e.png",
+            "visualDescription": "A wide shot of the crowd, whispering and pointing at Tenali, who stands confidently before the king.",
+            "motion": "pan_left",
+            "shotType": "wide",
+            "sfx": "crowd_murmur"
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/b708866eae6df0936976879857d11705a9f6cac9.png",
+            "visualDescription": "A close-up of Tenali Raman's thoughtful expression as he considers the riddle, his brow furrowed in concentration.",
+            "motion": "slow_zoom_in",
+            "shotType": "close_up",
+            "sfx": ""
+          }
+        ],
+        "dialogue": [
+          {
+            "speaker": "king",
+            "text": "What is greater than God, more evil than the devil?",
+            "kind": "speech"
+          },
+          {
+            "speaker": "tenali_raman",
+            "text": "Hmm... I must think carefully.",
+            "kind": "thought"
+          }
+        ],
+        "ambient_sound": "crowd_murmur",
+        "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/rising_action.wav",
+        "audio_provider": "sarvam"
+      },
+      {
+        "scene_id": "turning_point",
+        "title": "The Clever Answer",
+        "order_index": 5,
+        "short_summary": "Tenali Raman cleverly answers the riddle, surprising the king and the crowd.",
+        "visual_description": "The atmosphere is charged as Tenali stands tall, ready to reveal his answer while the crowd waits in anticipation.",
+        "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/13905b2ffe4def9054db6ffb8ef00f850b46a4ca.png",
+        "narration": "In the grand hall, silence enveloped the crowd like a thick fog, anticipation crackling in the air. The King, his brow furrowed with curiosity, leaned forward on his throne, his eyes locked onto Tenali Raman. The clever man stood confidently, a slight smile playing on his lips, as he prepared to unveil his answer to the riddle that had stumped many. The tension was palpable; even the courtiers held their breath, eager to witness the brilliance of Tenali's mind. With a dramatic pause, he began to speak, each word carefully crafted to not only answer the riddle but to weave a tale that would echo in the hearts of all who listened. The crowd leaned in, their collective heartbeat synchronizing with the rhythm of his voice, brimming with excitement and wonder. Would Tenali's wit shine through once more, or would the King remain unconvinced? The moment hung in the balance, waiting for the spark of genius to ignite it.",
+        "learning_points": [
+          "The importance of thinking critically to solve problems.",
+          "How cleverness can turn the tides in challenging situations.",
+          "The impact of confidence when presenting ideas."
+        ],
+        "source_notes": "This scene showcases Tenali Raman's wit and intelligence, highlighting his ability to engage and surprise both the King and the audience.",
+        "hotspots": [
+          {
+            "label": "Tenali Raman",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "tenali_raman",
+            "x": 50,
+            "y": 60,
+            "width": 10,
+            "height": 20,
+            "tooltip": "The clever protagonist",
+            "quick_speak": "I have the answer!",
+            "id": "hs-turning_point-0"
+          },
+          {
+            "label": "The King",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "the_king",
+            "x": 50,
+            "y": 30,
+            "width": 10,
+            "height": 20,
+            "tooltip": "The ruler curious about the answer",
+            "quick_speak": "What will your answer be, Tenali?",
+            "id": "hs-turning_point-1"
+          }
+        ],
+        "quiz_questions": [
+          {
+            "question": "What did Tenali Raman use to answer the riddle?",
+            "options": [
+              "His cleverness",
+              "A book of riddles",
+              "The King's hints",
+              "Help from the crowd"
+            ],
+            "correct_answer": 0,
+            "explanation": "Tenali Raman relied on his cleverness and quick wit to solve the riddle.",
+            "id": "quiz-turning_point-0",
+            "scene_id": "turning_point"
+          }
+        ],
+        "previous_scene_id": "rising_action",
+        "next_scene_id": "resolution",
+        "mood": "dramatic",
+        "theme": "wit",
+        "characters_present": [
+          "king",
+          "tenali_raman"
+        ],
+        "characters_absent": [],
+        "motion": "slow_zoom_in",
+        "duration_seconds": 66,
+        "beats": [
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/13905b2ffe4def9054db6ffb8ef00f850b46a4ca.png",
+            "visualDescription": "The atmosphere is charged as Tenali stands tall, ready to reveal his answer while the crowd waits in anticipation."
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/b497f5eb7ea806085eb0824947e34b77baa3647f.png",
+            "visualDescription": "A medium shot of Tenali Raman confidently raising his finger to speak, capturing the attention of everyone present.",
+            "motion": "battle_push",
+            "shotType": "medium",
+            "sfx": ""
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/e3401daddf4ac05ce232f4cb5d7e3c859de12a35.png",
+            "visualDescription": "A close-up of the king's face, displaying surprise and intrigue as he awaits the answer.",
+            "motion": "slow_zoom_in",
+            "shotType": "close_up",
+            "sfx": ""
+          }
+        ],
+        "dialogue": [
+          {
+            "speaker": "tenali_raman",
+            "text": "The answer is nothing! It is greater than God and more evil than the devil.",
+            "kind": "speech"
+          }
+        ],
+        "ambient_sound": "",
+        "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/turning_point.wav",
+        "audio_provider": "sarvam"
+      },
+      {
+        "scene_id": "resolution",
+        "title": "The King’s Approval",
+        "order_index": 6,
+        "short_summary": "The king, impressed by Tenali's answer, declares him the wisest man in the kingdom.",
+        "visual_description": "The king smiles broadly, extending his hand to Tenali Raman in approval, while the crowd erupts in applause.",
+        "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/481c7203e01eede30183332050860f21a5a954f6.png",
+        "narration": "In the grand hall of the kingdom, a buzz of excitement filled the air as the king, his eyes twinkling with admiration, turned to Tenali Raman. The wise man had just delivered an answer so clever that it left everyone in awe. With a broad smile breaking across his face, the king extended his hand towards Tenali, inviting him forward. The crowd, filled with subjects, officials, and curious onlookers, erupted into applause, their cheers echoing against the stone walls. 'From this day forth,' the king proclaimed, 'Tenali Raman shall be known as the wisest man in all my kingdom!' The joy of the moment was palpable, a celebration of wit and wisdom that brought everyone together in a shared sense of pride and happiness. Tenali, humbled yet elated, accepted the king's approval with a gracious bow, knowing that his cleverness had not only won him accolades but also the hearts of his fellow citizens.",
+        "learning_points": [
+          "Wisdom can come from unexpected places.",
+          "Cleverness and creativity are valuable traits.",
+          "Recognition can inspire and uplift a community."
+        ],
+        "source_notes": "This scene emphasizes the joy of recognition and the value of intellect in a lighthearted manner, fitting for a children's story.",
+        "hotspots": [
+          {
+            "label": "Tenali Raman",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "tenali_raman",
+            "x": 40,
+            "y": 50,
+            "width": 10,
+            "height": 20,
+            "tooltip": "The clever and witty Tenali Raman.",
+            "quick_speak": "Thank you, Your Majesty!",
+            "id": "hs-resolution-0"
+          },
+          {
+            "label": "The King",
+            "hotspot_type": "character",
+            "target_type": "character",
+            "target_id": "the_king",
+            "x": 60,
+            "y": 50,
+            "width": 10,
+            "height": 20,
+            "tooltip": "The wise and kind ruler of the kingdom.",
+            "quick_speak": "You have made me proud, Tenali!",
+            "id": "hs-resolution-1"
+          }
+        ],
+        "quiz_questions": [
+          {
+            "question": "What title did the king give to Tenali Raman?",
+            "options": [
+              "The Cleverest Man",
+              "The Wisest Man",
+              "The Bravest Man",
+              "The Kindest Man"
+            ],
+            "correct_answer": 1,
+            "explanation": "The king declared Tenali Raman as the wisest man in the kingdom due to his clever answer.",
+            "id": "quiz-resolution-0",
+            "scene_id": "resolution"
+          }
+        ],
+        "previous_scene_id": "turning_point",
+        "next_scene_id": null,
+        "mood": "joyful",
+        "theme": "recognition",
+        "characters_present": [
+          "king",
+          "tenali_raman"
+        ],
+        "characters_absent": [],
+        "motion": "slow_zoom_in",
+        "duration_seconds": 64,
+        "beats": [
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/481c7203e01eede30183332050860f21a5a954f6.png",
+            "visualDescription": "The king smiles broadly, extending his hand to Tenali Raman in approval, while the crowd erupts in applause."
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/1fef0c8afbf7802da600336a9abe25117838e776.png",
+            "visualDescription": "A wide shot of the crowd cheering and clapping for Tenali, their faces filled with admiration and joy.",
+            "motion": "pan_right",
+            "shotType": "wide",
+            "sfx": "crowd_murmur"
+          },
+          {
+            "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/04fa4082444a8c99dbb28a70f23386faf34dc415.png",
+            "visualDescription": "A close-up of Tenali Raman's beaming face, filled with pride and joy at the king's recognition.",
+            "motion": "slow_zoom_in",
+            "shotType": "close_up",
+            "sfx": ""
+          }
+        ],
+        "dialogue": [
+          {
+            "speaker": "king",
+            "text": "You have proven yourself, Tenali Raman. You are indeed the wisest!",
+            "kind": "speech"
+          },
+          {
+            "speaker": "tenali_raman",
+            "text": "Thank you, my king! Wisdom comes from learning, not just knowing.",
+            "kind": "speech"
+          }
+        ],
+        "ambient_sound": "crowd_murmur",
+        "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/resolution.wav",
+        "audio_provider": "sarvam"
+      }
+    ],
+    "characters": [
+      {
+        "slug": "tenali_raman",
+        "name": "Tenali Raman",
+        "role": "witty courtier",
+        "short_summary": "A clever and witty courtier in the kingdom of Vijayanagara, known for his intelligence and quick thinking.",
+        "traits": [
+          "intelligent",
+          "humorous",
+          "resourceful"
+        ],
+        "speech_tone": "witty and quick",
+        "talk_examples": [
+          "I love solving puzzles!",
+          "Life is a challenge, let's embrace it!"
+        ],
+        "source_notes": "Inspired by popular folklore in India.",
+        "voice_archetype": "bright-male",
+        "appearance": "Tenali Raman is a young man in his late twenties with a warm brown skin tone. His hair is dark and curly, falling just above his shoulders. He has expressive dark eyes that sparkle with intelligence and a sharp jawline. He typically wears a vibrant dhoti and kurta in rich colors, adorned with intricate patterns, along with a matching scarf draped over one shoulder. His playful demeanor is complemented by a mischievous smile.",
+        "aliases": [
+          "Raman",
+          "Raman the Witty"
+        ],
+        "divine": false,
+        "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman-portraits/5a26b677d2aebfacd073a0d5798d267e5901f950.png"
+      },
+      {
+        "slug": "king",
+        "name": "The King",
+        "role": "ruler",
+        "short_summary": "The wise king of Vijayanagara, who values intelligence and cleverness.",
+        "traits": [
+          "authoritative",
+          "wise",
+          "fair"
+        ],
+        "speech_tone": "commanding",
+        "talk_examples": [
+          "I seek the wisest among you!",
+          "Show me your worth!"
+        ],
+        "source_notes": "A fictional representation of a historical king.",
+        "voice_archetype": "commanding-male",
+        "appearance": "The King is an imposing figure in his late forties with a regal bearing. He has a light brown skin tone and a strong build. His hair is black, neatly combed back, and he sports a well-groomed beard. He wears a majestic royal robe embellished with gold embroidery and a crown that signifies his authority. His piercing eyes reflect wisdom and determination.",
+        "aliases": [
+          "Majesty",
+          "Sire"
+        ],
+        "divine": false,
+        "anchor_image_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman-portraits/df21ab33cf3ee985e2a6d9a8b7362c53c684662c.png"
+      }
+    ],
+    "generatedAt": 1779464119008,
+    "qualityScore": {
+      "totalScore": 80.15901959215525,
+      "maxPossible": 100,
+      "perCategory": {
+        "coherence": {
+          "name": "coherence",
+          "score": 83.57607282184655,
+          "weight": 12,
+          "comment": "How well the scenes form a unified narrative arc."
+        },
+        "originality": {
+          "name": "originality",
+          "score": 78.10143042912874,
+          "weight": 6,
+          "comment": "How fresh and non-generic the storytelling feels."
+        },
+        "ageFit": {
+          "name": "ageFit",
+          "score": 80,
+          "weight": 8,
+          "comment": "Whether vocabulary and content match the intended age group."
+        },
+        "culturalFit": {
+          "name": "culturalFit",
+          "score": 75,
+          "weight": 8,
+          "comment": "Whether visual and narrative details match the title's cultural context."
+        },
+        "characterConsistency": {
+          "name": "characterConsistency",
+          "score": 80,
+          "weight": 10,
+          "comment": "Whether characters have stable appearances, traits, and voices."
+        },
+        "sceneContinuity": {
+          "name": "sceneContinuity",
+          "score": 85,
+          "weight": 10,
+          "comment": "Whether scene ordering and previous/next links are coherent."
+        },
+        "visualPromptQuality": {
+          "name": "visualPromptQuality",
+          "score": 60,
+          "weight": 7,
+          "comment": "Whether visual descriptions are vivid enough for image generation."
+        },
+        "interactionRichness": {
+          "name": "interactionRichness",
+          "score": 85,
+          "weight": 6,
+          "comment": "Density of clickable hotspots, quizzes, and learning content."
+        },
+        "educationalValue": {
+          "name": "educationalValue",
+          "score": 80,
+          "weight": 5,
+          "comment": "Presence of learning points, quizzes, and moral takeaways."
+        },
+        "safety": {
+          "name": "safety",
+          "score": 100,
+          "weight": 12,
+          "comment": "Absence of graphic violence, sexual content, hate speech, and unsafe material."
+        },
+        "repetition": {
+          "name": "repetition",
+          "score": 50.646950092421434,
+          "weight": 8,
+          "comment": "How much the text reuses the same words and phrases across scenes."
+        },
+        "endingQuality": {
+          "name": "endingQuality",
+          "score": 90,
+          "weight": 8,
+          "comment": "Whether the final scene provides resolution, lesson, or closure."
+        },
+        "movieReadiness": {
+          "name": "movieReadiness",
+          "score": 80,
+          "weight": 5,
+          "comment": "Whether every scene has images, mood tags, and narration of playable length."
+        }
+      },
+      "warnings": [],
+      "regenerationSuggestions": [],
+      "isSafeToShow": true,
+      "passThreshold": 60
+    },
+    "accuracyLabel": "CREATIVE_RETELLING",
+    "mode": "world",
+    "visibility": "public",
+    "movieStatus": "ready",
+    "updatedAt": 1779464119011
+  },
+  "scenes": [
+    {
+      "scene_id": "introduction_world",
+      "title": "The Kingdom of Vijayanagara",
+      "order_index": 1,
+      "short_summary": "The story begins in the vibrant kingdom of Vijayanagara, setting the stage for Tenali Raman's adventures.",
+      "visual_description": "A panoramic view of the bustling city of Vijayanagara, with palaces and markets, people in traditional attire, and the sun shining brightly.",
+      "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/c87ce9e06229c2f8497a04e7eb1feb62db283135.png",
+      "narration": "In the heart of the vibrant kingdom of Vijayanagara, the sun shone brightly over the bustling markets and grand palaces. The air was filled with the sounds of laughter, chatter, and the delightful aroma of delicious street food. People dressed in colorful traditional attire moved about, exchanging greetings and smiles, their faces reflecting the joy of everyday life. Among them was the clever and witty Tenali Raman, known for his sharp mind and quick solutions to the kingdom's troubles. He walked through the market, observing the lively exchanges and the vibrant atmosphere, ready for the adventures that lay ahead. The King, wise and benevolent, watched over his people from his splendid palace, ensuring peace and happiness flourished in his realm. This was a place where stories unfolded, and wisdom prevailed, setting the perfect stage for Tenali Raman's clever escapades.",
+      "learning_points": [
+        "The importance of community and joy in daily life.",
+        "The value of wit and intelligence in solving problems.",
+        "Understanding the diverse cultural heritage of Vijayanagara."
+      ],
+      "source_notes": "The opening scene introduces the vibrant setting of Vijayanagara, focusing on the joyful atmosphere and key characters.",
+      "hotspots": [
+        {
+          "label": "Tenali Raman",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "tenali_raman",
+          "x": 30,
+          "y": 50,
+          "width": 10,
+          "height": 15,
+          "tooltip": "Meet Tenali Raman, the clever hero!",
+          "quick_speak": "Hello! Ready for some adventures?",
+          "id": "hs-introduction_world-0"
+        },
+        {
+          "label": "The King",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "the_king",
+          "x": 70,
+          "y": 40,
+          "width": 10,
+          "height": 15,
+          "tooltip": "Gaze upon the wise King of Vijayanagara.",
+          "quick_speak": "Welcome to my kingdom!",
+          "id": "hs-introduction_world-1"
+        }
+      ],
+      "quiz_questions": [
+        {
+          "question": "What is the atmosphere like in the kingdom of Vijayanagara?",
+          "options": [
+            "Joyful and vibrant",
+            "Dark and gloomy",
+            "Silent and empty",
+            "Chaotic and disorganized"
+          ],
+          "correct_answer": 0,
+          "explanation": "The kingdom is described as bustling with laughter, chatter, and vibrant life.",
+          "id": "quiz-introduction_world-0",
+          "scene_id": "introduction_world"
+        }
+      ],
+      "previous_scene_id": null,
+      "next_scene_id": "introduction_character",
+      "mood": "joyful",
+      "theme": "community",
+      "characters_present": [],
+      "characters_absent": [],
+      "motion": "slow_zoom_in",
+      "duration_seconds": 58,
+      "beats": [
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/c87ce9e06229c2f8497a04e7eb1feb62db283135.png",
+          "visualDescription": "A panoramic view of the bustling city of Vijayanagara, with palaces and markets, people in traditional attire, and the sun shining brightly."
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/44eb13e9f0c723cfd725b4382bb41608c7726d78.png",
+          "visualDescription": "A medium shot of children playing in the market, their laughter filling the air as they chase each other.",
+          "motion": "pan_right",
+          "shotType": "medium",
+          "sfx": ""
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/6999156f6d6250a0276a55696e2a5c702df10f3e.png",
+          "visualDescription": "A close-up of a merchant selling colorful spices, his hands animatedly gesturing as he promotes his goods.",
+          "motion": "slow_zoom_in",
+          "shotType": "close_up",
+          "sfx": ""
+        }
+      ],
+      "ambient_sound": "market_chatter",
+      "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/introduction_world.wav",
+      "audio_provider": "sarvam",
+      "savedAt": 1779464217304,
+      "imageStatus": "completed",
+      "ttsStatus": "completed"
+    },
+    {
+      "scene_id": "introduction_character",
+      "title": "Meet Tenali Raman",
+      "order_index": 2,
+      "short_summary": "We are introduced to Tenali Raman, a witty and resourceful courtier known for his clever tricks.",
+      "visual_description": "Tenali Raman stands confidently in front of the palace, wearing vibrant traditional attire, with a mischievous smile.",
+      "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/ea9ba62f8f3bb58ea600188bd53fa27c9acb0bc4.png",
+      "narration": "In the bustling kingdom of Vijayanagara, where the sun shines brightly and laughter fills the air, there lived a man named Tenali Raman. With his vibrant robes fluttering in the gentle breeze, he stood before the grand palace, a mischievous smile dancing on his lips. Known for his quick wit and clever tricks, Tenali was no ordinary courtier; he was a master of turning everyday situations into delightful tales. His reputation for outsmarting even the wisest of men had spread far and wide. Today, as he prepared to engage in yet another playful encounter with the King, the warmth of the sun seemed to echo the joy in his heart. Little did he know, the day would unfold with challenges that would test his cleverness like never before!",
+      "learning_points": [
+        "The importance of wit and intelligence in problem-solving.",
+        "How humor can brighten the mood and foster friendships.",
+        "The value of being resourceful in difficult situations."
+      ],
+      "source_notes": "Inspired by traditional stories of Tenali Raman, a historical figure known for his wisdom and humor.",
+      "hotspots": [
+        {
+          "label": "Tenali Raman",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "tenali_raman",
+          "x": 50,
+          "y": 70,
+          "width": 10,
+          "height": 20,
+          "tooltip": "Meet the clever Tenali Raman!",
+          "quick_speak": "Hello! Ready for some fun?",
+          "id": "hs-introduction_character-0"
+        },
+        {
+          "label": "The King",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "the_king",
+          "x": 70,
+          "y": 70,
+          "width": 10,
+          "height": 20,
+          "tooltip": "The wise King who loves a good joke.",
+          "quick_speak": "What trick do you have for me today, Raman?",
+          "id": "hs-introduction_character-1"
+        }
+      ],
+      "quiz_questions": [
+        {
+          "question": "What is Tenali Raman known for?",
+          "options": [
+            "His strength in battle",
+            "His clever tricks",
+            "His musical talent",
+            "His cooking skills"
+          ],
+          "correct_answer": 1,
+          "explanation": "Tenali Raman is famous for his clever tricks and wit, often using them to solve problems and entertain the King.",
+          "id": "quiz-introduction_character-0",
+          "scene_id": "introduction_character"
+        }
+      ],
+      "previous_scene_id": "introduction_world",
+      "next_scene_id": "central_conflict",
+      "mood": "joyful",
+      "theme": "wit",
+      "characters_present": [
+        "tenali_raman"
+      ],
+      "characters_absent": [],
+      "motion": "slow_zoom_in",
+      "duration_seconds": 54,
+      "beats": [
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/ea9ba62f8f3bb58ea600188bd53fa27c9acb0bc4.png",
+          "visualDescription": "Tenali Raman stands confidently in front of the palace, wearing vibrant traditional attire, with a mischievous smile."
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/9a7aafcd9cca7fe0695b9c311677bbad6c6a7a44.png",
+          "visualDescription": "A close-up of Tenali Raman's face as he grins, his eyes sparkling with intelligence and mischief.",
+          "motion": "slow_zoom_in",
+          "shotType": "close_up",
+          "sfx": ""
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/20dae36ce777feeb78d5c17fa511b7993455265d.png",
+          "visualDescription": "A medium shot of Tenali Raman engaging with the townsfolk, sharing a joke as they laugh together.",
+          "motion": "pan_left",
+          "shotType": "medium",
+          "sfx": ""
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "tenali_raman",
+          "text": "Life is a puzzle, and I love solving it!",
+          "kind": "speech"
+        }
+      ],
+      "ambient_sound": "night_crickets",
+      "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/introduction_character.wav",
+      "audio_provider": "sarvam",
+      "savedAt": 1779464217304,
+      "imageStatus": "completed",
+      "ttsStatus": "completed"
+    },
+    {
+      "scene_id": "central_conflict",
+      "title": "The King's Challenge",
+      "order_index": 3,
+      "short_summary": "The king announces a challenge to find the wisest man in the kingdom, setting the stage for Tenali's cleverness.",
+      "visual_description": "Inside the grand palace hall, the king sits on his throne, addressing a crowd of courtiers and townsfolk with an air of authority.",
+      "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/cbf75334d9adac341d174682b9e7e1823014f99a.png",
+      "narration": "In the grand hall of the palace, the air was thick with anticipation as the king, adorned in his regal attire, sat upon his magnificent throne. His voice boomed through the chamber, compelling the attention of every courtier and townsfolk present. 'Hear me, my loyal subjects!' he declared, his eyes gleaming with authority. 'I seek the wisest man in the kingdom! A challenge shall be set, and the cleverest among you shall be rewarded handsomely.' The crowd murmured with excitement and nervousness, for the challenge would test not only their intellect but their cunning as well. Among them stood Tenali Raman, a humble man with a sharp wit. As he listened intently, a spark of determination ignited within him. Could he rise to the occasion and prove his wisdom once again? The tension in the room was palpable, as everyone awaited the details of the king's challenge, and the fate of their kingdom hung in the balance.",
+      "learning_points": [
+        "Wisdom can be found in unexpected places.",
+        "Challenges often bring out the best in people.",
+        "Cleverness is as valuable as strength."
+      ],
+      "source_notes": "Inspired by the tales of Tenali Raman, a legendary figure known for his intelligence and wit.",
+      "hotspots": [
+        {
+          "label": "The King",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "king",
+          "x": 50,
+          "y": 20,
+          "width": 10,
+          "height": 15,
+          "tooltip": "The authoritative king",
+          "quick_speak": "I declare a challenge!",
+          "id": "hs-central_conflict-0"
+        },
+        {
+          "label": "Tenali Raman",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "tenali_raman",
+          "x": 30,
+          "y": 50,
+          "width": 10,
+          "height": 15,
+          "tooltip": "The clever challenger",
+          "quick_speak": "I must think fast!",
+          "id": "hs-central_conflict-1"
+        }
+      ],
+      "quiz_questions": [
+        {
+          "question": "What is the king searching for?",
+          "options": [
+            "The strongest warrior",
+            "The wisest man",
+            "The fastest runner",
+            "The best musician"
+          ],
+          "correct_answer": 1,
+          "explanation": "The king is seeking the wisest man in the kingdom to present a challenge.",
+          "id": "quiz-central_conflict-0",
+          "scene_id": "central_conflict"
+        }
+      ],
+      "previous_scene_id": "introduction_character",
+      "next_scene_id": "rising_action",
+      "mood": "tense",
+      "theme": "challenge",
+      "characters_present": [
+        "king",
+        "tenali_raman"
+      ],
+      "characters_absent": [],
+      "motion": "pan_left",
+      "duration_seconds": 65,
+      "beats": [
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/cbf75334d9adac341d174682b9e7e1823014f99a.png",
+          "visualDescription": "Inside the grand palace hall, the king sits on his throne, addressing a crowd of courtiers and townsfolk with an air of authority."
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/3f9d77a8fe77d99b720ac3ffef3573c052aedf25.png",
+          "visualDescription": "A medium shot of the king raising his hand, commanding attention as he speaks boldly.",
+          "motion": "battle_push",
+          "shotType": "medium",
+          "sfx": ""
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/d019dd4c2bcdbd8f4939dd1f20916a89d75d06c8.png",
+          "visualDescription": "A reaction shot of the courtiers' faces, filled with surprise and intrigue at the king's announcement.",
+          "motion": "slow_zoom_in",
+          "shotType": "reaction",
+          "sfx": ""
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "king",
+          "text": "I seek the wisest among you to solve a riddle!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "tenali_raman",
+          "text": "A riddle? Count me in!",
+          "kind": "speech"
+        }
+      ],
+      "ambient_sound": "palace_hall",
+      "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/central_conflict.wav",
+      "audio_provider": "sarvam",
+      "savedAt": 1779464217304,
+      "imageStatus": "completed",
+      "ttsStatus": "completed"
+    },
+    {
+      "scene_id": "rising_action",
+      "title": "The Riddle of the King",
+      "order_index": 4,
+      "short_summary": "Tenali Raman faces the king's complex riddle, showcasing his cleverness and wit.",
+      "visual_description": "The setting shifts to a tense atmosphere in the palace courtyard where the crowd gathers to witness the challenge.",
+      "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/69a430cad46e5f068a91aa5dcaf411ae4f870d5e.png",
+      "narration": "In the heart of the grand palace, a hush fell over the crowd as Tenali Raman stood before the king, confidence radiating from him like the sun breaking through a stormy sky. The king, a figure of authority cloaked in regal splendor, presented a riddle that twisted and turned like the intricate patterns of a peacock's feather. The tension in the air was palpable, as the onlookers leaned in closer, their breaths held in anticipation. Would the clever Raman unravel the king's intricate puzzle, or would he falter under the weight of the challenge? With his mind racing and his heart steady, Tenali Raman prepared to engage in a battle of wits that would determine not only his fate but also the whispers of wisdom that danced around the court. The crowd buzzed with excitement, their eyes wide with hope and curiosity, as the moment of truth approached. This was not just a test of intelligence; it was a showcase of the brilliance that lay within the heart of a true thinker.",
+      "learning_points": [
+        "Cleverness can solve complex problems.",
+        "Confidence is key in the face of challenges.",
+        "The importance of wit in communication."
+      ],
+      "source_notes": "Inspired by traditional tales of Tenali Raman, emphasizing his cleverness and intelligence.",
+      "hotspots": [
+        {
+          "label": "Tenali Raman",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "tenali_raman",
+          "x": 30,
+          "y": 50,
+          "width": 10,
+          "height": 20,
+          "tooltip": "The clever thinker ready to face the riddle.",
+          "quick_speak": "I will unravel this riddle, just watch!",
+          "id": "hs-rising_action-0"
+        },
+        {
+          "label": "The King",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "the_king",
+          "x": 70,
+          "y": 50,
+          "width": 10,
+          "height": 20,
+          "tooltip": "The ruler who presents the challenge.",
+          "quick_speak": "Can you solve my riddle, Tenali?",
+          "id": "hs-rising_action-1"
+        }
+      ],
+      "quiz_questions": [
+        {
+          "question": "What is the key quality displayed by Tenali Raman in this scene?",
+          "options": [
+            "Bravery",
+            "Cleverness",
+            "Strength",
+            "Fearlessness"
+          ],
+          "correct_answer": 1,
+          "explanation": "Tenali Raman uses his cleverness to tackle the king's riddle.",
+          "id": "quiz-rising_action-0",
+          "scene_id": "rising_action"
+        },
+        {
+          "question": "What does the crowd's reaction signify?",
+          "options": [
+            "Boredom",
+            "Excitement",
+            "Indifference",
+            "Fear"
+          ],
+          "correct_answer": 1,
+          "explanation": "The crowd is excited and eager to see how Tenali will respond.",
+          "id": "quiz-rising_action-1",
+          "scene_id": "rising_action"
+        }
+      ],
+      "previous_scene_id": "central_conflict",
+      "next_scene_id": "turning_point",
+      "mood": "dramatic",
+      "theme": "wit",
+      "characters_present": [
+        "king",
+        "tenali_raman"
+      ],
+      "characters_absent": [],
+      "motion": "slow_zoom_in",
+      "duration_seconds": 71,
+      "beats": [
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/69a430cad46e5f068a91aa5dcaf411ae4f870d5e.png",
+          "visualDescription": "The setting shifts to a tense atmosphere in the palace courtyard where the crowd gathers to witness the challenge."
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/f6125a395a8147100aa2dcd388da107367e8956e.png",
+          "visualDescription": "A wide shot of the crowd, whispering and pointing at Tenali, who stands confidently before the king.",
+          "motion": "pan_left",
+          "shotType": "wide",
+          "sfx": "crowd_murmur"
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/b708866eae6df0936976879857d11705a9f6cac9.png",
+          "visualDescription": "A close-up of Tenali Raman's thoughtful expression as he considers the riddle, his brow furrowed in concentration.",
+          "motion": "slow_zoom_in",
+          "shotType": "close_up",
+          "sfx": ""
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "king",
+          "text": "What is greater than God, more evil than the devil?",
+          "kind": "speech"
+        },
+        {
+          "speaker": "tenali_raman",
+          "text": "Hmm... I must think carefully.",
+          "kind": "thought"
+        }
+      ],
+      "ambient_sound": "crowd_murmur",
+      "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/rising_action.wav",
+      "audio_provider": "sarvam",
+      "savedAt": 1779464217304,
+      "imageStatus": "completed",
+      "ttsStatus": "completed"
+    },
+    {
+      "scene_id": "turning_point",
+      "title": "The Clever Answer",
+      "order_index": 5,
+      "short_summary": "Tenali Raman cleverly answers the riddle, surprising the king and the crowd.",
+      "visual_description": "The atmosphere is charged as Tenali stands tall, ready to reveal his answer while the crowd waits in anticipation.",
+      "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/13905b2ffe4def9054db6ffb8ef00f850b46a4ca.png",
+      "narration": "In the grand hall, silence enveloped the crowd like a thick fog, anticipation crackling in the air. The King, his brow furrowed with curiosity, leaned forward on his throne, his eyes locked onto Tenali Raman. The clever man stood confidently, a slight smile playing on his lips, as he prepared to unveil his answer to the riddle that had stumped many. The tension was palpable; even the courtiers held their breath, eager to witness the brilliance of Tenali's mind. With a dramatic pause, he began to speak, each word carefully crafted to not only answer the riddle but to weave a tale that would echo in the hearts of all who listened. The crowd leaned in, their collective heartbeat synchronizing with the rhythm of his voice, brimming with excitement and wonder. Would Tenali's wit shine through once more, or would the King remain unconvinced? The moment hung in the balance, waiting for the spark of genius to ignite it.",
+      "learning_points": [
+        "The importance of thinking critically to solve problems.",
+        "How cleverness can turn the tides in challenging situations.",
+        "The impact of confidence when presenting ideas."
+      ],
+      "source_notes": "This scene showcases Tenali Raman's wit and intelligence, highlighting his ability to engage and surprise both the King and the audience.",
+      "hotspots": [
+        {
+          "label": "Tenali Raman",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "tenali_raman",
+          "x": 50,
+          "y": 60,
+          "width": 10,
+          "height": 20,
+          "tooltip": "The clever protagonist",
+          "quick_speak": "I have the answer!",
+          "id": "hs-turning_point-0"
+        },
+        {
+          "label": "The King",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "the_king",
+          "x": 50,
+          "y": 30,
+          "width": 10,
+          "height": 20,
+          "tooltip": "The ruler curious about the answer",
+          "quick_speak": "What will your answer be, Tenali?",
+          "id": "hs-turning_point-1"
+        }
+      ],
+      "quiz_questions": [
+        {
+          "question": "What did Tenali Raman use to answer the riddle?",
+          "options": [
+            "His cleverness",
+            "A book of riddles",
+            "The King's hints",
+            "Help from the crowd"
+          ],
+          "correct_answer": 0,
+          "explanation": "Tenali Raman relied on his cleverness and quick wit to solve the riddle.",
+          "id": "quiz-turning_point-0",
+          "scene_id": "turning_point"
+        }
+      ],
+      "previous_scene_id": "rising_action",
+      "next_scene_id": "resolution",
+      "mood": "dramatic",
+      "theme": "wit",
+      "characters_present": [
+        "king",
+        "tenali_raman"
+      ],
+      "characters_absent": [],
+      "motion": "slow_zoom_in",
+      "duration_seconds": 66,
+      "beats": [
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/13905b2ffe4def9054db6ffb8ef00f850b46a4ca.png",
+          "visualDescription": "The atmosphere is charged as Tenali stands tall, ready to reveal his answer while the crowd waits in anticipation."
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/b497f5eb7ea806085eb0824947e34b77baa3647f.png",
+          "visualDescription": "A medium shot of Tenali Raman confidently raising his finger to speak, capturing the attention of everyone present.",
+          "motion": "battle_push",
+          "shotType": "medium",
+          "sfx": ""
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/e3401daddf4ac05ce232f4cb5d7e3c859de12a35.png",
+          "visualDescription": "A close-up of the king's face, displaying surprise and intrigue as he awaits the answer.",
+          "motion": "slow_zoom_in",
+          "shotType": "close_up",
+          "sfx": ""
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "tenali_raman",
+          "text": "The answer is nothing! It is greater than God and more evil than the devil.",
+          "kind": "speech"
+        }
+      ],
+      "ambient_sound": "",
+      "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/turning_point.wav",
+      "audio_provider": "sarvam",
+      "savedAt": 1779464217304,
+      "imageStatus": "completed",
+      "ttsStatus": "completed"
+    },
+    {
+      "scene_id": "resolution",
+      "title": "The King’s Approval",
+      "order_index": 6,
+      "short_summary": "The king, impressed by Tenali's answer, declares him the wisest man in the kingdom.",
+      "visual_description": "The king smiles broadly, extending his hand to Tenali Raman in approval, while the crowd erupts in applause.",
+      "background_asset_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/481c7203e01eede30183332050860f21a5a954f6.png",
+      "narration": "In the grand hall of the kingdom, a buzz of excitement filled the air as the king, his eyes twinkling with admiration, turned to Tenali Raman. The wise man had just delivered an answer so clever that it left everyone in awe. With a broad smile breaking across his face, the king extended his hand towards Tenali, inviting him forward. The crowd, filled with subjects, officials, and curious onlookers, erupted into applause, their cheers echoing against the stone walls. 'From this day forth,' the king proclaimed, 'Tenali Raman shall be known as the wisest man in all my kingdom!' The joy of the moment was palpable, a celebration of wit and wisdom that brought everyone together in a shared sense of pride and happiness. Tenali, humbled yet elated, accepted the king's approval with a gracious bow, knowing that his cleverness had not only won him accolades but also the hearts of his fellow citizens.",
+      "learning_points": [
+        "Wisdom can come from unexpected places.",
+        "Cleverness and creativity are valuable traits.",
+        "Recognition can inspire and uplift a community."
+      ],
+      "source_notes": "This scene emphasizes the joy of recognition and the value of intellect in a lighthearted manner, fitting for a children's story.",
+      "hotspots": [
+        {
+          "label": "Tenali Raman",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "tenali_raman",
+          "x": 40,
+          "y": 50,
+          "width": 10,
+          "height": 20,
+          "tooltip": "The clever and witty Tenali Raman.",
+          "quick_speak": "Thank you, Your Majesty!",
+          "id": "hs-resolution-0"
+        },
+        {
+          "label": "The King",
+          "hotspot_type": "character",
+          "target_type": "character",
+          "target_id": "the_king",
+          "x": 60,
+          "y": 50,
+          "width": 10,
+          "height": 20,
+          "tooltip": "The wise and kind ruler of the kingdom.",
+          "quick_speak": "You have made me proud, Tenali!",
+          "id": "hs-resolution-1"
+        }
+      ],
+      "quiz_questions": [
+        {
+          "question": "What title did the king give to Tenali Raman?",
+          "options": [
+            "The Cleverest Man",
+            "The Wisest Man",
+            "The Bravest Man",
+            "The Kindest Man"
+          ],
+          "correct_answer": 1,
+          "explanation": "The king declared Tenali Raman as the wisest man in the kingdom due to his clever answer.",
+          "id": "quiz-resolution-0",
+          "scene_id": "resolution"
+        }
+      ],
+      "previous_scene_id": "turning_point",
+      "next_scene_id": null,
+      "mood": "joyful",
+      "theme": "recognition",
+      "characters_present": [
+        "king",
+        "tenali_raman"
+      ],
+      "characters_absent": [],
+      "motion": "slow_zoom_in",
+      "duration_seconds": 64,
+      "beats": [
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/481c7203e01eede30183332050860f21a5a954f6.png",
+          "visualDescription": "The king smiles broadly, extending his hand to Tenali Raman in approval, while the crowd erupts in applause."
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/1fef0c8afbf7802da600336a9abe25117838e776.png",
+          "visualDescription": "A wide shot of the crowd cheering and clapping for Tenali, their faces filled with admiration and joy.",
+          "motion": "pan_right",
+          "shotType": "wide",
+          "sfx": "crowd_murmur"
+        },
+        {
+          "imageUrl": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/04fa4082444a8c99dbb28a70f23386faf34dc415.png",
+          "visualDescription": "A close-up of Tenali Raman's beaming face, filled with pride and joy at the king's recognition.",
+          "motion": "slow_zoom_in",
+          "shotType": "close_up",
+          "sfx": ""
+        }
+      ],
+      "dialogue": [
+        {
+          "speaker": "king",
+          "text": "You have proven yourself, Tenali Raman. You are indeed the wisest!",
+          "kind": "speech"
+        },
+        {
+          "speaker": "tenali_raman",
+          "text": "Thank you, my king! Wisdom comes from learning, not just knowing.",
+          "kind": "speech"
+        }
+      ],
+      "ambient_sound": "crowd_murmur",
+      "narration_audio_url": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/tenali-raman/narration/resolution.wav",
+      "audio_provider": "sarvam",
+      "savedAt": 1779464217304,
+      "imageStatus": "completed",
+      "ttsStatus": "completed"
+    }
+  ]
+}
