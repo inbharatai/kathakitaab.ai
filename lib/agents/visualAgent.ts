@@ -11,7 +11,7 @@
 // in every scene of every book.
 // ============================================================
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai/openaiClient';
 import { getGeminiClient, isGeminiConfigured } from '@/lib/openai/client';
 import { buildVisualPrompt } from './visualPromptBuilder';

@@ -14,7 +14,7 @@
 //      directly from Supabase's CDN — fast and visually consistent.
 // ============================================================
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { getSupabaseService } from '@/lib/supabase';
 
 const BUCKET = 'scene-images';

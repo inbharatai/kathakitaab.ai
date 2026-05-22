@@ -31,7 +31,7 @@ import { NextResponse, after } from 'next/server';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 
 import { getSupabaseService } from '@/lib/supabase';
 import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';

@@ -15,7 +15,7 @@
 //      the bookRegistry Redis cache
 // ============================================================
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { getSupabaseService } from '@/lib/supabase';
 
 // Audio storage bucket. Falls back to the same bucket as images

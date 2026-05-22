@@ -21,7 +21,7 @@ import './_loadEnv';
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { analyzeImageForTargets } from '../lib/agents/visionAgent';
 import { ramayanaHotspots } from '../lib/data/hotspots';
 
