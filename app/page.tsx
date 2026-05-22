@@ -819,7 +819,7 @@ export default function HomePage() {
       <section className="lp-final-cta">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
           <h2 className="lp-final-h2">Ready to turn your idea into a story?</h2>
-          <p className="lp-final-sub">Type a prompt. The engine plans the arc, illustrates the scenes, and builds the movie. Your story, your style, your cast \u2014 created in minutes.</p>
+          <p className="lp-final-sub">Type a prompt. The engine plans the arc, illustrates the scenes, and builds the movie. Your story, your style, your cast - created in minutes.</p>
           <div className="lp-hero-ctas">
             <Link href="/books#create-story" className="lp-btn-primary">
               <span>Create a Story</span>

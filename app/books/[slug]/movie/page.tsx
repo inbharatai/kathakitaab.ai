@@ -11,6 +11,7 @@
 import Link from 'next/link';
 import { use, useState, useEffect, useRef, useCallback } from 'react';
 import { Player } from '@remotion/player';
+import { prefetch } from 'remotion';
 import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames, type BookMovieManifest } from '@/remotion/BookMovie';
 
 export default function BookMoviePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -24,6 +25,8 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
   const [manifestStatus, setManifestStatus] = useState<'loading' | 'ready' | 'partial' | 'missing'>('loading');
   const [missingAssets, setMissingAssets] = useState<Array<{ sceneId: string; missing: string }>>([]);
   const [bookTitle, setBookTitle] = useState<string>('');
+  const [assetsReady, setAssetsReady] = useState(false);
+  const preloadsRef = useRef<Array<{ free: () => void }>>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +48,7 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
         const data = await manifestRes.json();
         if (!cancelled) {
           setManifest(data.manifest);
+          setAssetsReady(false);
           if (data.ready === false) {
             setManifestStatus('partial');
             setMissingAssets(data.missing ?? []);
@@ -58,6 +62,44 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
     })();
     return () => { cancelled = true; };
   }, [slug]);
+
+  // Prefetch remote image assets so Remotion's <Img> can decode them
+  // from blob URLs instead of fetching over the network on every frame.
+  // This fixes blank backgrounds for generated books whose images live
+  // on Supabase Storage.
+  useEffect(() => {
+    if (!manifest) return;
+
+    const remoteUrls = manifest.scenes.flatMap(s => {
+      const urls: string[] = [];
+      if (s.imagePath && /^https?:\/\//i.test(s.imagePath)) urls.push(s.imagePath);
+      s.beats?.forEach(b => {
+        if (b.imagePath && /^https?:\/\//i.test(b.imagePath)) urls.push(b.imagePath);
+      });
+      return urls;
+    });
+
+    // Deduplicate
+    const uniqueUrls = [...new Set(remoteUrls)];
+    let cancelled = false;
+    const preloads = uniqueUrls.length === 0 ? [] : uniqueUrls.map(url => prefetch(url));
+    preloadsRef.current = preloads;
+
+    Promise.all(preloads.map(p => p.waitUntilDone()))
+      .then(() => {
+        if (!cancelled) setAssetsReady(true);
+      })
+      .catch(() => {
+        // Even if some prefetches fail, let the Player try loading
+        // directly — worst case it shows the same blank it did before.
+        if (!cancelled) setAssetsReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+      preloads.forEach(p => p.free());
+    };
+  }, [manifest]);
 
   // Fullscreen + orientation lock for immersive cinematic playback
   const playerWrapRef = useRef<HTMLDivElement>(null);
@@ -141,7 +183,18 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
               Read the Book
             </Link>
           </div>
-        ) : manifest ? (
+        ) : manifest && !assetsReady ? (
+          <div style={{
+            padding: '60px 24px', textAlign: 'center',
+            borderRadius: 16, border: '1px solid rgba(255,215,0,0.1)',
+            background: 'rgba(43,27,21,0.4)',
+          }}>
+            <div style={{ color: 'var(--color-gold)' }}>Caching scene images…</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-dim)', marginTop: 8 }}>
+              This only happens once per book.
+            </div>
+          </div>
+        ) : manifest && assetsReady ? (
           <>
             <div
               ref={playerWrapRef}

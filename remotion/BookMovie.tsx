@@ -469,6 +469,16 @@ const SceneShot: React.FC<{
           const win = beatWindows[i] ?? { startF: 0, endF: durationInFrames };
           const beatLen = Math.max(1, win.endF - win.startF);
 
+          // Only mount beats that are visible or about to be visible.
+          // This prevents Remotion from decoding every beat image at
+          // once — a major source of blank frames on books with large
+          // remote PNGs (generated books on Supabase).
+          const DISSOLVE_FRAMES = 2;
+          const PRELOAD_BUFFER = 5;
+          const isNear = frame >= win.startF - DISSOLVE_FRAMES - PRELOAD_BUFFER
+            && (i === beats.length - 1 || frame <= win.endF + DISSOLVE_FRAMES + PRELOAD_BUFFER);
+          if (!isNear) return null;
+
           // Per-beat camera math. The beat's motion preset drives a
           // local interpolation 0..1 across its window — so a 4-second
           // close-up zooms, then the next beat starts its OWN pan from
@@ -485,7 +495,6 @@ const SceneShot: React.FC<{
           // A 2-frame micro-dissolve prevents a single-frame pop on
           // the cut boundary without smearing the image like the old
           // 18-frame cross-fade.
-          const DISSOLVE_FRAMES = 2;
           let beatOpacity = 1;
           if (beats.length > 1) {
             if (frame < win.startF - DISSOLVE_FRAMES) beatOpacity = 0;
@@ -498,6 +507,7 @@ const SceneShot: React.FC<{
             <Img
               key={i}
               src={resolveAsset(beat.imagePath)}
+              maxRetries={3}
               style={{
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%', objectFit: 'cover',
