@@ -239,7 +239,7 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
       // for dramatic) and subsequent beats vary by scene mood so action
       // scenes feel kinetic and serene scenes feel observant. Universal —
       // no per-book hacks.
-      const beats = s.beats && s.beats.length >= 2
+      const beats = s.beats && s.beats.length >= 1
         ? s.beats.map((b, i) => ({
             imagePath: b.imageUrl,
             motion: (b.motion as SceneMotion | undefined) ?? beatMotionForIndex(i, motion, s.mood),

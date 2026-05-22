@@ -28,6 +28,7 @@ import { toFile } from 'openai';
 // first generation, which is exactly what we want when a book is
 // regenerated or two books happen to converge on the same prompt.
 const IMAGE_CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const IMAGE_TIMEOUT_MS = 60_000; // gpt-image-1 median is ~35s; 60s catches stragglers
 
 function imageCacheKey(
   prompt: string,
@@ -204,6 +205,8 @@ export async function generateSceneImage(
         let b64: string | undefined;
         if (anchorRefs.length > 0) {
           try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), IMAGE_TIMEOUT_MS);
             const edited = await client.images.edit({
               model: 'gpt-image-1',
               image: anchorRefs.map(r => r.file),
@@ -211,19 +214,23 @@ export async function generateSceneImage(
               size: '1536x1024',
               quality: 'medium',
               input_fidelity: 'high',
-            });
+            }, { signal: ctrl.signal });
+            clearTimeout(timer);
             b64 = edited.data?.[0]?.b64_json;
           } catch (editErr) {
             console.error('[VisualAgent] images.edit with anchors failed, falling back to generate:', editErr);
           }
         }
         if (!b64) {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), IMAGE_TIMEOUT_MS);
           const response = await client.images.generate({
             model: 'gpt-image-1',
             prompt: built.prompt,
             size: '1536x1024',
             quality: 'medium',
-          });
+          }, { signal: ctrl.signal });
+          clearTimeout(timer);
           b64 = response.data?.[0]?.b64_json;
         }
 
@@ -258,7 +265,9 @@ export async function generateSceneImage(
   if (isGeminiConfigured()) {
     try {
       const gemini = getGeminiClient();
-      const response = await gemini.models.generateImages({
+      // Gemini SDK doesn't accept AbortController signal in the same
+      // shape as OpenAI. Wrap in a Promise.race with a manual timeout.
+      const geminiPromise = gemini.models.generateImages({
         model: 'imagen-3.0-generate-002',
         prompt: built.prompt,
         config: {
@@ -266,6 +275,12 @@ export async function generateSceneImage(
           aspectRatio: '16:9',
         },
       });
+      const response = await Promise.race([
+        geminiPromise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Gemini image generation timed out after 60s')), IMAGE_TIMEOUT_MS),
+        ),
+      ]);
       const generated = response?.generatedImages?.[0];
       if (generated?.image?.imageBytes) {
         const b64 = generated.image.imageBytes;
@@ -318,12 +333,15 @@ export async function generateCharacterPortrait(
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const client = getOpenAIClient();
+        const pCtrl = new AbortController();
+        const pTimer = setTimeout(() => pCtrl.abort(), IMAGE_TIMEOUT_MS);
         const response = await client.images.generate({
           model: 'gpt-image-1',
           prompt: built.prompt,
           size: '1024x1024',
           quality: 'medium',
-        });
+        }, { signal: pCtrl.signal });
+        clearTimeout(pTimer);
 
         const b64 = response.data?.[0]?.b64_json;
         if (b64) {

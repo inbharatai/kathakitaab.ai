@@ -303,8 +303,15 @@ ${CHARACTER_PRESENCE_GUIDE}`;
  *  keep title-based slugs (handled in the route). */
 export function privateSlug(mode: 'classroom' | 'personalized_text' | 'personalized_photo'): string {
   const prefix = mode === 'classroom' ? 'cl' : 'pv';
-  const u = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-    ? crypto.randomUUID().replace(/-/g, '')
-    : Math.random().toString(16).slice(2).padEnd(32, '0');
-  return `${prefix}-${u.slice(0, 16)}`;
+  // cryptographically secure — same path as ownerId.ts
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  }
+  const buf = new Uint8Array(8);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(buf);
+  }
+  let s = '';
+  for (let i = 0; i < 8; i++) s += buf[i].toString(16).padStart(2, '0');
+  return `${prefix}-${s}`;
 }

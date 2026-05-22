@@ -902,7 +902,13 @@ Generate the scene JSON now.` },
   for (let i = 0; i < baseScenes.length; i++) {
     const beats = sceneBeats[i] ?? [];
     baseScenes[i].background_asset_url = imageUrls[i] ?? '';
-    baseScenes[i].beats = beats.length >= 2 ? beats : undefined;
+    // Always persist beats when at least one image rendered successfully.
+    // The first beat is the establishing shot; follow-ups come from
+    // visual_beats (LLM or synthetic). Requiring >=2 silently dropped
+    // scenes where only the establishing shot survived image gen —
+    // the reader then fell back to a single static image and children
+    // lost the Ken-Burns motion that multi-beat scenes provide.
+    baseScenes[i].beats = beats.length >= 1 ? beats : undefined;
   }
 
   await options.onStepComplete?.('images', { scenes: baseScenes });

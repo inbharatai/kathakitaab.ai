@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const encoder = new TextEncoder();
 
   const send = (event: string, data: unknown) => {
-    writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+    writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)).catch(() => {});
   };
 
   // Heartbeat to keep the connection alive through proxies.
