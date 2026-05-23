@@ -15,14 +15,20 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      // Explicit .ico so Google Search can discover the favicon. Next.js
-      // auto-links app/favicon.ico, but that file lives in public/ now to
-      // avoid a Turbopack build error, so we reference it explicitly here.
+      // Next.js App Router auto-detects app/favicon.ico, but we keep the
+      // explicit reference so Vercel and search engines see it directly.
       { url: "/favicon.ico", sizes: "256x256", type: "image/x-icon" },
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      // app/icon.png is the canonical App Router icon (192×192).
+      { url: "/icon.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon.ico",
+    // app/apple-icon.png is auto-detected by Next.js; we also keep the
+    // legacy public/apple-touch-icon.png for backward compatibility.
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   openGraph: {
     title: "KathaKitaab — A Living Storybook Powered by AI",
