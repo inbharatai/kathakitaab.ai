@@ -48,8 +48,8 @@ Type any title ("Mahabharata", "Akbar and Birbal", "NCERT History — Ancient In
 | **Content creation** | Hand-authored, months of work | Type a title → AI builds the book in ~3 min |
 | **Visual storytelling** | Single static image per scene | **Multi-shot cinema** — 2–5 distinct camera shots per scene with hard cuts |
 | **Audio** | Silent or generic background | **AI narration engine** shaped by scene mood + ambient soundscapes + SFX |
-| **Interactivity** | Linear scroll or simple tap | **17 verbs** → Talk, Fight, Leap, Honor, Comfort… each with unique camera + character motion + AI branch |
-| **Movie export** | None or manual video editing | **One-click MP4** — same manifest powers both the live player and the rendered film |
+| **Interactivity** | Linear scroll or simple tap | **19 verbs** → Talk, Fight, Leap, Honor, Comfort, Move, Learn, Observe… each with unique camera + character motion + AI branch |
+| **Movie export** | None or manual video editing | **In-browser player** — same manifest powers both the live player and the Remotion composition. Server-side MP4 export is disabled by default (enable with `KATHA_MP4_EXPORT_ENABLED=1`) |
 | **Resilience** | Lose progress on refresh | **Persistent jobs** in Redis — resume from the exact failed step |
 
 ---
@@ -108,7 +108,7 @@ The result lands in Redis and is immediately playable at `/books/<slug>` interac
 - **Sound design layer** — looping ambient soundscapes (wind, rain, temple bells, forest birds) mixed at 0.15 beneath the mood bed. One-shot SFX (sword clash, thunder, door creak) fire on key beats.
 - **Per-scene camera motion** — `slow_zoom_in`, `slow_zoom_out`, `pan_left`, `pan_right`, `divine_glow`, `battle_push`, `fade_only`.
 - **Procedural mood beds** — 6 ambient WAVs synthesized in-house. No licensed soundtrack.
-- **MP4 export** — `POST /api/livebook/render-movie` or `npm run movie:render`. Hash-based dedupe so unchanged manifests return instantly.
+- **MP4 export (opt-in)** — `npm run movie:render` works locally. The hosted `/api/livebook/render-movie` route is disabled by default; enable with `KATHA_MP4_EXPORT_ENABLED=1` on a Chromium-bearing host.
 - **Cinematic captions** — blur-backdrop panel with segmented progress strip and active-cue glow.
 
 </details>
@@ -116,8 +116,8 @@ The result lands in Redis and is immediately playable at `/books/<slug>` interac
 <details open>
 <summary><b>📖 Interactive Living Reader</b></summary>
 
-- **Ambient figure life** — every character hotspot breathes, sways, blinks, and does a soft idle "look-around" every 8–14 seconds.
-- **17 verb-driven interactions** — Talk, Fight, Leap, Honor, Comfort, Move, Learn, Observe… each fires a unique camera burst + character motion + inline SVG sprite effect.
+- **Ambient figure life** — every character hotspot breathes, sways, and blinks. Puppet states quicken breath/sway timing during active verbs (talk, fight, leap).
+- **19 verb-driven interactions** — Talk, Fight, Leap, Honor, Comfort, Move, Learn, Observe… each fires a unique camera burst + character motion + inline SVG sprite effect.
 - **Audio-driven lip-pulse** — Web Audio AnalyserNode pulses the speaker's mouth-region in time with narration amplitude.
 - **Bottom interaction panel** — branch responses render below the scene image (never as overlay), with auto-scroll on mobile.
 - **Effects DSL** — particles, glow, dust shaft, vignette, rim-light, shake, ripple, parallax, desaturation, bloom, fog — baked per-scene from topic + mood.
