@@ -182,9 +182,34 @@ Choose at generation time:
 ├─────────────────────────────────────────────────────────────────────┤
 │  Upstash Redis        →  jobs, scenes, books, branch cache           │
 │  Supabase Storage     →  images, narration audio, MP4 exports        │
-│  Postgres (optional)  →  user accounts, analytics                    │
+│  AWS Aurora Postgres  →  durable story DB (H0; see below)            │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## H0: Vercel + AWS Aurora PostgreSQL (durable story DB)
+
+For the H0 / **Vercel + AWS Databases** track, KathaKitaab's data layer was
+extended from *Vercel + Upstash-only* to **Vercel + AWS Aurora PostgreSQL**
+as the durable global story database — **without touching any existing
+Upstash data**.
+
+- **AWS Aurora PostgreSQL** (Serverless v2, `aurora-postgresql 17.7`) now
+  stores durable long-term records: `users`, `story_projects`,
+  `story_scenes`, `characters`, `generated_assets`, `story_versions`,
+  `public_story_links`, `generation_jobs`, `audit_events`.
+- **Upstash Redis stays** for legacy reads, cache, in-flight generation
+  progress, locks, queues, and rate limits — exactly as before.
+- **Reads:** Aurora-first → Upstash Redis fallback (Redis keys never deleted).
+- **Writes:** dual-write — Redis remains the source of truth, Aurora is the
+  best-effort durable mirror; an Aurora failure never blocks the Redis write.
+- **Reversible:** `USE_AURORA=false` reverts to the exact pre-Aurora behavior.
+- **Judge-facing proof:** `GET /api/aurora/status` returns the live Aurora
+  engine version + per-table row counts from a real `SELECT count(*)`.
+
+Full design, safety guarantees, env vars, and verification steps:
+**[H0_ARCHITECTURE.md](./H0_ARCHITECTURE.md)**.
 
 ---
 

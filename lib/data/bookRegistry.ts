@@ -16,6 +16,12 @@ import { GeneratedBook } from '@/lib/openai/bookGeneratorAgent';
 import { getRedis } from '@/lib/redis';
 import { registerRuntimeCanon } from './canonLookup';
 import type { CanonEntry } from '@/lib/types/canon';
+// Aurora durable layer (new, optional). All calls are best-effort and
+// gated by USE_AURORA — when false or when Aurora is unreachable the
+// app falls back to the existing Upstash path below. Redis is NEVER
+// written or deleted by this import's code paths. See H0_ARCHITECTURE.md.
+import { isAuroraEnabled, sanitizeErr } from '@/lib/db/aurora';
+import { upsertStory, getStoryBySlug, softDeleteStory } from '@/lib/storage/storyStore';
 
 interface ProgressEntry {
   step: string;
@@ -116,6 +122,23 @@ export async function getBook(slug: string): Promise<GeneratedBook | null> {
   }
 
   const r = getRedis();
+  // Aurora-first durable read. If the book lives in Aurora, return it
+  // and warm the hot cache. On any miss or Aurora error, fall through
+  // to the existing Upstash Redis path below — the Redis key is NEVER
+  // touched/deleted here. This is the read side of the dual-store.
+  if (isAuroraEnabled()) {
+    try {
+      const auroraBook = await getStoryBySlug(slug);
+      if (auroraBook && Array.isArray(auroraBook.scenes)) {
+        memBooks.set(slug, auroraBook);
+        syncCanonFromBook(auroraBook);
+        return auroraBook;
+      }
+    } catch (err) {
+      console.warn('[bookRegistry] Aurora read failed, falling back to Redis:',
+        sanitizeErr(err));
+    }
+  }
   if (r) {
     try {
       const book = await r.get<GeneratedBook>(bookKey(slug));
@@ -201,6 +224,18 @@ export async function saveGeneratedBook(book: GeneratedBook): Promise<void> {
   if (result === null) {
     throw new Error(`Failed to save book "${book.slug}" — could not acquire registry lock`);
   }
+
+  // Durable mirror to Aurora (best-effort, AFTER Redis is the source of
+  // truth). upsertStory swallows its own errors and logs sanitized, so
+  // this can never break the generation flow or lose the Redis write.
+  // When USE_AURORA=false this is a no-op.
+  if (isAuroraEnabled()) {
+    try {
+      await upsertStory(book);
+    } catch (err) {
+      console.warn('[bookRegistry] Aurora mirror skipped:', sanitizeErr(err));
+    }
+  }
 }
 
 /**
@@ -250,6 +285,12 @@ export async function deleteBook(slug: string): Promise<void> {
     memProgress.delete(slug);
     if (r) await r.del(progressKey(slug));
   });
+  // Soft-delete the Aurora mirror (sets deleted_at; row kept as audit
+  // trail). Best-effort — never blocks the Redis deletion above.
+  if (isAuroraEnabled()) {
+    try { await softDeleteStory(slug); }
+    catch (err) { console.warn('[bookRegistry] Aurora soft-delete skipped:', sanitizeErr(err)); }
+  }
 }
 
 export async function setProgress(

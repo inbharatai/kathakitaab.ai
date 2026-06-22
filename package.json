@@ -20,6 +20,9 @@
     "survey:infra": "npx tsx scripts/survey-infra.ts",
     "sync:vercel": "npx tsx scripts/sync-vercel-env.ts",
     "flush:stale": "npx tsx scripts/flush-stale-redis.ts",
+    "migrate:aurora": "npx tsx scripts/apply-aurora-migrations.ts",
+    "aurora:smoke": "npx tsx scripts/aurora-smoke.ts",
+    "migrate:legacy": "npx tsx scripts/migrate-redis-to-aurora.ts",
     "regenerate:book": "npx tsx scripts/regenerate-book.ts",
     "verify:book": "npx tsx scripts/verify-book.ts",
     "hydrate:book": "npx tsx scripts/hydrate-book-audio.ts"
@@ -37,6 +40,7 @@
     "framer-motion": "^12.38.0",
     "next": "16.2.4",
     "openai": "^6.35.0",
+    "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "remotion": "4.0.457"

@@ -16,7 +16,16 @@ const nextConfig: NextConfig = {
     '@remotion/compositor-linux-x64-gnu',
     '@remotion/compositor-linux-x64-musl',
     '@remotion/compositor-win32-x64-msvc',
+    // pg ships an optional pg-native binding; keep it server-external so
+    // the bundler never tries to inline native bits. Pure-JS path is used.
+    'pg',
   ],
+  // The RDS CA bundle is read at runtime via process.cwd(), which the
+  // file tracer can't statically resolve — include it explicitly so it
+  // lands in the Vercel deployment for strict TLS to Aurora.
+  outputFileTracingIncludes: {
+    '/**': ['./db/aurora/rds-ca-bundle.pem'],
+  },
   async headers() {
     return [
       {

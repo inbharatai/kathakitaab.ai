@@ -12,6 +12,8 @@
 
 import { getRedis } from '@/lib/redis';
 import type { GeneratedBook } from '@/lib/openai/bookGeneratorAgent';
+import { isAuroraEnabled, sanitizeErr } from '@/lib/db/aurora';
+import { upsertStory } from '@/lib/storage/storyStore';
 
 export interface ClaimResult {
   scanned: number;
@@ -51,6 +53,13 @@ export async function claimAnonymousBooks(
           updatedAt: Date.now(),
         };
         await r.set(key, updated, { ex: 60 * 60 * 24 * 30 });
+        // Keep the Aurora mirror in sync with the new ownerId. Best
+        // effort — a miss here just means the durable copy keeps the
+        // old anonymous owner until the next save. Redis is unaffected.
+        if (isAuroraEnabled()) {
+          try { await upsertStory(updated); }
+          catch (err) { console.warn('[claimBooks] Aurora owner sync skipped:', sanitizeErr(err)); }
+        }
         out.claimed++;
       } catch {
         // Skip malformed entries — they'll be cleaned up by TTL.

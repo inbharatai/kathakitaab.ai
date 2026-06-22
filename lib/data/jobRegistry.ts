@@ -19,6 +19,11 @@
 // ============================================================
 
 import { getRedis } from '@/lib/redis';
+// Optional Aurora metadata mirror. Redis remains the source of truth
+// for in-flight jobs; Aurora generation_jobs is a durable metadata
+// copy for the H0 submission. Best-effort, gated by USE_AURORA.
+import { isAuroraEnabled, sanitizeErr } from '@/lib/db/aurora';
+import { upsertJobMetadata } from '@/lib/storage/storyStore';
 // No bookGeneratorAgent imports needed — GenerationJob is self-contained.
 
 export type GenerationMode =
@@ -180,6 +185,12 @@ export async function createJob(
     }
   }
 
+  // Best-effort Aurora metadata mirror. Never blocks job creation.
+  if (isAuroraEnabled()) {
+    try { await upsertJobMetadata(job); }
+    catch (err) { console.warn('[jobRegistry] Aurora job mirror skipped:', sanitizeErr(err)); }
+  }
+
   return job;
 }
 
@@ -213,6 +224,12 @@ export async function updateJob(
     const r = getRedis();
     if (r) {
       await r.set(jobKey(id), updated, { ex: JOB_TTL_SEC });
+    }
+
+    // Best-effort Aurora metadata mirror (status / step progress).
+    if (isAuroraEnabled()) {
+      try { await upsertJobMetadata(updated); }
+      catch (err) { console.warn('[jobRegistry] Aurora job mirror skipped:', sanitizeErr(err)); }
     }
 
     return updated;
