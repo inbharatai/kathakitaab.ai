@@ -38,6 +38,21 @@ function headerOf(book: GeneratedBook): Record<string, unknown> {
   return header as Record<string, unknown>;
 }
 
+/** Pull the user-facing language off the book. GeneratedBook has no
+ *  top-level `language` — it lives nested in metadata (classroom or
+ *  personalized mode). Returns null for world-mode / legacy books. */
+function bookLanguage(book: GeneratedBook): string | null {
+  const m = book.metadata;
+  return m?.classroom?.language ?? m?.personalized?.language ?? null;
+}
+
+/** Pull the original generation prompt off the book. Only the
+ *  personalized mode stores it (on metadata.personalized.prompt).
+ *  Returns null for world / classroom / legacy books. */
+function bookPrompt(book: GeneratedBook): string | null {
+  return book.metadata?.personalized?.prompt ?? null;
+}
+
 function reconstructBook(
   row: { metadata: Record<string, unknown> | null },
   scenes: GeneratedScene[],
@@ -106,8 +121,8 @@ export async function upsertStory(book: GeneratedBook): Promise<boolean> {
       [
         book.slug,
         book.title,
-        (book as { prompt?: string }).prompt ?? null,
-        (header.language as string) ?? null,
+        bookPrompt(book),
+        bookLanguage(book),
         book.stylePreset ?? null,
         book.movieStatus ?? null,
         book.source_tradition ?? null,

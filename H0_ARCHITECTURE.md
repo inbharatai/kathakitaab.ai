@@ -158,23 +158,32 @@ Existing Upstash / Supabase / OpenAI / Gemini / Sarvam vars are **unchanged**.
 After deploy, hit the public endpoint:
 
 ```
-GET https://kathakitaab.ai/api/aurora/status
+GET https://kathakitaab.com/api/aurora/status
 ```
 
-Expected (live):
+Expected (live — counts grow with usage; shape is stable):
 ```json
 {
   "aurora": {
     "enabled": true,
     "engine": "PostgreSQL 17.7 on aarch64-unknown-linux-gnu, ...",
+    "engineError": null,
     "tables": {
-      "story_projects": 5, "story_scenes": 32, "characters": 11,
-      "generated_assets": 151, "public_story_links": 5, "audit_events": 6, ...
+      "users": 0, "story_projects": N, "story_scenes": N, "characters": N,
+      "generated_assets": N, "story_versions": 0, "public_story_links": N,
+      "generation_jobs": 0, "audit_events": N
     },
+    "durableRole": "story_projects, story_scenes, characters, generated_assets, generation_jobs, audit_events",
+    "legacyRole": "Upstash Redis — legacy reads, cache, progress, locks, rate limits (untouched)",
     "readOrder": "Aurora-first → Upstash Redis fallback"
   }
 }
 ```
+
+`enabled: true` + a non-null `engine` string prove the pool reached Aurora
+over strict TLS. `tables.*` are real `SELECT count(*)` per table — they rise
+as books are saved (and include soft-deleted rows, which are kept as an
+audit trail rather than hard-deleted).
 
 Local smoke test (writes a throwaway story to Aurora, reads it back,
 asserts the Redis key was NOT created, then soft-deletes):
@@ -205,12 +214,16 @@ MIGRATE_LEGACY=true npm run migrate:legacy
 - `scripts/migrate-redis-to-aurora.ts` — non-destructive legacy copy helper.
 - `app/api/aurora/status/route.ts` — public judge-facing proof endpoint.
 - `app/api/admin/aurora/health/route.ts` — admin-gated connectivity check.
+- `.env.example` — env template (no real secrets).
 
 **Edited (minimal, flag-gated):**
 - `lib/data/bookRegistry.ts` — Aurora-first read, dual-write on save, soft-delete on delete.
 - `lib/data/jobRegistry.ts` — best-effort `generation_jobs` metadata mirror.
 - `lib/auth/claimBooks.ts` — best-effort Aurora owner sync on claim.
-- `next.config.ts` — `pg` server-external; CA bundle in file-tracing includes.
+- `next.config.ts` — `pg` server-external; CA bundle in file-tracing includes
+  (`outputFileTracingIncludes` global key `'/*'`); client-only webpack
+  `resolve.fallback` stubs for `tls/net/dns/fs/child_process` so `pg` (reached
+  transitively by client code via `bookRegistry`) doesn't break the browser bundle.
 - `package.json` — `pg` moved to runtime deps; `migrate:aurora` / `aurora:smoke` / `migrate:legacy` scripts.
 
 **Untouched:** every Upstash code path, the storage adapters, the frontend,

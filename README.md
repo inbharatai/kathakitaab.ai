@@ -205,10 +205,20 @@ Upstash data**.
 - **Writes:** dual-write — Redis remains the source of truth, Aurora is the
   best-effort durable mirror; an Aurora failure never blocks the Redis write.
 - **Reversible:** `USE_AURORA=false` reverts to the exact pre-Aurora behavior.
-- **Judge-facing proof:** `GET /api/aurora/status` returns the live Aurora
-  engine version + per-table row counts from a real `SELECT count(*)`.
+- **Judge-facing proof:** `GET https://kathakitaab.com/api/aurora/status`
+  returns the live Aurora engine version + per-table row counts from a real
+  `SELECT count(*)`.
 
-Full design, safety guarantees, env vars, and verification steps:
+**Env vars added (existing Upstash/Supabase/OpenAI/Gemini/Sarvam unchanged):**
+`DATABASE_URL` (Aurora connection string, no `sslmode=` — TLS via the RDS CA
+bundle), `USE_AURORA=true`, `AURORA_SSL=require`, `AURORA_POOL_MAX=3`.
+
+**Scripts:** `npm run migrate:aurora` (apply schema), `npm run aurora:smoke`
+(end-to-end write/read/soft-delete against live Aurora, asserts Redis is NOT
+touched), `MIGRATE_LEGACY=true npm run migrate:legacy` (non-destructive
+Redis→Aurora copy — proves Redis key count is unchanged before vs after).
+
+Full design, safety guarantees, and verification steps:
 **[H0_ARCHITECTURE.md](./H0_ARCHITECTURE.md)**.
 
 ---
