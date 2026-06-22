@@ -16,8 +16,11 @@
 // ============================================================
 
 import { Pool, type PoolClient } from 'pg';
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+// Bare 'fs' (not 'node:fs'): the 'node:' scheme isn't handled by the
+// client webpack build, and this module is imported transitively by
+// client code. On the client, 'fs' is stubbed to false via next.config
+// webpack fallback; the CA-bundle read only ever runs server-side.
+import { readFileSync, existsSync } from 'fs';
 
 let cached: Pool | null | undefined;
 
@@ -28,7 +31,7 @@ let cached: Pool | null | undefined;
 let caBundle: string | null | undefined;
 function getCaBundle(): string | null {
   if (caBundle !== undefined) return caBundle;
-  const p = join(process.cwd(), 'db', 'aurora', 'rds-ca-bundle.pem');
+  const p = process.cwd() + '/db/aurora/rds-ca-bundle.pem';
   try {
     caBundle = existsSync(p) ? readFileSync(p, 'utf8') : null;
   } catch {
