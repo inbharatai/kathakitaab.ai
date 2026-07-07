@@ -373,10 +373,10 @@ export default function HomePage() {
       <section className="lp-demo" id="movie-mode" style={{ paddingTop: 32 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
           <motion.h2 className="lp-section-title" style={{ marginTop: 0 }}>
-            Two ways to experience every story
+            Three ways to experience every story
           </motion.h2>
-          <p className="lp-section-sub" style={{ maxWidth: 720, margin: '8px auto 0' }}>
-            Click into characters and discover hidden details, or watch the whole book play as a cinematic film. One story, two experiences — same scenes, same narrated voices.
+          <p className="lp-section-sub" style={{ maxWidth: 760, margin: '8px auto 0' }}>
+            Click into characters and discover hidden details, watch the whole book play as a cinematic film, or walk a tiny living world and carry the story forward yourself. One story, three experiences — same scenes, same narrated voices.
           </p>
         </motion.div>
 
@@ -502,6 +502,67 @@ export default function HomePage() {
             </div>
             <Link href="/books/ramayana/movie" className="lp-btn-primary" style={{ textDecoration: 'none', alignSelf: 'flex-start', marginTop: 6 }}>
               Open movie mode <span className="lp-btn-arrow">{'→'}</span>
+            </Link>
+          </motion.div>
+
+          {/* FAR RIGHT — Living World: a tiny explorable planet */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55, delay: 0.16 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+          >
+            <div style={{ fontSize: '0.72rem', color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '0.22em' }}>
+              Living world · walk it yourself
+            </div>
+            <div className="lp-demo-frame" style={{ marginTop: 0 }}>
+              <div
+                className="lp-demo-image"
+                style={{
+                  aspectRatio: '16 / 9',
+                  background: 'radial-gradient(circle at 50% 22%, #2d1b3a 0%, #1a1023 52%, #0c0813 88%)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                aria-label="Preview of a tiny explorable story world"
+              >
+                {/* tiny planet rim */}
+                <div style={{
+                  position: 'absolute', left: '50%', top: '58%', width: 320, height: 320,
+                  transform: 'translate(-50%, -50%)', borderRadius: '50%',
+                  background: 'radial-gradient(circle at 42% 38%, #3a2a4a, #1c1226 70%, #120b1a)',
+                  boxShadow: 'inset 0 0 60px rgba(0,0,0,0.55), 0 0 50px rgba(195,155,211,0.18)',
+                }} />
+                {/* scene nodes spiralling outward */}
+                {[
+                  { left: '50%', top: '58%', e: '🪔', label: 'Ayodhya' },
+                  { left: '38%', top: '50%', e: '🏹', label: 'Mithila' },
+                  { left: '63%', top: '47%', e: '🌿', label: 'Forest' },
+                  { left: '44%', top: '70%', e: '🔥', label: 'Lanka' },
+                  { left: '60%', top: '72%', e: '🌀', label: 'Portal' },
+                ].map((n, i) => (
+                  <div key={i} style={{
+                    position: 'absolute', left: n.left, top: n.top, transform: 'translate(-50%, -50%)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  }}>
+                    <span style={{ fontSize: '1.5rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>{n.e}</span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--color-gold-light)', letterSpacing: 0.4 }}>{n.label}</span>
+                  </div>
+                ))}
+                {/* courier avatar */}
+                <div style={{
+                  position: 'absolute', left: '52%', top: '60%', transform: 'translate(-50%, -50%)',
+                  fontSize: '1.1rem', filter: 'drop-shadow(0 0 6px rgba(255,153,51,0.7))',
+                }}>🧑‍🚀</div>
+              </div>
+              <div className="lp-demo-caption">
+                <span className="lp-demo-caption-icon">{'🧿'}</span>
+            A small living planet you cross in one sitting. Carry each scene&rsquo;s story fragment to the glowing portal, unlock the next place, meet its people, and find clues along the way.
+              </div>
+            </div>
+            <Link href="/world/ramayana" className="lp-btn-outline" style={{ textDecoration: 'none', alignSelf: 'flex-start', marginTop: 6 }}>
+              Walk the living world →
             </Link>
           </motion.div>
         </div>

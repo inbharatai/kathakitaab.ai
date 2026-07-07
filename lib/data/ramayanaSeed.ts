@@ -18,20 +18,9 @@ export const ramayanaBook: Book = {
 };
 
 // ---- Quiz Questions ----
-export const ramayanaQuizzes: QuizQuestion[] = [
-  { id: 'q-1-1', scene_id: 'ayodhya_intro', question: 'Who was the king of Ayodhya?', options: ['Janaka', 'Dasharatha', 'Ravana', 'Sugriva'], correct_answer: 1, explanation: 'King Dasharatha was the ruler of Ayodhya and father of Rama.', created_at: new Date().toISOString() },
-  { id: 'q-1-2', scene_id: 'ayodhya_intro', question: 'How many sons did Dasharatha have?', options: ['Two', 'Three', 'Four', 'Five'], correct_answer: 2, explanation: 'Dasharatha had four sons: Rama, Bharata, Lakshmana, and Shatrughna.', created_at: new Date().toISOString() },
-  { id: 'q-2-1', scene_id: 'mithila_bow', question: 'What did Rama do with the bow of Shiva?', options: ['Polished it', 'Could not lift it', 'Broke it', 'Hid it'], correct_answer: 2, explanation: 'Rama not only lifted but broke the mighty bow of Shiva.', created_at: new Date().toISOString() },
-  { id: 'q-2-2', scene_id: 'mithila_bow', question: 'Who was Sita\'s father?', options: ['Dasharatha', 'Vishwamitra', 'Janaka', 'Sugriva'], correct_answer: 2, explanation: 'King Janaka of Mithila was Sita\'s father.', created_at: new Date().toISOString() },
-  { id: 'q-3-1', scene_id: 'exile', question: 'How many years was Rama exiled for?', options: ['Seven', 'Ten', 'Twelve', 'Fourteen'], correct_answer: 3, explanation: 'Rama was exiled for fourteen years.', created_at: new Date().toISOString() },
-  { id: 'q-4-1', scene_id: 'forest_life', question: 'What lured Rama away from the hermitage?', options: ['A golden deer', 'A storm', 'A messenger', 'A river'], correct_answer: 0, explanation: 'A magical golden deer, actually a demon in disguise, lured Rama away.', created_at: new Date().toISOString() },
-  { id: 'q-5-1', scene_id: 'ravana_jatayu', question: 'Who tried to save Sita from Ravana?', options: ['Hanuman', 'Lakshmana', 'Jatayu', 'Sugriva'], correct_answer: 2, explanation: 'Jatayu, the noble eagle, bravely fought Ravana to save Sita.', created_at: new Date().toISOString() },
-  { id: 'q-6-1', scene_id: 'hanuman_meets_rama', question: 'Who became Rama\'s greatest devotee?', options: ['Sugriva', 'Vibhishana', 'Hanuman', 'Bharata'], correct_answer: 2, explanation: 'Hanuman became Rama\'s greatest and most devoted follower.', created_at: new Date().toISOString() },
-  { id: 'q-7-1', scene_id: 'hanuman_lanka', question: 'Where did Hanuman find Sita in Lanka?', options: ['In the palace', 'In a dungeon', 'In Ashoka Vatika', 'On a mountain'], correct_answer: 2, explanation: 'Hanuman found Sita in the Ashoka Vatika garden.', created_at: new Date().toISOString() },
-  { id: 'q-9-1', scene_id: 'battle_lanka', question: 'Who was Ravana\'s brother who joined Rama?', options: ['Kumbhakarna', 'Vibhishana', 'Indrajit', 'Sugriva'], correct_answer: 1, explanation: 'Vibhishana chose dharma and joined Rama\'s side.', created_at: new Date().toISOString() },
-  { id: 'q-10-1', scene_id: 'return_ayodhya', question: 'Who kept Rama\'s sandals on the throne?', options: ['Lakshmana', 'Hanuman', 'Bharata', 'Shatrughna'], correct_answer: 2, explanation: 'Bharata ruled as caretaker with Rama\'s sandals on the throne.', created_at: new Date().toISOString() },
-  { id: 'q-11-1', scene_id: 'lessons', question: 'What lesson does Hanuman teach?', options: ['Pride', 'Devotion and humility', 'Anger', 'Wealth'], correct_answer: 1, explanation: 'Hanuman teaches that devotion and humility make us truly strong.', created_at: new Date().toISOString() },
-];
+// Quizzes are inlined on each scene in `scenes.ts` (single source of
+// truth). `getQuizzesBySceneId` below reads them from there, so there
+// is no separate quiz array to keep in sync.
 
 // ---- Source References ----
 export const ramayanaSources: SourceReference[] = [
@@ -63,13 +52,15 @@ export function getSceneWithHotspots(sceneId: string): SceneWithHotspots | undef
     }
     return h;
   });
-  
-  const quizzes = ramayanaQuizzes.filter(q => q.scene_id === sceneId);
-  return { ...scene, hotspots, quiz_questions: quizzes };
+
+  // Quizzes now live inline on each scene (single source of truth in
+  // scenes.ts) — no separate quiz array to keep in sync.
+  return { ...scene, hotspots };
 }
 
 export function getQuizzesBySceneId(sceneId: string): QuizQuestion[] {
-  return ramayanaQuizzes.filter(q => q.scene_id === sceneId);
+  const scene = getSceneById(sceneId);
+  return scene?.quiz_questions ?? [];
 }
 
 // Re-export everything

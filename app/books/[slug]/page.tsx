@@ -183,6 +183,14 @@ export default function BookPage({ params }: { params: Promise<{ slug: string }>
             >
               ▶ Watch as Movie
             </Link>
+            <Link
+              href={`/world/${resolvedParams.slug}`}
+              className="btn-secondary"
+              style={{ textDecoration: 'none', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              title="Explore this story as a tiny walkable world"
+            >
+              🌍 Living World
+            </Link>
           </div>
           <div className="reader-page-meta" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {/* Delete affordance — self-hides for public/seed books

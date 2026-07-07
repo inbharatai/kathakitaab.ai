@@ -31,11 +31,11 @@
 
 KathaKitaab turns any title into a living, interactive storybook — then plays it as a cinematic film. Characters breathe, blink, and lean toward each other when they speak. The camera dollies, pushes, and shakes in time with your chosen verb. Every scene is a multi-shot cinematic cut with ambient soundscapes, one-shot SFX, and sentence-timed captions.
 
-Type any title ("Mahabharata", "Akbar and Birbal", "NCERT History — Ancient India") and the engine builds a complete 10–12 scene book in ~3 minutes — persistently stored, resumable if anything fails, and immediately playable as both an interactive reader and a movie.
+Type any title ("Mahabharata", "Akbar and Birbal", "NCERT History — Ancient India") and the engine builds a complete 10–12 scene book in ~3 minutes — persistently stored, resumable if anything fails, and immediately playable as an interactive reader, a cinematic movie, and a walkable living world.
 
 <div align="center">
 
-### 📖 Read it → 🎬 Watch it → 🖱️ Click it
+### 📖 Read it → 🎬 Watch it → 🖱️ Click it → 🚶 Walk it
 
 </div>
 
@@ -49,6 +49,7 @@ Type any title ("Mahabharata", "Akbar and Birbal", "NCERT History — Ancient In
 | **Visual storytelling** | Single static image per scene | **Multi-shot cinema** — 2–5 distinct camera shots per scene with hard cuts |
 | **Audio** | Silent or generic background | **AI narration engine** shaped by scene mood + ambient soundscapes + SFX |
 | **Interactivity** | Linear scroll or simple tap | **19 verbs** → Talk, Fight, Leap, Honor, Comfort, Move, Learn, Observe… each with unique camera + character motion + AI branch |
+| **Spatial play** | None | **Living World Mode** — the same book becomes a tiny walkable planet; carry story fragments between scenes, meet NPCs, collect clues, answer reflections. Pure deterministic engine, offline |
 | **Movie export** | None or manual video editing | **In-browser player** — same manifest powers both the live player and the Remotion composition. Server-side MP4 export is disabled by default (enable with `KATHA_MP4_EXPORT_ENABLED=1`) |
 | **Resilience** | Lose progress on refresh | **Persistent jobs** in Redis — resume from the exact failed step |
 
@@ -125,6 +126,22 @@ The result lands in Redis and is immediately playable at `/books/<slug>` interac
 </details>
 
 <details open>
+<summary><b>🚶 Living World Mode</b></summary>
+
+A spatial companion to the linear reader — the same Book becomes a small, walkable planet you cross in one sitting. Open it at `/world/<slug>` (e.g. `/world/ramayana`).
+
+- **Universal WorldManifest engine** — a pure, deterministic function of `(book, scenes, characters)` turns any book into a tiny world: one node per scene on a golden-angle spiral, a portal between each pair, NPCs placed from each scene's `characters_present`, and a cozy palette keyed by book slug. No AI, no database, no network — it runs client-side and works offline against the curated seed canon.
+- **Soft camera + tap-to-move avatar** — the camera follows a story courier across a 1000×620 ground layer; interactive markers are projected into screen space so they stay a constant, readable, tappable size on phones. Snap-on-arrival when the OS requests reduced motion.
+- **A simple, cozy mission loop** — carry this scene's story fragment to the glowing portal, deliver it, and the next scene unfolds. Side missions along the way: ask a character, collect a clue (a learning point), answer a reflection quiz. A lightweight world-XP counter tallies it all.
+- **Lightweight NPC life** — idle characters ring each node with an emoji and a phrase drawn from their `talk_examples`. They do not gate progress; they are warmth.
+- **Persistence** — progress is saved to `localStorage` (`kathakitaab_world_session:<slug>`), separate from Play Mode keys. Living World Mode is an additive layer and never perturbs Play Mode's progress.
+- **No game engine** — plain DOM + CSS transforms + `requestAnimationFrame`. No PixiJS/Phaser/Spinel, deliberately, to keep Playwright accessibility and Remotion parity with the rest of the app.
+
+Benchmarked in emotional principle only on Messenger (abeto.co) — a small explorable planet, soft camera, readable destinations, cozy feeling. We do not copy its art, characters, name, delivery story, or exact gameplay.
+
+</details>
+
+<details open>
 <summary><b>⚡ Persistent Generation Engine</b></summary>
 
 - **Real-time SSE progress** — `/books` opens `EventSource` to `/api/jobs/stream` for live queue updates. The creation form opens a second SSE stream to `/api/books/stream` for per-book progress. Replaces the old 5-second polling.
@@ -163,6 +180,9 @@ Choose at generation time:
 │  (SSE jobs stream)   (SceneCanvas +        (BookMovie composition)   │
 │                      AmbientFigure +                                 │
 │                      verb-keyed camera)                              │
+│                                                                       │
+│  /world/[slug]                                                        │
+│  Living World (walkable planet + WorldManifest engine, offline)       │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -378,10 +398,11 @@ npm run survey:infra
 
 ```
 app/
-  page.tsx                    Landing — featured rail + movie toggle
+  page.tsx                    Landing — featured rail + movie toggle + living world
   books/page.tsx              Library — rails + generator + SSE queue
   books/[slug]/page.tsx       Interactive reader
   books/[slug]/movie/page.tsx Movie player + landscape rotation
+  world/[slug]/page.tsx       Living World — walkable planet (offline WorldManifest)
   educator/page.tsx           Studio — story creation workspace
   api/books/generate/         Persistent job + step-by-step generation
   api/books/resume/           Four-branch failure recovery
@@ -398,8 +419,13 @@ components/
   livebook/AmbientFigure.tsx  Breathing / swaying / blinking figures
   library/BookGenerator.tsx   Title input + style preset + SSE form
   library/StoryCard.tsx       Poster card with Ken-Burns crossfade
+  world/WorldStage.tsx        Living World diorama (camera + avatar + markers)
+  world/LivingWorldScreen.tsx Living World orchestrator (fetch + reducer + overlays)
+  world/MissionPanel.tsx      Mission list + ask/quiz/reset
 
 lib/
+  world/worldManifest.ts         Universal WorldManifest engine (pure, offline)
+  world/worldSession.ts          Living World session + reducer + persistence
   openai/bookGeneratorAgent.ts   Universal pipeline (outline → scenes → images → audio)
   openai/modePrompts.ts          Per-mode prompt builders + shot discipline
   video/manifestSynthesizer.ts   GeneratedBook → BookMovieManifest
@@ -444,6 +470,7 @@ scripts/
 | ✅ Sound design | Ambient loops + one-shot SFX per beat | **Shipped** |
 | ✅ Multi-book canon | Ramayana, Mahabharata, Panchatantra, Akbar & Birbal, Vikram & Betaal, Tenali Raman | **Shipped** |
 | ✅ Platform integrity audit | Security, validation, TTS, caching, UX, mobile | **Shipped** |
+| ✅ Living World Mode | Walkable planet + WorldManifest engine + courier mission loop (offline) | **Shipped** |
 | 🔄 Puppet rigging | Per-body-part cutouts (head/eyes/mouth/torso/arms) | Next |
 | 🔄 Phoneme lip-sync | Whisper-aligned mouth shapes replacing amplitude pulse | Planned |
 | 🔄 AI video inserts | SVD/Runway for hero moments only (deer running, Hanuman flying) | Planned |

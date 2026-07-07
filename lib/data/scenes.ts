@@ -12,7 +12,11 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_ayodhya_intro.png', previous_scene_id: null, next_scene_id: 'mithila_bow',
     mode: 'story',
     learning_points: ['Ayodhya was a prosperous and just kingdom.', 'Rama was known for truth and compassion from youth.', 'Sages and kings worked together to protect dharma.'],
-    quiz_questions: [],
+    characters_present: ['rama', 'dasharatha', 'bharata', 'lakshmana'],
+    quiz_questions: [
+      { id: 'q-1-1', scene_id: 'ayodhya_intro', question: 'Who was the king of Ayodhya?', options: ['Janaka', 'Dasharatha', 'Ravana', 'Sugriva'], correct_answer: 1, explanation: 'King Dasharatha was the ruler of Ayodhya and father of Rama.', created_at: new Date().toISOString() },
+      { id: 'q-1-2', scene_id: 'ayodhya_intro', question: 'How many sons did Dasharatha have?', options: ['Two', 'Three', 'Four', 'Five'], correct_answer: 2, explanation: 'Dasharatha had four sons: Rama, Bharata, Lakshmana, and Shatrughna.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Bala Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -32,7 +36,11 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_mithila_bow.png', previous_scene_id: 'ayodhya_intro', next_scene_id: 'exile',
     mode: 'story',
     learning_points: ['True strength is calm and purposeful.', 'Sita chose Rama for his virtue, not just strength.', 'Great challenges reveal great character.'],
-    quiz_questions: [],
+    characters_present: ['rama', 'sita'],
+    quiz_questions: [
+      { id: 'q-2-1', scene_id: 'mithila_bow', question: 'What did Rama do with the bow of Shiva?', options: ['Polished it', 'Could not lift it', 'Broke it', 'Hid it'], correct_answer: 2, explanation: 'Rama not only lifted but broke the mighty bow of Shiva.', created_at: new Date().toISOString() },
+      { id: 'q-2-2', scene_id: 'mithila_bow', question: 'Who was Sita\'s father?', options: ['Dasharatha', 'Vishwamitra', 'Janaka', 'Sugriva'], correct_answer: 2, explanation: 'King Janaka of Mithila was Sita\'s father.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Bala Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -53,7 +61,10 @@ export const ramayanaScenes: Scene[] = [
 
     mode: 'story',
     learning_points: ['Rama honored his father\'s word above personal desire.', 'Sita and Lakshmana showed profound loyalty.', 'True duty sometimes requires great sacrifice.'],
-    quiz_questions: [],
+    characters_present: ['rama', 'sita', 'lakshmana', 'bharata'],
+    quiz_questions: [
+      { id: 'q-3-1', scene_id: 'exile', question: 'How many years was Rama exiled for?', options: ['Seven', 'Ten', 'Twelve', 'Fourteen'], correct_answer: 3, explanation: 'Rama was exiled for fourteen years.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Ayodhya Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -73,7 +84,10 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_forest_life.png', previous_scene_id: 'exile', next_scene_id: 'ravana_jatayu',
     mode: 'story',
     learning_points: ['Simple living can bring great peace.', 'Not everything beautiful is what it seems.', 'Deception can come in attractive forms.'],
-    quiz_questions: [],
+    characters_present: ['rama', 'sita', 'lakshmana'],
+    quiz_questions: [
+      { id: 'q-4-1', scene_id: 'forest_life', question: 'What lured Rama away from the hermitage?', options: ['A golden deer', 'A storm', 'A messenger', 'A river'], correct_answer: 0, explanation: 'A magical golden deer, actually a demon in disguise, lured Rama away.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Aranya Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -93,7 +107,10 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_ravana_jatayu.png', previous_scene_id: 'forest_life', next_scene_id: 'hanuman_meets_rama',
     mode: 'story',
     learning_points: ['Jatayu\'s courage shows that age does not diminish bravery.', 'Ravana\'s power was misused through deception.', 'True sacrifice is acting for others regardless of personal cost.'],
-    quiz_questions: [],
+    characters_present: ['ravana', 'sita', 'jatayu'],
+    quiz_questions: [
+      { id: 'q-5-1', scene_id: 'ravana_jatayu', question: 'Who tried to save Sita from Ravana?', options: ['Hanuman', 'Lakshmana', 'Jatayu', 'Sugriva'], correct_answer: 2, explanation: 'Jatayu, the noble eagle, bravely fought Ravana to save Sita.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Aranya Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -113,7 +130,10 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_hanuman_meets_rama.png', previous_scene_id: 'ravana_jatayu', next_scene_id: 'hanuman_lanka',
     mode: 'story',
     learning_points: ['True friendship can arise between the most unlikely beings.', 'Alliances built on trust and mutual respect are powerful.', 'Devotion can be instant and transformative.'],
-    quiz_questions: [],
+    characters_present: ['rama', 'lakshmana', 'hanuman', 'sugriva'],
+    quiz_questions: [
+      { id: 'q-6-1', scene_id: 'hanuman_meets_rama', question: 'Who became Rama\'s greatest devotee?', options: ['Sugriva', 'Vibhishana', 'Hanuman', 'Bharata'], correct_answer: 2, explanation: 'Hanuman became Rama\'s greatest and most devoted follower.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Kishkindha Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -133,7 +153,10 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_hanuman_lanka.png', previous_scene_id: 'hanuman_meets_rama', next_scene_id: 'bridge_to_lanka',
     mode: 'story',
     learning_points: ['Devotion gives strength beyond measure.', 'Hanuman combined courage with intelligence.', 'Hope can sustain someone through the darkest times.'],
-    quiz_questions: [],
+    characters_present: ['hanuman', 'sita', 'ravana'],
+    quiz_questions: [
+      { id: 'q-7-1', scene_id: 'hanuman_lanka', question: 'Where did Hanuman find Sita in Lanka?', options: ['In the palace', 'In a dungeon', 'In Ashoka Vatika', 'On a mountain'], correct_answer: 2, explanation: 'Hanuman found Sita in the Ashoka Vatika garden.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Sundara Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -153,6 +176,7 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_bridge_to_lanka.png', previous_scene_id: 'hanuman_lanka', next_scene_id: 'battle_lanka',
     mode: 'story',
     learning_points: ['Great tasks require teamwork and faith.', 'Even stones float when placed with devotion and purpose.', 'Unity makes the impossible possible.'],
+    characters_present: ['rama', 'hanuman', 'sugriva', 'vibhishana'],
     quiz_questions: [],
     source_notes: 'Based on Yuddha Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -173,7 +197,10 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_battle_lanka.png', previous_scene_id: 'bridge_to_lanka', next_scene_id: 'return_ayodhya',
     mode: 'story',
     learning_points: ['Dharma sometimes means standing against those you love.', 'Even a great enemy deserves respect in defeat.', 'Pride unchecked leads to destruction.'],
-    quiz_questions: [],
+    characters_present: ['rama', 'lakshmana', 'hanuman', 'ravana', 'vibhishana'],
+    quiz_questions: [
+      { id: 'q-9-1', scene_id: 'battle_lanka', question: 'Who was Ravana\'s brother who joined Rama?', options: ['Kumbhakarna', 'Vibhishana', 'Indrajit', 'Sugriva'], correct_answer: 1, explanation: 'Vibhishana chose dharma and joined Rama\'s side.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Yuddha Kanda of Valmiki Ramayana, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -193,7 +220,10 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_return_ayodhya.png', previous_scene_id: 'battle_lanka', next_scene_id: 'lessons',
     mode: 'story',
     learning_points: ['Patience and faith are rewarded.', 'Bharata\'s humility kept the kingdom just.', 'Light overcomes darkness — within and without.'],
-    quiz_questions: [],
+    characters_present: ['rama', 'sita', 'lakshmana', 'bharata', 'hanuman'],
+    quiz_questions: [
+      { id: 'q-10-1', scene_id: 'return_ayodhya', question: 'Who kept Rama\'s sandals on the throne?', options: ['Lakshmana', 'Hanuman', 'Bharata', 'Shatrughna'], correct_answer: 2, explanation: 'Bharata ruled as caretaker with Rama\'s sandals on the throne.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Based on Yuddha Kanda and Uttara Kanda traditions, public-domain.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -213,7 +243,10 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_lessons.png', previous_scene_id: 'return_ayodhya', next_scene_id: 'closing',
     mode: 'learn',
     learning_points: ['Rama: duty and selfless leadership', 'Sita: dignity and courage', 'Lakshmana: loyalty', 'Hanuman: devotion and humility', 'Bharata: humility and selflessness', 'Jatayu: sacrifice and courage', 'Vibhishana: truth over blind loyalty', 'Ravana: knowledge without humility is dangerous'],
-    quiz_questions: [],
+    characters_present: ['rama', 'sita', 'hanuman', 'bharata', 'jatayu', 'vibhishana', 'ravana'],
+    quiz_questions: [
+      { id: 'q-11-1', scene_id: 'lessons', question: 'What lesson does Hanuman teach?', options: ['Pride', 'Devotion and humility', 'Anger', 'Wealth'], correct_answer: 1, explanation: 'Hanuman teaches that devotion and humility make us truly strong.', created_at: new Date().toISOString() },
+    ],
     source_notes: 'Synthesized from Ramayana teachings, public-domain traditions.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     beats: [
@@ -233,6 +266,7 @@ export const ramayanaScenes: Scene[] = [
     background_asset_url: '/images/scene_lessons.png', previous_scene_id: 'lessons', next_scene_id: null,
     mode: 'story',
     learning_points: ['The Ramayana is a living guide for all generations.', 'Dharma is a light that never fades.'],
+    characters_present: ['rama', 'sita'],
     quiz_questions: [],
     source_notes: 'Reflective closing based on the enduring tradition of the Ramayana.',
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
