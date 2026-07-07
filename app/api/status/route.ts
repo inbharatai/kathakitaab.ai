@@ -7,7 +7,8 @@
 // no full TTS) — we hit cheap "are you alive" endpoints:
 //   - OpenAI: /v1/models (returns instantly when the key is valid)
 //   - Sarvam: a minimal 1-character TTS request (charges roughly $0)
-//   - Supabase: a HEAD on the storage bucket
+//   - Aurora: a SELECT 1 (cheapest possible round-trip)
+//   - S3: a HeadObject on a sentinel key (or 'unconfigured' when no creds)
 //   - Upstash Redis: a PING
 //
 // Each probe times out at 4s — we'd rather show "degraded" than hang
@@ -15,7 +16,8 @@
 
 import { NextResponse } from 'next/server';
 import { getRedis } from '@/lib/redis';
-import { getSupabaseService } from '@/lib/supabase';
+import { auroraQuery, isAuroraEnabled } from '@/lib/db/aurora';
+import { isS3Configured, objectExists } from '@/lib/storage/s3Storage';
 
 interface ProbeResult {
   name: string;
@@ -84,21 +86,28 @@ async function probeSarvam(): Promise<ProbeResult> {
   }
 }
 
-async function probeSupabase(): Promise<ProbeResult> {
-  const supabase = getSupabaseService();
-  if (!supabase) return { name: 'Supabase', status: 'unconfigured', latencyMs: null };
+async function probeAurora(): Promise<ProbeResult> {
+  if (!isAuroraEnabled()) return { name: 'Aurora', status: 'unconfigured', latencyMs: null };
   const t0 = Date.now();
   try {
-    const r = await withTimeout(supabase.storage.from('scene-images').list('', { limit: 1 }), TIMEOUT_MS);
-    if (!r) return { name: 'Supabase', status: 'degraded', latencyMs: null, detail: 'timeout' };
-    return {
-      name: 'Supabase',
-      status: r.error ? 'degraded' : 'ok',
-      latencyMs: Date.now() - t0,
-      detail: r.error?.message,
-    };
+    const r = await withTimeout(auroraQuery('SELECT 1'), TIMEOUT_MS);
+    if (!r) return { name: 'Aurora', status: 'degraded', latencyMs: null, detail: 'timeout' };
+    return { name: 'Aurora', status: 'ok', latencyMs: Date.now() - t0 };
   } catch (err) {
-    return { name: 'Supabase', status: 'down', latencyMs: Date.now() - t0, detail: err instanceof Error ? err.message : 'error' };
+    return { name: 'Aurora', status: 'down', latencyMs: Date.now() - t0, detail: err instanceof Error ? err.message : 'error' };
+  }
+}
+
+async function probeS3(): Promise<ProbeResult> {
+  if (!isS3Configured()) return { name: 'S3', status: 'unconfigured', latencyMs: null };
+  const t0 = Date.now();
+  try {
+    // HeadObject on a sentinel key. 404 means "bucket reachable,
+    // object absent" — that's still a healthy bucket, so we report ok.
+    await withTimeout(objectExists('__kk_status_probe__'), TIMEOUT_MS);
+    return { name: 'S3', status: 'ok', latencyMs: Date.now() - t0 };
+  } catch (err) {
+    return { name: 'S3', status: 'down', latencyMs: Date.now() - t0, detail: err instanceof Error ? err.message : 'error' };
   }
 }
 
@@ -119,13 +128,14 @@ async function probeRedis(): Promise<ProbeResult> {
 }
 
 export async function GET() {
-  const [openai, sarvam, supabase, redis] = await Promise.all([
+  const [openai, sarvam, aurora, s3, redis] = await Promise.all([
     probeOpenAI(),
     probeSarvam(),
-    probeSupabase(),
+    probeAurora(),
+    probeS3(),
     probeRedis(),
   ]);
-  const probes = [openai, sarvam, supabase, redis];
+  const probes = [openai, sarvam, aurora, s3, redis];
   const worst: ProbeResult['status'] = probes.some(p => p.status === 'down') ? 'down'
     : probes.some(p => p.status === 'degraded') ? 'degraded'
     : 'ok';

@@ -31,7 +31,7 @@ import { join } from 'node:path';
 import type { CanonFile, CanonEntry } from '../lib/types/canon';
 import { generateCharacterPortrait, generateSceneImage } from '../lib/agents/visualAgent';
 import { uploadGeneratedImage } from '../lib/storage/imageStorage';
-import { getSupabaseService } from '../lib/supabase';
+import { isS3Configured } from '../lib/storage/s3Storage';
 
 const CANON_DIR = join(process.cwd(), 'lib', 'data', 'canon');
 
@@ -180,9 +180,9 @@ async function bakeBook(slug: string, flags: CliFlags): Promise<void> {
 async function main() {
   const flags = parseFlags(process.argv.slice(2));
 
-  if (!getSupabaseService()) {
+  if (!isS3Configured()) {
     throw new Error(
-      'Supabase service client not configured. Set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY before running.',
+      'S3 storage not configured. Set KK_S3_BUCKET + KK_S3_ACCESS_KEY_ID + KK_S3_SECRET_ACCESS_KEY (and KK_CDN_HOST) before running.',
     );
   }
   if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {

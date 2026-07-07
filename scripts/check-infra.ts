@@ -2,8 +2,8 @@
 // scripts/check-infra.ts
 //
 // Quick health check for the cache/storage backends. Verifies
-// Upstash Redis reachability + Supabase Storage bucket layout.
-// Runs read-only probes; no writes, no destructive ops.
+// Upstash Redis + AWS Aurora + S3 storage. Runs read-only probes;
+// no writes, no destructive ops.
 //
 //   npm run check:infra
 // ============================================================
@@ -11,7 +11,8 @@
 import './_loadEnv';
 
 import { getRedis, isRedisConfigured } from '../lib/redis';
-import { getSupabaseAnon, getSupabaseService, isSupabaseConfigured } from '../lib/supabase';
+import { auroraQuery, isAuroraEnabled, sanitizeErr } from '../lib/db/aurora';
+import { isS3Configured, objectExists } from '../lib/storage/s3Storage';
 
 async function checkRedis(): Promise<void> {
   console.log('\n─── Upstash Redis ───');
@@ -64,88 +65,60 @@ async function checkRedis(): Promise<void> {
   }
 }
 
-async function checkSupabase(): Promise<void> {
-  console.log('\n─── Supabase ───');
-  if (!isSupabaseConfigured()) {
-    console.log('  ⚠ NEXT_PUBLIC_SUPABASE_URL / *_ANON_KEY not set');
+async function checkAurora(): Promise<void> {
+  console.log('\n─── AWS Aurora ───');
+  if (!isAuroraEnabled()) {
+    console.log('  ⚠ USE_AURORA != true or DATABASE_URL not set');
     return;
   }
-  const anon = getSupabaseAnon();
-  const service = getSupabaseService();
-  console.log(`  · anon client:    ${anon ? '✓' : '⚠ missing'}`);
-  console.log(`  · service client: ${service ? '✓' : '⚠ missing (SUPABASE_SERVICE_ROLE_KEY)'}`);
-
-  if (!service) return;
-
-  // Probe the storage bucket the app uses for scene assets.
   try {
     const t0 = Date.now();
-    const { data: buckets, error } = await service.storage.listBuckets();
+    const r = await auroraQuery('SELECT 1 AS ok');
     const dt = Date.now() - t0;
-    if (error) {
-      console.log(`  ✗ listBuckets: ${error.message}`);
-      return;
-    }
-    console.log(`  ✓ listBuckets ${dt}ms: ${buckets?.map(b => b.name).join(', ')}`);
-    const sceneBucket = buckets?.find(b => b.name === 'scene-images');
-    if (!sceneBucket) {
-      console.log('  ⚠ "scene-images" bucket missing — app expects this for character images, scene-stream, movie-audio');
-    }
+    if (!r) { console.log('  ✗ SELECT 1 returned null'); return; }
+    console.log(`  ✓ SELECT 1 ${dt}ms (ok=${r.rows[0]?.ok})`);
   } catch (err) {
-    console.log(`  ✗ storage probe failed: ${err instanceof Error ? err.message : err}`);
+    console.log(`  ✗ query failed: ${sanitizeErr(err)}`);
     return;
   }
 
-  // Probe the bucket's contents at the top level so we can see what
-  // namespaces are actually populated.
+  // Schema probe — do the quota + content tables exist?
   try {
-    const { data, error } = await service.storage.from('scene-images').list('', { limit: 100 });
-    if (error) {
-      console.log(`  ✗ list scene-images/: ${error.message}`);
-      return;
-    }
-    const folders = data?.filter(d => d.id === null) ?? []; // Supabase folder marker
-    const files = data?.filter(d => d.id !== null) ?? [];
-    console.log(`  ✓ scene-images/ — ${folders.length} folder(s), ${files.length} file(s)`);
-    if (folders.length) console.log(`    folders: ${folders.map(f => f.name).slice(0, 10).join(', ')}`);
-    if (files.length) console.log(`    files: ${files.map(f => f.name).slice(0, 5).join(', ')}…`);
+    const r = await auroraQuery<{ table_name: string }>(`
+      SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public'
+         AND table_name IN ('users','waitlist','content_reports','story_scenes','story_projects')
+       ORDER BY table_name`);
+    const have = (r?.rows ?? []).map(x => x.table_name);
+    console.log(`  · tables present: ${have.join(', ') || '(none of the expected set)'}`);
   } catch (err) {
-    console.log(`  ⚠ list contents failed: ${err instanceof Error ? err.message : err}`);
+    console.log(`  ⚠ table probe failed: ${sanitizeErr(err)}`);
   }
+}
 
-  // Probe ramayana subfolders the build pipeline writes to.
+async function checkS3(): Promise<void> {
+  console.log('\n─── AWS S3 ───');
+  if (!isS3Configured()) {
+    console.log('  ⚠ KK_S3_BUCKET / KK_S3_ACCESS_KEY_ID / KK_S3_SECRET_ACCESS_KEY not set');
+    return;
+  }
+  console.log(`  · bucket: ${process.env.KK_S3_BUCKET}`);
+  console.log(`  · region: ${process.env.KK_S3_REGION ?? process.env.AWS_REGION ?? 'us-east-1'}`);
+  console.log(`  · cdn:    ${process.env.KK_CDN_HOST ?? '(direct S3 URL)'}`);
   try {
-    for (const sub of ['ramayana', 'ramayana/movie-audio']) {
-      const { data, error } = await service.storage.from('scene-images').list(sub, { limit: 5 });
-      if (error) {
-        console.log(`  · ${sub}/: error — ${error.message}`);
-      } else {
-        console.log(`  · ${sub}/ — ${data?.length ?? 0} entry(ies)${data && data.length ? ` (${data.slice(0, 3).map(f => f.name).join(', ')}…)` : ''}`);
-      }
-    }
-  } catch { /* */ }
-
-  // Schema probe — do the Postgres tables exist? The schema files live
-  // in supabase/migrations but most v3 paths bypass Postgres entirely.
-  try {
-    // information_schema query via PostgREST is rejected; use a small
-    // RPC-equivalent: try selecting from a known table with limit 0.
-    for (const table of ['books', 'scenes', 'characters', 'hotspots']) {
-      const { error } = await service.from(table).select('*', { count: 'exact', head: true });
-      if (error) {
-        console.log(`  · table "${table}": ${error.code ?? '?'} — ${error.message.slice(0, 80)}`);
-      } else {
-        console.log(`  · table "${table}": ✓`);
-      }
-    }
+    const t0 = Date.now();
+    await objectExists('__kk_check_infra_probe__');
+    const dt = Date.now() - t0;
+    console.log(`  ✓ HeadObject reachable ${dt}ms`);
   } catch (err) {
-    console.log(`  ⚠ table probe failed: ${err instanceof Error ? err.message : err}`);
+    console.log(`  ✗ S3 probe failed: ${err instanceof Error ? err.message : err}`);
   }
 }
 
 async function main() {
   await checkRedis();
-  await checkSupabase();
+  await checkAurora();
+  await checkS3();
   console.log('');
 }
 

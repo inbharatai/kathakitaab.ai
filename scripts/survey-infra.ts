@@ -2,8 +2,8 @@
 // scripts/survey-infra.ts
 //
 // Read-only inventory of what's actually deployed:
-//   - all migration tables (do they exist?)
-//   - Supabase storage layout (folders + sizes)
+//   - Aurora tables (do they exist?)
+//   - S3 storage layout (object count + total size)
 //   - Redis namespace (key counts by bucket, sample keys)
 //   - which env vars are present locally vs documented as required
 //
@@ -13,54 +13,61 @@
 
 import './_loadEnv';
 
+import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getRedis, isRedisConfigured } from '../lib/redis';
-import { getSupabaseService, isSupabaseConfigured } from '../lib/supabase';
+import { auroraQuery, isAuroraEnabled, sanitizeErr } from '../lib/db/aurora';
 
-// Tables declared in supabase/migrations/001_initial_schema.sql.
+// Tables declared in db/aurora/migrations/.
 const EXPECTED_TABLES = [
-  'books', 'book_sources', 'scenes', 'hotspots', 'characters',
-  'character_assets', 'scene_assets', 'quiz_questions',
-  'narration_lines', 'safety_flags', 'cache_entries',
+  'users', 'story_projects', 'story_scenes', 'characters',
+  'generated_assets', 'story_versions', 'public_story_links',
+  'generation_jobs', 'audit_events', 'waitlist', 'content_reports',
 ];
 
-async function surveySupabase() {
-  console.log('\n─── Supabase Postgres ───');
-  if (!isSupabaseConfigured()) { console.log('  ⚠ not configured'); return; }
-  const svc = getSupabaseService()!;
-  const present: string[] = [];
-  const missing: string[] = [];
-  for (const t of EXPECTED_TABLES) {
-    const { error } = await svc.from(t).select('*', { count: 'exact', head: true });
-    if (error) missing.push(`${t} (${error.message.slice(0, 60)})`);
-    else present.push(t);
+async function surveyAurora() {
+  console.log('\n─── AWS Aurora ───');
+  if (!isAuroraEnabled()) { console.log('  ⚠ not configured'); return; }
+  try {
+    const r = await auroraQuery<{ table_name: string }>(`
+      SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public' ORDER BY table_name`);
+    const have = new Set((r?.rows ?? []).map(x => x.table_name));
+    const present = EXPECTED_TABLES.filter(t => have.has(t));
+    const missing = EXPECTED_TABLES.filter(t => !have.has(t));
+    console.log(`  · tables present: ${present.length}/${EXPECTED_TABLES.length}`);
+    if (present.length) console.log(`    ✓ ${present.join(', ')}`);
+    if (missing.length) console.log(`    ✗ missing: ${missing.join(', ')}`);
+  } catch (err) {
+    console.log(`  ✗ survey failed: ${sanitizeErr(err)}`);
   }
-  console.log(`  · tables present: ${present.length}/${EXPECTED_TABLES.length}`);
-  console.log(`    ✓ ${present.join(', ')}`);
-  if (missing.length) console.log(`    ✗ ${missing.join(' | ')}`);
 }
 
-async function surveyStorage() {
-  console.log('\n─── Supabase Storage ───');
-  if (!isSupabaseConfigured()) { console.log('  ⚠ not configured'); return; }
-  const svc = getSupabaseService()!;
-  const { data: buckets } = await svc.storage.listBuckets();
-  if (!buckets) { console.log('  ✗ listBuckets returned null'); return; }
-  for (const b of buckets) {
-    console.log(`  · bucket "${b.name}" (public=${b.public ?? false})`);
-    const { data: top } = await svc.storage.from(b.name).list('', { limit: 100 });
-    if (!top) continue;
-    for (const item of top) {
-      const isFolder = item.id === null;
-      if (isFolder) {
-        const { data: sub } = await svc.storage.from(b.name).list(item.name, { limit: 200 });
-        const count = sub?.length ?? 0;
-        const totalBytes = (sub ?? []).reduce((s, x) => s + (x.metadata?.size ?? 0), 0);
-        console.log(`      📁 ${item.name}/  (${count} entries, ${(totalBytes / 1024 / 1024).toFixed(1)} MB)`);
-      } else {
-        const sz = (item.metadata?.size ?? 0) / 1024;
-        console.log(`      📄 ${item.name}  (${sz.toFixed(1)} KB)`);
+async function surveyS3() {
+  console.log('\n─── AWS S3 ───');
+  const bucket = process.env.KK_S3_BUCKET;
+  const region = process.env.KK_S3_REGION ?? process.env.AWS_REGION ?? 'us-east-1';
+  const accessKeyId = process.env.KK_S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.KK_S3_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY;
+  if (!bucket || !accessKeyId || !secretAccessKey) { console.log('  ⚠ not configured'); return; }
+  const client = new S3Client({ region, credentials: { accessKeyId, secretAccessKey } });
+  let total = 0;
+  let bytes = 0;
+  let cursor: string | undefined;
+  try {
+    do {
+      const res = await client.send(new ListObjectsV2Command({ Bucket: bucket, ContinuationToken: cursor }));
+      for (const obj of res.Contents ?? []) {
+        total++;
+        bytes += obj.Size ?? 0;
       }
-    }
+      cursor = res.IsTruncated ? res.NextContinuationToken : undefined;
+    } while (cursor);
+    console.log(`  · bucket: ${bucket}`);
+    console.log(`  · objects: ${total}`);
+    console.log(`  · total size: ${(bytes / 1024 / 1024).toFixed(1)} MB`);
+    console.log(`  · cdn: ${process.env.KK_CDN_HOST ?? '(direct S3 URL)'}`);
+  } catch (err) {
+    console.log(`  ✗ list failed: ${err instanceof Error ? err.message : err}`);
   }
 }
 
@@ -111,10 +118,12 @@ function surveyLocalEnv() {
     'OPENAI_API_KEY',
   ];
   const recommended = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'SUPABASE_DB_URL',
+    'DATABASE_URL',
+    'USE_AURORA',
+    'KK_S3_BUCKET',
+    'KK_S3_ACCESS_KEY_ID',
+    'KK_S3_SECRET_ACCESS_KEY',
+    'KK_CDN_HOST',
     'UPSTASH_REDIS_REST_URL',
     'UPSTASH_REDIS_REST_TOKEN',
   ];
@@ -123,6 +132,7 @@ function surveyLocalEnv() {
     'GEMINI_TEXT_MODEL',
     'GEMINI_AUDIO_MODEL',
     'OPENAI_TEXT_MODEL',
+    'KATHA_ADMIN_OWNER_IDS',
   ];
   for (const [label, list] of [
     ['required', required],
@@ -140,8 +150,8 @@ function surveyLocalEnv() {
 
 async function main() {
   surveyLocalEnv();
-  await surveySupabase();
-  await surveyStorage();
+  await surveyAurora();
+  await surveyS3();
   await surveyRedis();
   console.log('');
 }

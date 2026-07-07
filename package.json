@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 5009",
+    "dev": "next dev --webpack -p 5009",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "prebake:anchors": "npx tsx scripts/prebake-anchors.ts",
-    "migrate": "npx tsx scripts/apply-supabase-migrations.ts",
     "clean:stale": "npx tsx scripts/clean-stale.ts",
     "movie:build": "npx tsx scripts/build-book-video.ts",
     "movie:build:ramayana": "npx tsx scripts/build-book-video.ts --slug=ramayana",
@@ -28,13 +27,12 @@
     "hydrate:book": "npx tsx scripts/hydrate-book-audio.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1080.0",
     "@google/genai": "^1.51.0",
     "@remotion/bundler": "4.0.457",
     "@remotion/cli": "4.0.457",
     "@remotion/player": "4.0.457",
     "@remotion/renderer": "4.0.457",
-    "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "^2.105.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "framer-motion": "^12.38.0",

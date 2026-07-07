@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth/useAuth';
+import { OWNER_COOKIE, isValidOwnerId } from '@/lib/auth/ownerId';
 
 interface AdminBook {
   id?: string;
@@ -32,16 +32,17 @@ interface AdminJob {
 }
 
 export default function AdminPage() {
-  const { user, loading } = useAuth();
   const [books, setBooks] = useState<AdminBook[]>([]);
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [seedMessage, setSeedMessage] = useState('');
 
-  // Normal admin: logged-in owner email. When auth is disabled (Play Store
-  // review), the owner can pass ?owner=1 to prove access.
-  const isLoggedInOwner = !!user && user?.email === 'reetu004@gmail.com';
+  // Anonymous-only mode: there's no login. The backend /api/admin/*
+  // routes gate on the katha:owner cookie against KATHA_ADMIN_OWNER_IDS.
+  // This page keeps a soft ?owner=1 sessionStorage gate so it isn't
+  // indexed/linked as the admin surface; the real authorization is
+  // the cookie + env allowlist enforced server-side.
   const [ownerGatePassed] = useState(() => {
     if (typeof window === 'undefined') return false;
     const params = new URLSearchParams(window.location.search);
@@ -52,7 +53,24 @@ export default function AdminPage() {
     return sessionStorage.getItem('katha_admin_gate') === '1';
   });
 
-  const showAdmin = isLoggedInOwner || ownerGatePassed;
+  // Surface the caller's owner id so the operator can copy it into
+  // KATHA_ADMIN_OWNER_IDS to grant themselves admin. Read-only, client
+  // side, never transmitted.
+  const [ownerId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const want = `${OWNER_COOKIE}=`;
+    for (const part of document.cookie.split(';')) {
+      const t = part.trim();
+      if (t.startsWith(want)) {
+        const v = decodeURIComponent(t.slice(want.length));
+        if (isValidOwnerId(v)) return v;
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const showAdmin = ownerGatePassed;
 
   useEffect(() => {
     if (!showAdmin) return;
@@ -140,14 +158,6 @@ export default function AdminPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-gold)' }}>
-        Loading...
-      </div>
-    );
-  }
-
   if (!showAdmin) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
@@ -173,10 +183,18 @@ export default function AdminPage() {
           </span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ color: 'var(--color-text-dim)', fontSize: '0.88rem' }}>{user?.email}</span>
+          <span style={{ color: 'var(--color-text-dim)', fontSize: '0.78rem', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ownerId ?? undefined}>
+            {ownerId ? `owner: ${ownerId.slice(0, 12)}…` : 'owner: —'}
+          </span>
           <Link href="/books" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem' }}>Library →</Link>
         </div>
       </nav>
+
+      {ownerId && (
+        <p style={{ color: 'var(--color-text-dim)', fontSize: '0.8rem', marginBottom: 16, padding: 10, borderRadius: 8, background: 'rgba(43,27,21,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          Your owner id: <code style={{ color: 'var(--color-gold-light)' }}>{ownerId}</code>. If the admin actions below 403, add this id to <code>KATHA_ADMIN_OWNER_IDS</code> and redeploy.
+        </p>
+      )}
 
       <h1 style={{ fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', color: 'var(--color-gold-light)', marginBottom: 8 }}>Generation Jobs</h1>
       <p style={{ color: 'var(--color-text-dim)', marginBottom: 24 }}>{jobs.length} total · admin override enabled</p>

@@ -48,12 +48,21 @@ const MANAGED_KEYS = [
   'GEMINI_AUDIO_MODEL',
   'OPENAI_API_KEY',
   'OPENAI_TEXT_MODEL',
-  // Supabase
+  // Site
   'NEXT_PUBLIC_SITE_URL',
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'SUPABASE_DB_URL',
+  // AWS Aurora (PostgreSQL)
+  'DATABASE_URL',
+  'USE_AURORA',
+  'AURORA_POOL_MAX',
+  'AURORA_SSL',
+  // AWS S3 + CloudFront (object storage)
+  'KK_S3_BUCKET',
+  'KK_S3_REGION',
+  'KK_S3_ACCESS_KEY_ID',
+  'KK_S3_SECRET_ACCESS_KEY',
+  'KK_CDN_HOST',
+  // Admin allowlist (anonymous owner ids)
+  'KATHA_ADMIN_OWNER_IDS',
   // Upstash Redis
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
@@ -224,8 +233,8 @@ function printPasteScript(env: Map<string, string>, targets: VercelTarget[], key
 
 function escapeShellValue(v: string): string {
   // Minimal shell-escape so $ / " / ` don't expand. Most of our values
-  // are tokens with no special chars, but keys like SUPABASE_DB_URL
-  // contain `:` and `?` which are fine, plus `@` which is fine.
+  // are tokens with no special chars, but DATABASE_URL (Aurora DSN)
+  // contains `:` and `?` which are fine, plus `@` which is fine.
   return v.replace(/(["$`\\])/g, '\\$1');
 }
 

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import StudioModeSelector from '@/components/library/StudioModeSelector';
 import LibraryHome from '@/components/library/LibraryHome';
-import { AuthNavButton } from '@/components/auth/AuthNavButton';
 
 interface LibraryBook {
   id?: string;
@@ -205,7 +204,6 @@ export default function BooksPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Link href="/books" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem', textDecoration: 'none', fontWeight: 600 }}>Stories</Link>
           <Link href="/educator" style={{ color: 'var(--color-gold-light)', fontSize: '0.88rem', textDecoration: 'none' }}>Studio →</Link>
-          <AuthNavButton next="/books#create-story" compact />
         </div>
       </nav>
 

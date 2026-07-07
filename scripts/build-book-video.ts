@@ -29,7 +29,7 @@ import './_loadEnv';
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { getSupabaseService } from '../lib/supabase';
+import { putObject } from '../lib/storage/s3Storage';
 import { planSubtitles, type SubtitleCue } from '../lib/video/subtitlePlanner';
 import { motionForMood, type SceneMotion } from '../lib/video/motion';
 import { detectTopics } from '../lib/video/effects/topicTagger';
@@ -41,7 +41,6 @@ import { detectTone } from '../lib/audio/emotionTagger';
 const PUBLIC_DIR = join(process.cwd(), 'public');
 const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
 const BASE = process.env.MOVIE_BUILD_BASE || 'http://localhost:5009';
-const STORAGE_BUCKET = 'scene-images';
 
 interface Scene {
   scene_id: string;
@@ -241,26 +240,16 @@ async function ttsToFile(
   return fileName;
 }
 
-async function uploadToSupabase(localPath: string, slug: string, remoteName: string): Promise<string> {
-  const supabase = getSupabaseService();
-  if (!supabase) {
-    throw new Error('Supabase service client not configured — set SUPABASE_SERVICE_ROLE_KEY');
-  }
+async function uploadToStorage(localPath: string, slug: string, remoteName: string): Promise<string> {
   const bytes = readFileSync(localPath);
   const contentType = remoteName.endsWith('.wav') ? 'audio/wav' : 'audio/mpeg';
-  const remotePath = `${slug}/movie-audio/${remoteName}`;
+  const key = `${slug}/movie-audio/${remoteName}`;
 
-  const { error } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(remotePath, bytes, {
-      contentType,
-      upsert: true,
-      cacheControl: 'public, max-age=31536000, immutable',
-    });
-  if (error) throw new Error(`storage upload ${remotePath}: ${error.message}`);
-
-  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(remotePath);
-  return data.publicUrl;
+  const result = await putObject(key, bytes, contentType);
+  if (!result) {
+    throw new Error('S3 upload failed — set KK_S3_BUCKET + KK_S3_ACCESS_KEY_ID + KK_S3_SECRET_ACCESS_KEY (and KK_CDN_HOST for the public URL)');
+  }
+  return result.url;
 }
 
 async function probeDuration(filePath: string): Promise<number> {
@@ -368,7 +357,7 @@ async function main() {
     const duration = await probeDuration(audioFileAbs);
     console.log(`[movie-build]    duration: ${duration.toFixed(2)}s`);
 
-    const audioUrl = await uploadToSupabase(audioFileAbs, slug, fileName);
+    const audioUrl = await uploadToStorage(audioFileAbs, slug, fileName);
     console.log(`[movie-build]    uploaded: ${audioUrl}`);
 
     const imagePath = scene.background_asset_url || `/images/scene_${scene.scene_id}.png`;

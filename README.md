@@ -92,7 +92,7 @@ When you POST `/api/books/generate { title: "..." }`, the engine immediately cre
 
 1. **Outline + characters** — a compact LLM drafts a 9–12 scene chronological arc. Each character gets a universal `voice_archetype` (one of nine: noble-male, wise-male, bright-male, commanding-male, noble-female, …). The LLM sets `mood`, `theme`, and `shot_type` per visual beat up front. Requests **shot-reverse-shot** for dialogue scenes. Suggests `ambient_sound` per scene and `sfx` per beat.
 2. **Scene details** (concurrency 4) — per-scene narration, hotspot positions, quiz questions, camera motion, and per-beat descriptions. ~25s for 11 scenes.
-3. **Scene images** (concurrency 3) — the illustration engine paints each scene at 1536×1024 with character face-locking via anchor portraits. Cached at the prompt level on Supabase. ~120–180s.
+3. **Scene images** (concurrency 3) — the illustration engine paints each scene at 1536×1024 with character face-locking via anchor portraits. Uploaded to S3 + served via CloudFront (cdn.kathakitaab.com). ~120–180s.
 4. **Scene narration** (concurrency 6) — the TTS engine records each scene shaped to its mood, with automatic fallback if the primary provider is unavailable. ~10–15s.
 
 The result lands in Redis and is immediately playable at `/books/<slug>` interactively or at `/books/<slug>/movie` as a synthesised cinematic cut.
@@ -201,8 +201,8 @@ Choose at generation time:
 │                         DATA LAYER                                   │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Upstash Redis        →  jobs, scenes, books, branch cache           │
-│  Supabase Storage     →  images, narration audio, MP4 exports        │
-│  AWS Aurora Postgres  →  durable story DB (H0; see below)            │
+│  AWS S3 + CloudFront  →  images, narration audio, MP4 exports        │
+│  AWS Aurora Postgres  →  durable story DB + quota + reports          │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -229,9 +229,10 @@ Upstash data**.
   returns the live Aurora engine version + per-table row counts from a real
   `SELECT count(*)`.
 
-**Env vars added (existing Upstash/Supabase/OpenAI/Gemini/Sarvam unchanged):**
+**Env vars (existing Upstash/OpenAI/Gemini/Sarvam unchanged; Supabase removed):**
 `DATABASE_URL` (Aurora connection string, no `sslmode=` — TLS via the RDS CA
-bundle), `USE_AURORA=true`, `AURORA_SSL=require`, `AURORA_POOL_MAX=3`.
+bundle), `USE_AURORA=true`, `AURORA_SSL=require`, `AURORA_POOL_MAX=3`. Quota +
+reports schema is in `db/aurora/migrations/0002_quota_and_reports.sql`.
 
 **Scripts:** `npm run migrate:aurora` (apply schema), `npm run aurora:smoke`
 (end-to-end write/read/soft-delete against live Aurora, asserts Redis is NOT
@@ -301,16 +302,31 @@ OPENAI_TEXT_MODEL=gpt-4o-mini
 
 # Optional but recommended for production:
 NEXT_PUBLIC_SITE_URL=https://www.kathakitaab.com
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-SUPABASE_DB_URL=...
+
+# AWS Aurora (durable story DB + quota + reports)
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/kathakitaab
+USE_AURORA=true
+AURORA_SSL=require
+AURORA_POOL_MAX=3
+
+# AWS S3 + CloudFront (generated asset storage)
+KK_S3_BUCKET=kathakitaab-assets
+KK_S3_REGION=us-east-1
+KK_S3_ACCESS_KEY_ID=...
+KK_S3_SECRET_ACCESS_KEY=...
+KK_CDN_HOST=cdn.kathakitaab.com
+
+# Admin allowlist (your katha:owner cookie id — see /admin)
+KATHA_ADMIN_OWNER_IDS=
 
 UPSTASH_REDIS_REST_URL=...
 UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-Without Supabase the app still runs — narration falls back to local WAV cache, MP4 export writes to `public/movies/`. Without Redis the job registry falls back to in-process Maps (works for local dev, not multi-instance).
+Apply the Aurora schema before first run: `npm run migrate:aurora` (runs
+`db/aurora/migrations/0001_init.sql` + `0002_quota_and_reports.sql`).
+
+Without S3 the app still runs — uploads fall back to inline data URIs (dev), MP4 export writes to `public/movies/`. Without Aurora the free-era quota gate degrades to "allowed" (local dev); production must have Aurora configured. Without Redis the job registry falls back to in-process Maps (works for local dev, not multi-instance).
 
 ### 3. Dev Server
 
@@ -455,7 +471,7 @@ scripts/
 - **Lip-pulse is amplitude-driven, not phoneme-aligned.** Reads as "they're talking", not "their lips are forming these words".
 - **Music is procedural.** Synthesized mood beds — don't expect a film soundtrack.
 - **No game engine.** Plain DOM + CSS + framer-motion. Deliberately no PixiJS/Phaser/Spine to keep Playwright a11y and Remotion parity.
-- **Auth is currently disabled** for Google Play Store review. Anonymous ownership + quota gates are active. Supabase auth can be re-enabled by flipping the auth flag.
+- **Auth is fully removed (anonymous-only).** Identity is the `katha:owner` cookie set by middleware; admin access is granted by listing an owner id in `KATHA_ADMIN_OWNER_IDS`. Quota + reports live in Aurora (migration `0002_quota_and_reports.sql`). There is no sign-in surface to re-enable.
 - **Resume has four fixed branches.** Unexpected sub-step failures may re-run more than strictly necessary.
 - **OpenAI billing must be active** for image generation to work. If the quota is exhausted, the engine falls back to the Gemini image provider (when configured) or returns empty placeholders.
 

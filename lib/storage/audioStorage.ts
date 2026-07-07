@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab — Generated-narration storage (Supabase Storage)
+// KathaKitaab — Generated-narration storage (AWS S3 + CloudFront)
 //
 // Sarvam returns ~150KB-500KB WAV buffers per scene. Inline-caching
 // those in Upstash Redis silently fails near the 1MB REST limit, so
@@ -8,20 +8,16 @@
 //
 // Flow:
 //   1. speakTTS() returns raw audio Buffer + mime
-//   2. uploadGeneratedNarration() puts it in Supabase Storage under a
-//      content-hash filename (so identical bytes dedupe at the
-//      storage layer)
-//   3. Returns the public CDN URL — short string that does fit in
+//   2. uploadGeneratedNarration() puts it in S3 under a content-hash
+//      filename (so identical bytes dedupe at the storage layer)
+//   3. Returns the CloudFront URL — short string that does fit in
 //      the bookRegistry Redis cache
+//
+// Falls back to a data URI when S3 isn't configured so dev still works.
 // ============================================================
 
 import { createHash } from 'crypto';
-import { getSupabaseService } from '@/lib/supabase';
-
-// Audio storage bucket. Falls back to the same bucket as images
-// (scene-images) with a subfolder prefix so we don't need a separate
-// bucket. Some Supabase projects only ship one public bucket by default.
-const BUCKET = process.env.SUPABASE_AUDIO_BUCKET ?? 'scene-images';
+import { putObject } from '@/lib/storage/s3Storage';
 
 export interface UploadAudioOpts {
   /** Folder prefix inside the bucket — usually the book slug, so
@@ -34,9 +30,9 @@ export interface UploadAudioOpts {
 }
 
 /**
- * Upload a narration audio buffer to Supabase Storage and return its
- * public URL. Falls back to a `data:audio/...;base64,...` data URI
- * when Supabase isn't configured so dev still works.
+ * Upload a narration audio buffer to S3 and return its public CDN
+ * URL. Falls back to a `data:audio/...;base64,...` data URI when S3
+ * isn't configured so dev still works.
  */
 export async function uploadGeneratedNarration(
   buffer: Buffer,
@@ -44,36 +40,21 @@ export async function uploadGeneratedNarration(
 ): Promise<string> {
   if (!buffer.length) return '';
 
-  const supabase = getSupabaseService();
-  if (!supabase) {
-    return `data:${opts.mimeType};base64,${buffer.toString('base64')}`;
-  }
-
   const ext = opts.mimeType === 'audio/mpeg' ? 'mp3' : 'wav';
-  let path: string;
+  let key: string;
   if (opts.path) {
-    path = opts.path;
+    key = opts.path;
   } else {
     const hash = createHash('sha1').update(buffer).digest('hex');
     const prefix = opts.pathHint ? `${slug(opts.pathHint)}/narration/` : 'narration/';
-    path = `${prefix}${hash}.${ext}`;
+    key = `${prefix}${hash}.${ext}`;
   }
 
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, buffer, {
-      contentType: opts.mimeType,
-      upsert: true, // same hash means same bytes
-      cacheControl: 'public, max-age=31536000, immutable',
-    });
-
-  if (error) {
-    console.error('[audioStorage] upload failed:', error.message);
+  const result = await putObject(key, buffer, opts.mimeType);
+  if (!result) {
     return `data:${opts.mimeType};base64,${buffer.toString('base64')}`;
   }
-
-  const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return pub.publicUrl;
+  return result.url;
 }
 
 function slug(s: string): string {

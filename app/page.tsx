@@ -9,7 +9,6 @@ import { BookMovie, BOOK_MOVIE_FPS, computeBookMovieFrames } from '@/remotion/Bo
 import { BookTrailer, TRAILER_FPS, computeTrailerFrames } from '@/remotion/BookTrailer';
 import { getManifestForSlug } from '@/lib/video/manifestRegistry';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/types/style';
-import { AuthNavButton } from '@/components/auth/AuthNavButton';
 import StoryRail from '@/components/library/StoryRail';
 import { CinematicHeroBackground } from '@/components/landing/CinematicHeroBackground';
 import { DriftingMotes } from '@/components/landing/DriftingMotes';
@@ -316,7 +315,6 @@ export default function HomePage() {
             <Link href="/books" className="lp-nav-link lp-nav-pill-saffron">Stories</Link>
             <Link href="/educator" className="lp-nav-link lp-nav-pill-white">Studio</Link>
           </div>
-          <AuthNavButton next="/books#create-story" compact className="lp-nav-pill-signin" />
         </div>
       </nav>
 

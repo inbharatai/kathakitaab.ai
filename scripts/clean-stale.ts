@@ -24,31 +24,45 @@
 //
 // Usage:
 //   npx tsx scripts/clean-stale.ts                # Redis only
-//   npx tsx scripts/clean-stale.ts --supabase     # + storage sweep (7d)
-//   npx tsx scripts/clean-stale.ts --supabase --older-than-days 1
-//   npx tsx scripts/clean-stale.ts --reset-scenes # + DB truncate
+//   npx tsx scripts/clean-stale.ts --s3           # + S3 storage sweep (7d)
+//   npx tsx scripts/clean-stale.ts --s3 --older-than-days 1
+//   npx tsx scripts/clean-stale.ts --reset-scenes # + Aurora scene truncate
 //   npx tsx scripts/clean-stale.ts --dry-run      # report only
 // ============================================================
 
 import './_loadEnv';
 
 import { getRedis } from '../lib/redis';
-import { getSupabaseService } from '../lib/supabase';
+import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
+import { auroraQuery, isAuroraEnabled } from '../lib/db/aurora';
 
-const BUCKET = 'scene-images';
+function s3Bucket(): string | undefined {
+  return process.env.KK_S3_BUCKET;
+}
+
+function s3Region(): string {
+  return process.env.KK_S3_REGION ?? process.env.AWS_REGION ?? 'us-east-1';
+}
+
+function s3Client(): S3Client | null {
+  const accessKeyId = process.env.KK_S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.KK_S3_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY;
+  if (!s3Bucket() || !accessKeyId || !secretAccessKey) return null;
+  return new S3Client({ region: s3Region(), credentials: { accessKeyId, secretAccessKey } });
+}
 
 interface Flags {
-  supabase: boolean;
+  s3: boolean;
   resetScenes: boolean;
   olderThanDays: number;
   dryRun: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { supabase: false, resetScenes: false, olderThanDays: 7, dryRun: false };
+  const flags: Flags = { s3: false, resetScenes: false, olderThanDays: 7, dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--supabase') flags.supabase = true;
+    if (a === '--s3' || a === '--supabase') flags.s3 = true;
     else if (a === '--reset-scenes') flags.resetScenes = true;
     else if (a === '--dry-run') flags.dryRun = true;
     else if (a === '--older-than-days') flags.olderThanDays = Math.max(0, Number(argv[++i]) || 7);
@@ -86,70 +100,48 @@ async function cleanRedis(dry: boolean): Promise<void> {
   }
 }
 
-async function cleanSupabaseStorage(olderThanDays: number, dry: boolean): Promise<void> {
-  const supa = getSupabaseService();
-  if (!supa) {
-    console.log('[storage] supabase service client not configured — skipping');
+async function cleanS3Storage(olderThanDays: number, dry: boolean): Promise<void> {
+  const client = s3Client();
+  const bucket = s3Bucket();
+  if (!client || !bucket) {
+    console.log('[storage] S3 not configured — skipping');
     return;
   }
   const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
 
-  // Walk every top-level "folder" (book slug). Each book has files
-  // directly under it AND under `anchors/`. We keep anchors forever.
-  const { data: top, error: topErr } = await supa.storage.from(BUCKET).list('', { limit: 1000 });
-  if (topErr) {
-    console.error('[storage] list top failed:', topErr.message);
-    return;
-  }
+  // Walk every object under every book "folder". Keep anchors/ and
+  // portraits/ (they're expensive to regenerate and stable across
+  // re-renders). Delete everything else older than the cutoff.
+  const toRemove: Array<{ key: string }> = [];
+  let cursor: string | undefined;
+  do {
+    const res = await client.send(new ListObjectsV2Command({ Bucket: bucket, ContinuationToken: cursor }));
+    for (const obj of res.Contents ?? []) {
+      if (!obj.Key) continue;
+      // Protect anchor / portrait assets regardless of age.
+      if (obj.Key.includes('/anchors/') || obj.Key.includes('/portraits/')) continue;
+      const ts = obj.LastModified?.getTime();
+      if (ts && ts < cutoff) toRemove.push({ key: obj.Key });
+    }
+    cursor = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (cursor);
 
-  const toRemove: string[] = [];
-  for (const entry of top ?? []) {
-    // Folders show up as entries too; treat anything without a content
-    // hash filename as a directory and recurse one level.
-    if (!entry.name) continue;
-    if (looksLikeFile(entry.name)) {
-      // Loose file at bucket root (legacy uploads).
-      if (entry.created_at && new Date(entry.created_at).getTime() < cutoff) {
-        toRemove.push(entry.name);
-      }
-      continue;
-    }
-    // It's a "folder" (book slug). List its contents.
-    const { data: inner, error: innerErr } = await supa.storage.from(BUCKET).list(entry.name, { limit: 1000 });
-    if (innerErr) {
-      console.error(`[storage] list ${entry.name} failed:`, innerErr.message);
-      continue;
-    }
-    for (const f of inner ?? []) {
-      if (!f.name) continue;
-      // Anchors and portraits subdirs are protected.
-      if (f.name === 'anchors' || f.name === 'portraits') continue;
-      const path = `${entry.name}/${f.name}`;
-      if (!looksLikeFile(f.name)) {
-        // Deeper subdir we don't own — skip.
-        continue;
-      }
-      if (f.created_at && new Date(f.created_at).getTime() < cutoff) {
-        toRemove.push(path);
-      }
-    }
-  }
-
-  console.log(`[storage] candidates to remove (older than ${olderThanDays}d, excluding anchors): ${toRemove.length}`);
+  console.log(`[storage] candidates to remove (older than ${olderThanDays}d, excluding anchors/portraits): ${toRemove.length}`);
   if (toRemove.length === 0 || dry) {
     if (dry && toRemove.length > 0) {
-      console.log('[storage] (dry-run, kept). first 5:', toRemove.slice(0, 5));
+      console.log('[storage] (dry-run, kept). first 5:', toRemove.slice(0, 5).map(x => x.key));
     }
     return;
   }
-  // Supabase remove takes up to 1000 paths per call.
   let removed = 0;
-  for (let i = 0; i < toRemove.length; i += 500) {
-    const chunk = toRemove.slice(i, i + 500);
-    const { error } = await supa.storage.from(BUCKET).remove(chunk);
-    if (error) {
-      console.error(`[storage] remove batch failed:`, error.message);
-      continue;
+  for (let i = 0; i < toRemove.length; i += 1000) {
+    const chunk = toRemove.slice(i, i + 1000);
+    const { Errors } = await client.send(new DeleteObjectsCommand({
+      Bucket: bucket,
+      Delete: { Objects: chunk.map(x => ({ Key: x.key })) },
+    }));
+    if (Errors && Errors.length) {
+      console.error('[storage] some deletes failed:', Errors.slice(0, 3));
     }
     removed += chunk.length;
   }
@@ -157,36 +149,18 @@ async function cleanSupabaseStorage(olderThanDays: number, dry: boolean): Promis
 }
 
 async function resetSceneTables(dry: boolean): Promise<void> {
-  const supa = getSupabaseService();
-  if (!supa) {
-    console.log('[db] supabase service client not configured — skipping');
+  if (!isAuroraEnabled()) {
+    console.log('[db] Aurora not configured — skipping');
     return;
   }
-  // Tables that hold ephemeral generated content. List built once and
-  // reused so the dry-run path reports exactly what the live path will
-  // truncate.
-  const tables = ['scene_branches', 'scenes'];
-  for (const t of tables) {
-    if (dry) {
-      const { count, error } = await supa.from(t).select('*', { count: 'exact', head: true });
-      if (error) {
-        console.warn(`[db] ${t}: count failed (${error.message}) — table may not exist`);
-        continue;
-      }
-      console.log(`[db] ${t}: ${count ?? 0} rows (dry-run, kept)`);
-      continue;
-    }
-    const { error } = await supa.from(t).delete().not('id', 'is', null);
-    if (error) {
-      console.warn(`[db] ${t}: delete failed (${error.message})`);
-      continue;
-    }
-    console.log(`[db] ${t}: cleared`);
+  // story_scenes holds ephemeral generated scene content in Aurora.
+  if (dry) {
+    const r = await auroraQuery<{ c: string }>('SELECT COUNT(*)::text AS c FROM story_scenes');
+    console.log(`[db] story_scenes: ${r?.rows[0]?.c ?? 0} rows (dry-run, kept)`);
+    return;
   }
-}
-
-function looksLikeFile(name: string): boolean {
-  return /\.[a-z0-9]{2,5}$/i.test(name);
+  await auroraQuery('TRUNCATE TABLE story_scenes');
+  console.log('[db] story_scenes: cleared');
 }
 
 async function main() {
@@ -195,8 +169,8 @@ async function main() {
 
   await cleanRedis(flags.dryRun);
 
-  if (flags.supabase) {
-    await cleanSupabaseStorage(flags.olderThanDays, flags.dryRun);
+  if (flags.s3) {
+    await cleanS3Storage(flags.olderThanDays, flags.dryRun);
   }
   if (flags.resetScenes) {
     await resetSceneTables(flags.dryRun);

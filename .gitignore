@@ -61,3 +61,6 @@ next-env.d.ts
 
 # scratch dumps from local debugging
 /.tmp-*.json
+
+# local dev-server stdout capture (e2e/dev artifact, never commit)
+/dev.log

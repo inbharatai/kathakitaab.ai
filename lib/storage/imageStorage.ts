@@ -1,5 +1,5 @@
 // ============================================================
-// KathaKitaab — Generated-image storage (Supabase Storage)
+// KathaKitaab — Generated-image storage (AWS S3 + CloudFront)
 //
 // gpt-image-1 returns ~2-3MB base64 PNGs. Caching those raw in Upstash
 // Redis (1MB REST limit) silently fails, which is why every scene
@@ -7,17 +7,18 @@
 //
 // Flow now:
 //   1. Generate image → base64 PNG/JPEG bytes.
-//   2. Upload to the `scene-images` Supabase bucket (public read).
-//   3. Return the public CDN URL.
+//   2. Upload to S3 (single bucket, content-hashed key for dedup).
+//   3. Return the CloudFront URL (cdn.kathakitaab.com).
 //   4. Caller caches the URL (small string) in Redis. Next visit
 //      hits the cache, gets the URL, browser fetches the image
-//      directly from Supabase's CDN — fast and visually consistent.
+//      directly from the CDN — fast and visually consistent.
+//
+// Falls back to the data URI itself when S3 isn't configured so dev
+// keeps working without credentials.
 // ============================================================
 
 import { createHash } from 'crypto';
-import { getSupabaseService } from '@/lib/supabase';
-
-const BUCKET = 'scene-images';
+import { putObject } from '@/lib/storage/s3Storage';
 
 export interface UploadedImage {
   publicUrl: string;
@@ -26,9 +27,9 @@ export interface UploadedImage {
 }
 
 /**
- * Upload a base64 image (with or without `data:` prefix) to Supabase
- * Storage and return its public URL. If Supabase isn't configured,
- * falls back to returning the data URI itself so dev still works.
+ * Upload a base64 image (with or without `data:` prefix) to S3 and
+ * return its public CDN URL. If S3 isn't configured, falls back to
+ * returning the data URI itself so dev still works.
  */
 export async function uploadGeneratedImage(
   dataUriOrBase64: string,
@@ -39,14 +40,6 @@ export async function uploadGeneratedImage(
   // If it's already a public URL (e.g. cache hit re-uploads avoided),
   // pass it through unchanged.
   if (/^https?:\/\//i.test(dataUriOrBase64)) return dataUriOrBase64;
-
-  const supabase = getSupabaseService();
-  if (!supabase) {
-    // No Supabase configured — caller will store the data URI itself.
-    // The rest of the app keeps working; only the cross-instance cache
-    // win is forfeited.
-    return dataUriOrBase64;
-  }
 
   const { mime, base64 } = parseDataUri(dataUriOrBase64, opts.mimeType);
   const bytes = Buffer.from(base64, 'base64');
@@ -59,32 +52,24 @@ export async function uploadGeneratedImage(
   //      always land at the same path — that gives us free dedup at
   //      the storage layer for repeated cache misses.
   const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
-  let path: string;
+  let key: string;
   if (opts.path) {
-    path = opts.path;
+    key = opts.path;
   } else {
     const hash = createHash('sha1').update(bytes).digest('hex');
     const prefix = opts.pathHint ? `${slug(opts.pathHint)}/` : '';
-    path = `${prefix}${hash}.${ext}`;
+    key = `${prefix}${hash}.${ext}`;
   }
 
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, bytes, {
-      contentType: mime,
-      upsert: true, // safe — same hash means same bytes
-      cacheControl: 'public, max-age=31536000, immutable',
-    });
-
-  if (error) {
-    // Fall back to the data URI so the response still works for the
-    // current request; we just lose the persistent caching benefit.
-    console.error('[imageStorage] upload failed:', error.message);
+  const result = await putObject(key, bytes, mime);
+  if (!result) {
+    // No S3 configured (dev) or upload failed — fall back to the data
+    // URI so the response still renders. We just lose the durable
+    // cross-visit cache win.
     return dataUriOrBase64;
   }
 
-  const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return pub.publicUrl;
+  return result.url;
 }
 
 function parseDataUri(input: string, fallbackMime?: string): { mime: string; base64: string } {

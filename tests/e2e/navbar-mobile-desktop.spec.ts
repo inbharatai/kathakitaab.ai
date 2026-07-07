@@ -17,14 +17,12 @@ async function assertNoHorizontalOverflow(page: Page) {
 async function assertNavItemsVisible(page: Page) {
   const stories = page.locator('nav .lp-nav-pill-saffron').first();
   const studio = page.locator('nav .lp-nav-pill-white').first();
-  const signin = page.locator('nav .lp-nav-pill-signin').first();
 
   await expect(stories).toBeVisible({ timeout: 5000 });
   await expect(studio).toBeVisible({ timeout: 5000 });
-  await expect(signin).toBeVisible({ timeout: 5000 });
 
   // Ensure tap targets meet 44px minimum
-  for (const locator of [stories, studio, signin]) {
+  for (const locator of [stories, studio]) {
     const box = await locator.boundingBox();
     expect(box).toBeTruthy();
     expect(box!.width).toBeGreaterThanOrEqual(44);
@@ -39,12 +37,12 @@ async function assertEnterRamayanaRemovedFromNav(page: Page) {
 }
 
 async function assertHeroCtaPresent(page: Page) {
-  const heroCta = page.locator('.lp-hero a', { hasText: /Enter the Ramayana/i }).first();
+  const heroCta = page.locator('.lp-hero a', { hasText: /Create a Story/i }).first();
   await expect(heroCta).toBeVisible({ timeout: 5000 });
 }
 
 test.describe('Navbar — desktop', () => {
-  test('shows Stories, Studio, Sign in and hides Enter Ramayana without overflow', async ({ page }) => {
+  test('shows Stories, Studio and hides Enter Ramayana without overflow', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
@@ -66,7 +64,7 @@ test.describe('Navbar — desktop', () => {
 
 for (const viewport of MOBILE_VIEWPORTS) {
   test.describe(`Navbar — mobile ${viewport.name}`, () => {
-    test('shows Stories, Studio, Sign in and hides Enter Ramayana without overflow', async ({ page }) => {
+    test('shows Stories, Studio and hides Enter Ramayana without overflow', async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto('/');
       await page.waitForLoadState('domcontentloaded');

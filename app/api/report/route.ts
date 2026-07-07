@@ -1,21 +1,16 @@
 // POST /api/report
 //
-// Anyone can report a book or scene. Writes a row into
-// public.content_reports for the operator to triage. Inserts use
-// the service-role client because the public anon role can't INSERT
-// without an RLS policy that we didn't grant (we want operator-only
-// reads but write-only inserts from anyone; using service role for
-// the write is simpler than weaving a policy that exposes nothing
-// useful).
+// Anyone can report a book or scene. Writes a row into the Aurora
+// content_reports table for the operator to triage. Inserts use the
+// pooled pg client (service-role; no RLS in anonymous-only mode).
 //
 // Rate-limited at the 'expensive' scope so a single attacker can't
 // flood the queue.
 
 import { NextResponse } from 'next/server';
-import { getSupabaseService } from '@/lib/supabase';
+import { auroraQuery, isAuroraEnabled } from '@/lib/db/aurora';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
-import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { captureMessage } from '@/lib/observability/sentry';
 
 interface ReportBody {
@@ -42,26 +37,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'bookSlug and a valid reason are required' }, { status: 400 });
   }
 
-  const supabase = getSupabaseService();
-  if (!supabase) {
+  if (!isAuroraEnabled()) {
     return NextResponse.json({ error: 'Reporting is not configured' }, { status: 503 });
   }
 
-  const session = await getSessionFromRouteRequest(request);
   const ownerId = getOwnerIdFromRequest(request);
 
-  const { error } = await supabase.from('content_reports').insert({
-    book_slug: body.bookSlug,
-    scene_id: body.sceneId ?? null,
-    reporter_user_id: session?.userId ?? null,
-    reporter_owner_id: session ? null : ownerId, // dedupe — store one
-    reason: body.reason,
-    notes: (body.notes ?? '').slice(0, 2000),
-  });
+  const result = await auroraQuery(
+    `INSERT INTO content_reports (book_slug, scene_id, reporter_owner_id, reason, notes)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      body.bookSlug,
+      body.sceneId ?? null,
+      ownerId,
+      body.reason,
+      (body.notes ?? '').slice(0, 2000),
+    ],
+  );
 
-  if (error) {
+  if (!result) {
     captureMessage('content_report_insert_failed', 'warning', {
-      extra: { error: error.message, slug: body.bookSlug },
+      extra: { slug: body.bookSlug },
     });
     return NextResponse.json({ error: 'Could not record the report. Please email hello@kathakitaab.com.' }, { status: 500 });
   }

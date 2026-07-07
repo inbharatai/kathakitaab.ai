@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
     // pg ships an optional pg-native binding; keep it server-external so
     // the bundler never tries to inline native bits. Pure-JS path is used.
     'pg',
+    // @aws-sdk/client-s3 pulls in many Node built-ins (stream, crypto,
+    // http/https, zlib). Keep it server-external so the bundler never
+    // tries to inline it for the browser; the storage code paths only
+    // run server-side anyway (guarded by isS3Configured()).
+    '@aws-sdk/client-s3',
   ],
   // The RDS CA bundle is read at runtime via process.cwd(), which the
   // file tracer can't statically resolve — include it explicitly so it
@@ -27,14 +32,16 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/*': ['./db/aurora/rds-ca-bundle.pem'],
   },
-  // `pg` is Node-only (require('tls','net','dns','fs')). The Aurora
-  // adapter is imported through bookRegistry, which client code also
-  // reaches, so webpack tries to bundle `pg` for the browser and fails
-  // on `tls`. On the server, `pg` is externalized via
+  // `pg` + `@aws-sdk/client-s3` are Node-only (require('tls','net','dns',
+  // 'fs','stream','crypto','http','https','zlib')). The Aurora + S3
+  // adapters are imported through bookRegistry / imageStorage, which
+  // client code also reaches, so webpack tries to bundle them for the
+  // browser and fails on `tls`. On the server they're externalized via
   // serverExternalPackages and required at runtime (real modules). On
-  // the client, stub the Node built-ins `pg` references — the Aurora
-  // code paths are guarded by isAuroraEnabled() and never execute in
-  // the browser, so the stubbed `pg` is dead client code.
+  // the client, stub the Node built-ins they reference — the Aurora +
+  // S3 code paths are guarded by isAuroraEnabled()/isS3Configured() and
+  // never execute in the browser, so the stubbed modules are dead
+  // client code.
   webpack(config, { isServer }) {
     if (!isServer) {
       config.resolve.fallback = {
@@ -44,6 +51,11 @@ const nextConfig: NextConfig = {
         dns: false,
         fs: false,
         child_process: false,
+        stream: false,
+        crypto: false,
+        http: false,
+        https: false,
+        zlib: false,
       };
     }
     return config;

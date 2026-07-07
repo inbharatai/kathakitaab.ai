@@ -6,7 +6,7 @@
 //
 // Bundles the Remotion entry, renders the BookMovie composition
 // with the book's manifest as inputProps, uploads the resulting
-// MP4 to Supabase Storage (`scene-images/{slug}/movie.mp4`), and
+// MP4 to S3 (`{slug}/movie.{hash}.mp4`, served via CloudFront), and
 // returns the public URL.
 //
 // Why server-side:
@@ -19,8 +19,8 @@
 //   - 13 scenes × ~32s ≈ 7 minutes of video at 1920×1080 takes a few
 //     minutes to render even on a fast machine. The route is gated
 //     by maxDuration = 600s and rate-limited to expensive scope.
-//   - Output is cached in Supabase by content hash so identical
-//     manifests don't re-render.
+//   - Output is cached in S3 by content hash so identical manifests
+//     don't re-render.
 //
 // Required: @remotion/renderer + @remotion/bundler in deps. The
 // route fails gracefully if either is missing or if the local OS
@@ -33,7 +33,6 @@ import path from 'node:path';
 import os from 'node:os';
 import { createHash } from 'crypto';
 
-import { getSupabaseService } from '@/lib/supabase';
 import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { analyzeImageForTargets } from '@/lib/agents/visionAgent';
@@ -43,13 +42,12 @@ import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 import { isSafeUrl } from '@/lib/safety/urlValidation';
+import { putObject, objectExists, publicUrlFor, isS3Configured } from '@/lib/storage/s3Storage';
 
 // 10 minutes — Remotion render of a 7-minute movie typically takes
 // 2-4 minutes depending on hardware. This caps it so a runaway
 // render can't hold the function instance forever.
 export const maxDuration = 600;
-
-const BUCKET = 'scene-images';
 
 interface RenderRequest {
   bookSlug: string;
@@ -154,16 +152,11 @@ export async function POST(request: Request) {
   const filenameStem = mode === 'trailer' ? 'trailer' : 'movie';
   const objectPath = `${bookSlug}/${filenameStem}.${manifestHash}.mp4`;
 
-  const supabase = getSupabaseService();
-
   // Cached path — if the same manifest already produced an MP4,
   // skip the multi-minute render and return the cached URL.
   if (!force) {
-    if (supabase) {
-      const cached = await getPublicUrlIfExists(supabase, BUCKET, objectPath);
-      if (cached) {
-        return NextResponse.json({ url: cached, cached: true, manifestHash, mode, storageMode: 'supabase' });
-      }
+    if (isS3Configured() && await objectExists(objectPath)) {
+      return NextResponse.json({ url: publicUrlFor(objectPath), cached: true, manifestHash, mode, storageMode: 's3' });
     }
     // Local fallback dedup — if a previous run wrote a matching MP4
     // under public/movies, serve that instead of re-rendering. Hash
@@ -249,28 +242,19 @@ export async function POST(request: Request) {
     const bytes = await fs.readFile(outFile);
 
     // Storage strategy:
-    //   1. Try Supabase first — that gives us a CDN URL anyone can hit.
-    //   2. If Supabase rejects (size limit, no creds, network), fall
-    //      back to /public/movies/{hash}.mp4 so the file is still
-    //      reachable from the same origin. The local fallback keeps
-    //      `npm run dev` working end-to-end without infra changes.
+    //   1. Try S3 first — that gives us a CloudFront URL anyone can hit.
+    //   2. If S3 rejects (no creds, network, size), fall back to
+    //      /public/movies/{hash}.mp4 so the file is still reachable
+    //      from the same origin. The local fallback keeps `npm run
+    //      dev` working end-to-end without infra changes.
     let publicUrl: string | null = null;
-    let storageMode: 'supabase' | 'local' = 'supabase';
+    let storageMode: 's3' | 'local' = 's3';
 
-    if (supabase) {
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(objectPath, bytes, {
-          contentType: 'video/mp4',
-          upsert: true,
-          cacheControl: 'public, max-age=31536000, immutable',
-        });
-      if (!error) {
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
-        publicUrl = data.publicUrl;
-      } else {
-        console.warn('[render-movie] Supabase upload failed, falling back to local:', error.message);
-      }
+    const uploaded = await putObject(objectPath, bytes, 'video/mp4');
+    if (uploaded) {
+      publicUrl = uploaded.url;
+    } else {
+      console.warn('[render-movie] S3 upload unavailable/failed, falling back to local.');
     }
 
     if (!publicUrl) {
@@ -394,25 +378,4 @@ async function runVisionQA(
     }
   });
   await Promise.all(workers);
-}
-
-
-async function getPublicUrlIfExists(
-  supabase: NonNullable<ReturnType<typeof getSupabaseService>>,
-  bucket: string,
-  objectPath: string,
-): Promise<string | null> {
-  // Supabase Storage doesn't have a cheap "exists" check; we list the
-  // parent directory with a name filter, which is one round-trip.
-  const dir = path.posix.dirname(objectPath);
-  const file = path.posix.basename(objectPath);
-  const { data, error } = await supabase.storage.from(bucket).list(dir, {
-    search: file,
-    limit: 1,
-  });
-  if (error || !data || data.length === 0) return null;
-  const exact = data.find(d => d.name === file);
-  if (!exact) return null;
-  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(objectPath);
-  return pub.publicUrl;
 }
