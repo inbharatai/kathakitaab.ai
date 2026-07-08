@@ -1,5 +1,9 @@
 // ============================================================
-// middleware.ts — issues the anonymous owner cookie
+// proxy.ts — issues the anonymous owner cookie
+//
+// In Next.js 16 the Middleware file convention was renamed to Proxy
+// to better reflect its purpose (the functionality is unchanged).
+// See node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md.
 //
 // Every visitor gets a stable `katha:owner` UUID cookie. The
 // cookie is the sole authorization principal for private books
@@ -10,10 +14,9 @@
 //   • SameSite=Lax — allows top-level navigations (a parent
 //     bookmarking their child's story page works), blocks cross-
 //     origin POSTs (CSRF defense).
-//   • HttpOnly is INTENTIONALLY OFF. We never read this cookie
-//     from JavaScript today, but a future "show me my private
-//     books" client widget needs JS access. Toggling later is a
-//     one-line change.
+//   • HttpOnly is ON. We never read this cookie from JavaScript
+//     today; client-side access can be toggled later with a one-line
+//     change if a future "show me my private books" widget needs it.
 //   • Secure in production only — local http://localhost would
 //     drop a Secure cookie.
 //   • 180-day expiry — long enough to survive school holidays,
@@ -28,7 +31,7 @@ import { OWNER_COOKIE, isValidOwnerId, newOwnerId } from '@/lib/auth/ownerId';
 
 const COOKIE_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const existing = request.cookies.get(OWNER_COOKIE)?.value;
   // Idempotent: never overwrite a valid existing cookie. A user who
   // returns after months keeps their owner ID — and therefore keeps

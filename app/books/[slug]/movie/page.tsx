@@ -2,7 +2,7 @@
 
 // Per-book live trailer. The same Remotion BookMovie composition that
 // plays on the landing page is rendered here for any book with a
-// committed manifest. Narration streams from Supabase Storage; images
+// committed manifest. Narration streams from S3 (CloudFront CDN); images
 // come either from /public or from CDN URLs the manifest already holds.
 //
 // "Not yet ready" books (no manifest committed) get a friendly message
@@ -66,7 +66,7 @@ export default function BookMoviePage({ params }: { params: Promise<{ slug: stri
   // Prefetch remote image assets so Remotion's <Img> can decode them
   // from blob URLs instead of fetching over the network on every frame.
   // This fixes blank backgrounds for generated books whose images live
-  // on Supabase Storage.
+  // on S3 (CloudFront CDN).
   useEffect(() => {
     if (!manifest) return;
 

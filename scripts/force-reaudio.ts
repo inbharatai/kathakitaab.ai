@@ -1,7 +1,7 @@
 // Force-re-render every scene's narration_audio_url for one or more
 // books, regardless of whether the existing URL HEADs OK. Built for
 // the case where a book was hydrated under the broken Sarvam path
-// (pre-chunker-fix), so its Supabase WAVs are Gemini-voiced even
+// (pre-chunker-fix), so its CDN WAVs are Gemini-voiced even
 // though the URLs still resolve.
 //
 // Idempotent: strips narration_audio_url first, then runs the
@@ -27,8 +27,8 @@ async function reaudio(slug: string): Promise<void> {
   console.log(`\n=== ${slug} (${book.scenes.length} scenes) ===`);
 
   // Strip every existing audio URL so hydrateBookAudio re-renders them
-  // all. Old URLs stay on Supabase storage (upsert overwrites them by
-  // path on re-upload) so we don't orphan anything.
+  // all. Old URLs stay on S3 (upsert overwrites them by path on
+  // re-upload) so we don't orphan anything.
   const stripped = {
     ...book,
     scenes: book.scenes.map(s => {

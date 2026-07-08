@@ -229,9 +229,10 @@ export async function POST(request: Request) {
         scale: 0.5,
         // Constant Rate Factor for H.264. Default 18 produces archival
         // quality at large file sizes (~250MB for a 7-min 1080p movie);
-        // 28 cuts that to <50MB which fits Supabase free-tier object
-        // limits while staying perceptually close to the original. This
-        // is a share preview — visual fidelity > file precision.
+        // 28 cuts that to <50MB which streams quickly over the CloudFront
+        // CDN and fits share-preview size budgets while staying
+        // perceptually close to the original. This is a share preview —
+        // visual fidelity > file precision.
         crf: 28,
         audioBitrate: '96k',
       }),

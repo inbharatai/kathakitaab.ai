@@ -2,7 +2,7 @@
 // lib/auth/ownerId.ts
 //
 // Anonymous-cookie ownership model. Every visitor gets a UUIDv4
-// in a `katha:owner` cookie on first request — set by middleware.ts
+// in a `katha:owner` cookie on first request — set by proxy.ts
 // at the project root. The ID is opaque (no PII), persisted across
 // sessions, and is the sole authorization principal until we ship
 // real auth.
@@ -15,7 +15,7 @@
 //   • A single cookie scopes "I made this story; I can read or
 //     delete it" without collecting anything we'd have to retain.
 //
-// This module is pure helpers — the cookie is set by middleware.ts.
+// This module is pure helpers — the cookie is set by proxy.ts.
 // ============================================================
 
 import type { NextRequest } from 'next/server';
@@ -44,7 +44,7 @@ export function getOwnerIdFromRequest(req: Request | NextRequest): string | null
   if (!cookieHeader) return null;
   // Manual parse — we don't want a dep on `cookie` package for one
   // value, and Next.js's RequestCookies API isn't available in
-  // every runtime context (route handlers vs edge middleware).
+  // every runtime context (route handlers vs proxy).
   const want = `${OWNER_COOKIE}=`;
   for (const part of cookieHeader.split(';')) {
     const trimmed = part.trim();
@@ -56,7 +56,7 @@ export function getOwnerIdFromRequest(req: Request | NextRequest): string | null
   return null;
 }
 
-/** Generate a new owner ID. Used by middleware on first request. */
+/** Generate a new owner ID. Used by proxy on first request. */
 export function newOwnerId(): string {
   // crypto.randomUUID is available in both edge and node runtimes
   // in modern Next.js. Falls through to crypto.getRandomValues for

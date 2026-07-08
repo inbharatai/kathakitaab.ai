@@ -15,7 +15,7 @@
 //     pipeline the live reader uses, so movie + reader stay in sync)
 //   - Per-scene subtitles[] (planSubtitles fits cues inside the
 //     estimated audio window)
-//   - imagePath = scene.background_asset_url (Supabase CDN URL)
+//   - imagePath = scene.background_asset_url (S3 / CloudFront CDN URL)
 //   - audioPath = empty string. The render-movie route fills this
 //     in by calling /api/livebook/tts per scene at render time —
 //     keeps synthesis cheap and lets us reuse the TTS Redis cache.
@@ -42,7 +42,7 @@ function fallbackDurationSeconds(narration: string): number {
 }
 
 /**
- * Render scene narrations into Supabase Storage so the live reader and
+ * Render scene narrations into S3 (CloudFront CDN) so the live reader and
  * movie can play them straight from CDN. Routes through speakTTS
  * (Sarvam → Gemini fallback) — same chain as /api/livebook/tts, so
  * the pre-rendered voice matches the on-the-fly voice exactly.
@@ -78,8 +78,8 @@ export async function hydrateBookAudio(book: GeneratedBook): Promise<GeneratedBo
   // operator-named slug needed.
   //
   // Cost: ~$0.10 one-time per legacy book. Re-renders use upsert on
-  // the same Supabase path, so old URLs keep working through the
-  // transition and tagged scenes don't re-render on subsequent reads.
+  // the same S3 path, so old URLs keep working through the transition
+  // and tagged scenes don't re-render on subsequent reads.
   const missing = scenes
     .map((s, i) => ({ s, i }))
     .filter(({ s }) => !s.narration_audio_url || s.audio_provider !== 'sarvam');
@@ -206,7 +206,7 @@ export function synthesizeBookMovieManifest(book: GeneratedBook): BookMovieManif
       const effects = buildSceneEffects(topics, s.mood ?? 'serene');
 
       // narration_audio_url is filled in by bookGeneratorAgent at gen
-      // time via Sarvam → Supabase. Empty fallback keeps Remotion
+      // time via Sarvam → S3. Empty fallback keeps Remotion
       // happy when audio failed to render — the MP4 still plays with
       // mood music and captions.
       const audioPath = s.narration_audio_url ?? '';

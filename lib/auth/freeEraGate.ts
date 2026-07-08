@@ -4,7 +4,7 @@
 // First-100-users gate + per-owner generation quota.
 //
 // Supabase auth is gone. The durable identity is the anonymous
-// `owner_id` (text) set as the katha:owner cookie by middleware
+// `owner_id` (text) set as the katha:owner cookie by proxy
 // (lib/auth/ownerId.ts). Quota + free-era admission live in Aurora
 // (db/aurora/migrations/0002_quota_and_reports.sql), keyed on
 // owner_id text. No Redis, no Supabase.

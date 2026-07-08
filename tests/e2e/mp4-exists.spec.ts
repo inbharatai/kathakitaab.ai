@@ -3,7 +3,7 @@
 // playable MP4.
 //
 // /api/livebook/render-movie bundles Remotion, renders the
-// BookMovie composition, uploads to Supabase or falls back to
+// BookMovie composition, uploads to S3 (CloudFront) or falls back to
 // /public/movies. The test:
 //   1. POSTs the render request (long-running — up to ~5 min)
 //   2. Verifies the response includes a non-empty `url`
@@ -50,11 +50,11 @@ test.describe('Render-movie MP4 export', () => {
     expect(r2.ok()).toBeTruthy();
     const j2 = await r2.json() as { url: string; cached: boolean };
     expect(j2.url).toEqual(j1.url);
-    // Cached path is only reachable when Supabase is configured.
+    // Cached path is only reachable when S3 is configured.
     // For the local fallback we just require url stability — the
     // file is written once and reused via the same manifest hash.
-    if (j1.storageMode === 'supabase') {
-      expect(j2.cached, 'second call should return cached=true on Supabase path').toBeTruthy();
+    if (j1.storageMode === 's3') {
+      expect(j2.cached, 'second call should return cached=true on S3 path').toBeTruthy();
     }
   });
 });

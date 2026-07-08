@@ -28,20 +28,12 @@ const LANDING_TRAILER_FRAMES = computeTrailerFrames(LANDING_MANIFEST);
 const COMPARISON = [
   { old: 'Fixed stories', new: 'Generates new stories from prompts' },
   { old: 'Static pages', new: 'Interactive living scenes' },
-  { old: 'One-way reading', new: 'Clickable characters, objects, and hidden details' },
+  { old: 'One-way reading', new: 'Highlighted characters and objects respond on click' },
   { old: 'Random images', new: 'Consistent character identity across scenes' },
   { old: 'Text only', new: 'Story, images, narration, subtitles, quiz, and movie' },
   { old: 'Video only', new: 'Book + interactive reader + movie mode' },
+  { old: 'Same path every read', new: 'AI generates a fresh branch the first time, caches it after' },
   { old: 'Made by creators only', new: 'Created by anyone using prompts' },
-];
-
-const WHAT_IS_FEATURES = [
-  { icon: '📜', title: 'Story structure', desc: 'Scene-by-scene story arc generated from your prompt.' },
-  { icon: '👤', title: 'Consistent characters', desc: 'The same character look is maintained across every scene.' },
-  { icon: '🎨', title: 'Illustrated scenes', desc: 'AI-generated visuals in cinematic, storybook, comic, anime, or manga styles.' },
-  { icon: '🗣️', title: 'Narration and captions', desc: 'Voice narration, subtitles, mood-based storytelling, and sentence timing.' },
-  { icon: '👆', title: 'Clickable learning moments', desc: 'Characters, objects, and backgrounds respond with hidden details.' },
-  { icon: '🎬', title: 'Movie mode', desc: 'The same book plays as a cinematic narrated video experience.' },
 ];
 
 const AUDIENCE_CARDS = [
@@ -341,8 +333,9 @@ export default function HomePage() {
 
             <p className="lp-hero-sub font-serif">
               KathaKitaab is an AI agentic creation engine that plans the story arc,
-              generates illustrated scenes, builds clickable hotspots, records narration,
-              and creates a cinematic movie — all from one typed prompt.
+              generates illustrated scenes with highlighted characters and objects that
+              respond on click, records narration, and creates a cinematic movie — all
+              from one typed prompt.
             </p>
 
             <div className="lp-hero-ctas">
@@ -411,7 +404,7 @@ export default function HomePage() {
               </div>
               <div className="lp-demo-caption">
                 <span className="lp-demo-caption-icon">{'\uD83D\uDC46'}</span>
-            Click any highlighted character or object. Tap the background and the AI surfaces a hidden detail worth knowing.
+            Highlighted characters and objects respond on click. Tap the background and the AI surfaces a hidden detail worth knowing.
               </div>
             </div>
             <Link href="/books/ramayana" className="lp-btn-outline" style={{ textDecoration: 'none', alignSelf: 'flex-start', marginTop: 6 }}>

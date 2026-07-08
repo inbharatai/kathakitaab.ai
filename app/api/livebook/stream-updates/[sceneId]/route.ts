@@ -28,7 +28,7 @@ import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
-import { canReadBook, resolveBookVisibility } from '@/lib/auth/bookAccess';
+import { canReadBook } from '@/lib/auth/bookAccess';
 
 // SSE responses must stream — opt out of static optimization explicitly.
 export const dynamic = 'force-dynamic';

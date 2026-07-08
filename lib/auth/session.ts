@@ -2,7 +2,7 @@
 // KathaKitaab — Server-side session helpers (anonymous-only)
 //
 // Supabase auth is gone. The only identity is the anonymous
-// `katha:owner` cookie set by middleware.ts (lib/auth/ownerId.ts).
+// `katha:owner` cookie set by proxy.ts (lib/auth/ownerId.ts).
 // This module exposes the same two entry points the routes already
 // call, but now they return an AuthSession derived from the owner
 // cookie instead of a Supabase auth session:

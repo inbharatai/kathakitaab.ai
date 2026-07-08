@@ -498,7 +498,7 @@ export default function SceneViewer({
       subscribeToReadiness(loadedScene.scene_id);
 
       // Narration Manager: scene changed → narrate. AI-generated books
-      // ship a pre-rendered Supabase URL on the scene; passing it lets
+      // ship a pre-rendered S3/CloudFront URL on the scene; passing it lets
       // the manager skip /api/livebook/tts (no Sarvam wait, no Gemini
       // fallback) and play the CDN audio directly.
       narrationManager.onSceneChanged(

@@ -115,7 +115,7 @@ async function main() {
   // FIRST visit hits /api/livebook/tts for every scene — a 3-5s wait
   // per scene change. Doing it now (we're not on Vercel's 300s budget)
   // means every showcase regen lands with `narration_audio_url` set,
-  // and the live reader plays straight from the Supabase CDN.
+  // and the live reader plays straight from the CloudFront CDN.
   console.log(`[regen] hydrating narration audio (${book.scenes.length} scenes, serial Gemini)…`);
   const hydrateStart = Date.now();
   const hydrated = await hydrateBookAudio(book);

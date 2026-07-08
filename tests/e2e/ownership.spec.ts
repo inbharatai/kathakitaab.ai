@@ -12,7 +12,7 @@
 //
 // Notes on the test approach: these run against the live dev
 // server (not a mocked backend) because the cookie is set in
-// middleware.ts and the auth path goes through real Redis state.
+// proxy.ts and the auth path goes through real Redis state.
 // We don't actually generate books here (that's $$ + slow); we
 // fake a private book by hitting the polling endpoint with a
 // valid owner cookie. Generation-flow smoke tests live in a
@@ -21,7 +21,7 @@
 
 import { test, expect } from '@playwright/test';
 
-test.describe('Owner cookie — middleware', () => {
+test.describe('Owner cookie — proxy', () => {
   test('a fresh visitor receives a katha:owner cookie', async ({ request }) => {
     const res = await request.get('/educator');
     expect(res.status()).toBe(200);
@@ -53,7 +53,7 @@ test.describe('Owner cookie — middleware', () => {
 test.describe('Private books — owner-scoped reads', () => {
   test('Ramayana (public seed) reads without an owner cookie', async ({ request }) => {
     // Strip cookies entirely by sending an empty Cookie header. The
-    // middleware will issue a fresh one; the seed book is public so
+    // proxy will issue a fresh one; the seed book is public so
     // the read still succeeds.
     const res = await request.get('/api/books/ramayana');
     expect(res.status()).toBe(200);
@@ -141,6 +141,15 @@ test.describe('Mode-aware generation — input validation', () => {
     // Submit the legacy shape the pre-V1 BookGenerator used. We don't
     // wait for generation — just verify the route accepts the body
     // and returns a generating/cached response, not a 400.
+    //
+    // Establish ownership first: the Next 16 proxy (proxy.ts) issues the
+    // katha:owner cookie on a page GET, and the request context stores
+    // it for the subsequent POST. Without this the free-era gate sees no
+    // ownerId and returns 503 'misconfigured' before the body shape is
+    // even evaluated — which would mask the actual 400-vs-200 assertion
+    // this test exists to make. Mirrors real browser flow (landing GET
+    // sets the cookie before any generate POST).
+    await request.get('/educator');
     const res = await request.post('/api/books/generate', {
       data: { title: 'Mahabharata' },
     });

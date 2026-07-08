@@ -10,9 +10,9 @@
 //   2. Call /api/livebook/tts to render Sarvam Bulbul narration.
 //      Cached locally under public/movies/audio/{slug}/ — gitignored
 //      because the cache only speeds up rebuilds, not deploys.
-//   3. Upload the clip to Supabase Storage at
+//   3. Upload the clip to S3 at
 //      `scene-images/{slug}/movie-audio/` so the Player streams it
-//      from the CDN.
+//      from the CloudFront CDN.
 //   4. Probe each clip's duration (music-metadata, with a WAV-header
 //      fallback for the rare case music-metadata can't read it).
 //   5. Write `remotion/manifests/{slug}.json` — the single source of
@@ -371,7 +371,7 @@ async function main() {
     const effects = buildSceneEffects(topics, mood);
     console.log(`[movie-build]    ${describeRecipe(topics, mood, effects)}`);
     const sceneBeats = scene.beats && scene.beats.length >= 2
-      ? scene.beats.map((b, i) => ({
+      ? scene.beats.map((b) => ({
           imagePath: b.imageUrl,
           motion: (b.motion as SceneMotion | undefined) ?? motion,
           shotType: b.shotType,

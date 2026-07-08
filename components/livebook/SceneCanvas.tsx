@@ -422,7 +422,7 @@ export default function SceneCanvas({
   const characterHotspots = scene.hotspots.filter(h => h.type === 'character');
 
   // ── Heartbeat lip-pulse fallback ──
-  // Web Audio amplitude reads silently fail on cross-origin Supabase
+  // Web Audio amplitude reads silently fail on cross-origin CDN
   // streams (Gemini-rendered narration in particular) — the analyser
   // wires up but RMS reads zero. Without this fallback, the speaker's
   // mouth would stay still even though we KNOW audio is playing.

@@ -1,13 +1,25 @@
 // ============================================================
-// KathaKitaab — Living World session state
+// KathaKitaab — Living World session state (v2)
 //
 // Persisted to localStorage. Tracks where the avatar is, which
 // nodes have been visited, which fragment is being carried, which
 // missions are done, and a lightweight world-XP counter.
 //
+// v2 additions (branching + 3D):
+//   · avatarLat/avatarLon — spherical position for the 3D renderer
+//     (avatarX/Y kept for the v1 DOM fallback stage)
+//   · activePathId — which branch was taken at a branching node
+//     (set when the courier steps through a specific portal)
+//   · livingMemory — a blob for the Phase-3 living-memory layer
+//     (footprints, story-tree growth). Unused for now; persisted so
+//     older sessions don't wipe it on upgrade.
+//
 // The session is intentionally self-contained and does NOT mutate the
 // existing play-mode GameState / WorldState keys — Living World Mode
 // is an additive layer and must not perturb Play Mode's progress.
+//
+// v1 fields + actions are preserved verbatim so the e2e spec and any
+// existing callers keep working unchanged.
 // ============================================================
 
 import type { WorldManifest, WorldPortal } from '@/lib/world/worldManifest';
@@ -18,24 +30,49 @@ export interface WorldSessionState {
   bookSlug: string;
   /** Node the avatar is currently standing on. */
   currentNodeId: string;
-  /** Avatar position in world coordinates. */
+  /** Avatar position in v1 flat world coordinates. */
   avatarX: number;
   avatarY: number;
+  /** v2: avatar position on the sphere (radians). */
+  avatarLat?: number;
+  avatarLon?: number;
   visitedNodeIds: string[];
   completedMissionIds: string[];
-  /** Node whose fragment is currently in the courier's satchel. */
+  /** Node whose fragment is currently in the courier's satchel.
+   *  The courier carries ONE fragment at a time — branching is
+   *  expressed by multiple portals from a node, not multiple fragments. */
   carriedFragmentNodeId: string | null;
+  /** v2: the portal/path the courier last stepped through at a branch. */
+  activePathId?: string | null;
   /** Cumulative world XP. */
   xp: number;
+  /** v2: Phase-3 living-memory blob (footprints, growth). Persisted
+   *  ahead of use so a session created now isn't wiped on upgrade. */
+  livingMemory?: Record<string, unknown>;
   createdAt: number;
   updatedAt: number;
 }
 
-export const WORLD_SESSION_VERSION = 1;
+export const WORLD_SESSION_VERSION = 2;
 const STORAGE_PREFIX = 'kathakitaab_world_session:';
 
 function storageKey(bookSlug: string): string {
   return `${STORAGE_PREFIX}${bookSlug}`;
+}
+
+/** v1 sessions (version 1) are accepted on load — we migrate them to
+ *  v2 by defaulting the new optional fields. A v1 session's
+ *  carriedFragmentNodeId / visitedNodeIds / completedMissionIds are
+ *  preserved so in-progress journeys survive the upgrade. */
+function migrateV1(parsed: WorldSessionState): WorldSessionState {
+  return {
+    ...parsed,
+    version: WORLD_SESSION_VERSION,
+    avatarLat: parsed.avatarLat ?? undefined,
+    avatarLon: parsed.avatarLon ?? undefined,
+    activePathId: parsed.activePathId ?? null,
+    livingMemory: parsed.livingMemory ?? undefined,
+  };
 }
 
 export function loadWorldSession(bookSlug: string): WorldSessionState | null {
@@ -44,6 +81,7 @@ export function loadWorldSession(bookSlug: string): WorldSessionState | null {
     const raw = window.localStorage.getItem(storageKey(bookSlug));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as WorldSessionState;
+    if (parsed.version === 1) return migrateV1(parsed);
     if (parsed.version !== WORLD_SESSION_VERSION) return null;
     return parsed;
   } catch {
@@ -78,16 +116,21 @@ export function clearWorldSession(bookSlug: string): void {
  *  first story fragment in their satchel). */
 export function createInitialSession(manifest: WorldManifest): WorldSessionState {
   const spawn = manifest.nodes[0];
+  const hasFragment = spawn ? spawn.missions.some(m => m.kind === 'deliver_fragment') : false;
   const base: WorldSessionState = {
     version: WORLD_SESSION_VERSION,
     bookSlug: manifest.bookSlug,
     currentNodeId: spawn?.id ?? '',
     avatarX: spawn?.x ?? manifest.width / 2,
     avatarY: spawn?.y ?? manifest.height / 2,
+    avatarLat: spawn?.lat,
+    avatarLon: spawn?.lon,
     visitedNodeIds: spawn ? [spawn.id] : [],
     completedMissionIds: [],
-    carriedFragmentNodeId: spawn && spawn.nextNodeId ? spawn.id : null,
+    carriedFragmentNodeId: spawn && hasFragment ? spawn.id : null,
+    activePathId: null,
     xp: 0,
+    livingMemory: undefined,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -97,8 +140,8 @@ export function createInitialSession(manifest: WorldManifest): WorldSessionState
 // ---- Reducer-style transitions (pure, used by the screen) ----------
 
 export type WorldSessionAction =
-  | { type: 'VISIT_NODE'; nodeId: string }
-  | { type: 'SET_AVATAR'; x: number; y: number }
+  | { type: 'VISIT_NODE'; nodeId: string; pathId?: string | null }
+  | { type: 'SET_AVATAR'; x: number; y: number; lat?: number; lon?: number }
   | { type: 'DELIVER_FRAGMENT'; fromNodeId: string }
   | { type: 'COMPLETE_MISSION'; missionId: string; rewardXP: number }
   | { type: 'RESET' };
@@ -127,10 +170,22 @@ export function reduceWorldSession(
         hasFragment && !alreadyDone && state.carriedFragmentNodeId == null
           ? node.id
           : state.carriedFragmentNodeId;
-      return { ...state, currentNodeId: action.nodeId, visitedNodeIds: visited, carriedFragmentNodeId: carry };
+      return {
+        ...state,
+        currentNodeId: action.nodeId,
+        visitedNodeIds: visited,
+        carriedFragmentNodeId: carry,
+        activePathId: action.pathId ?? state.activePathId,
+      };
     }
     case 'SET_AVATAR':
-      return { ...state, avatarX: action.x, avatarY: action.y };
+      return {
+        ...state,
+        avatarX: action.x,
+        avatarY: action.y,
+        avatarLat: action.lat ?? state.avatarLat,
+        avatarLon: action.lon ?? state.avatarLon,
+      };
     case 'DELIVER_FRAGMENT': {
       const missionId = deliverMissionId(action.fromNodeId);
       if (state.completedMissionIds.includes(missionId)) return state;

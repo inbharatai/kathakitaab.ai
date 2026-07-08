@@ -1,4 +1,4 @@
-// One-off audit + heal across every book in Redis. Probes Supabase for
+// One-off audit + heal across every book in Redis. Probes the CDN for
 // each existing narration_audio_url, clears any 404s, then re-hydrates.
 // Safe to re-run — already-good scenes skip the render step.
 

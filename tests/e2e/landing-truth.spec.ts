@@ -13,8 +13,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Landing copy — truth-first guarantee', () => {
   test('hero subhead names highlighted hotspots, not "any character"', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
+    // domcontentloaded, not load: these assertions check DOM text, not
+    // image-load state. Waiting for full `load` couples copy-truth to
+    // remote-CDN image completion, which flakes when the CDN is
+    // deploy-pending. The copy is present as soon as the DOM is.
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     // The subhead must explicitly call out highlighted hotspots — that's
     // the actual interaction model. The bare "any character / any object"
@@ -24,8 +27,7 @@ test.describe('Landing copy — truth-first guarantee', () => {
   });
 
   test('the comparison table no longer claims "ask anything" magic', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     // Pin the post-Phase-A bullets that describe actual capabilities.
     // The phrase appears twice on v2 (demo subtitle + comparison row),
@@ -36,8 +38,7 @@ test.describe('Landing copy — truth-first guarantee', () => {
   });
 
   test('hero copy never contains the legacy hyperbolic promises', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     const html = (await page.content()).toLowerCase();
 

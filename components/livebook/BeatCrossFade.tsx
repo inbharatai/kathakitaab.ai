@@ -15,7 +15,7 @@
 // renderer path.
 //
 // Why time-based and not amplitude-based: amplitude readouts are
-// flaky on cross-origin Supabase audio (the same problem the
+// flaky on cross-origin CDN audio (the same problem the
 // lip-pulse heartbeat solves). A simple wall-clock interval is
 // boring but reliable. We can add a per-cue beat-switch later when
 // the subtitle planner exposes cue boundaries to the live reader.

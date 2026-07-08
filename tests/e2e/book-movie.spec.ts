@@ -5,7 +5,7 @@
 //   1. Title card mounts (book title visible at the parked frame).
 //   2. Click play → after ~4s the composition leaves the title card
 //      and enters scene 1.
-//   3. Scene 1's Supabase narration URL is fetched.
+//   3. Scene 1's CDN narration URL is fetched.
 //   4. Scene 1's chapter chip ("Scene 1 / 12") + caption fragment
 //      from the manifest narration both render.
 //   5. Sit through scene 1's tail and verify the playhead has

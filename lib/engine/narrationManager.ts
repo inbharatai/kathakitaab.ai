@@ -39,7 +39,7 @@ let currentAudio: HTMLAudioElement | null = null;
 // Tracks the blob: URL backing currentAudio so every exit path
 // (onended, onerror, stopNarration, scene change) can revoke it.
 // Without this, each TTS call leaks ~50–200KB of audio data — a long
-// reading session adds up to several MB. Pre-rendered Supabase URLs
+// reading session adds up to several MB. Pre-rendered CDN URLs
 // don't go through createObjectURL, so this stays null in that path.
 let currentAudioObjectUrl: string | null = null;
 let abortController: AbortController | null = null;
@@ -239,7 +239,7 @@ export async function speak(
   setState('loading', text);
   duckMusic();
 
-  // Fast path: if the scene already has narration audio on Supabase
+  // Fast path: if the scene already has narration audio on S3/CloudFront
   // (every AI-generated book hydrates these on first movie open),
   // play that URL directly. No TTS API round-trip, no wait for
   // Sarvam, no possible Gemini fallback — just an instant CDN fetch.
@@ -406,7 +406,7 @@ export function onSceneChanged(
   sceneId: string,
   narration: string,
   voice?: string,
-  /** Pre-rendered Supabase URL — when provided, bypasses /api/livebook/tts
+  /** Pre-rendered S3/CloudFront URL — when provided, bypasses /api/livebook/tts
    *  for an instant CDN play. Manifest hydration produces these once per
    *  AI-generated book. */
   preRenderedUrl?: string,

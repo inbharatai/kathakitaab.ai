@@ -136,8 +136,8 @@ export async function POST(request: Request) {
       mood,
     });
 
-    // Upload to Supabase first — same pattern hydrateBookAudio uses
-    // for the pre-baked scene narrations. Content-hash filenames in
+    // Upload to S3 (CloudFront CDN) first — same pattern hydrateBookAudio
+    // uses for the pre-baked scene narrations. Content-hash filenames in
     // audioStorage make identical bytes dedupe automatically, so a
     // second TTS request with the same text re-uses the existing
     // blob instead of writing a new one. The browser's CDN cache
@@ -151,12 +151,12 @@ export async function POST(request: Request) {
       // Non-fatal: Redis cache below still gives us a fast path,
       // and the next request just re-uploads. Log so it shows up
       // in Sentry without breaking the listener.
-      console.warn('[tts] supabase upload failed:', uploadErr instanceof Error ? uploadErr.message : uploadErr);
+      console.warn('[tts] s3 upload failed:', uploadErr instanceof Error ? uploadErr.message : uploadErr);
     }
 
     // Cache for 7 days — narration text is stable, repeats are free.
     // Redis holds the bytes so the next listener gets an instant
-    // first-paint without a Supabase round-trip; Supabase above is
+    // first-paint without an S3 round-trip; S3 above is
     // the durable copy that survives TTL expiry.
     await setCachedResponse(
       cacheKey,

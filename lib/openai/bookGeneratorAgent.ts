@@ -254,8 +254,8 @@ export interface SceneDialogue {
  *  across the scene's narration duration unless we add an explicit
  *  weight later. */
 export interface SceneBeat {
-  /** Public CDN URL of the painted beat image. Same Supabase bucket
-   *  as the legacy single-image path; cached by content hash. */
+  /** Public CDN URL of the painted beat image. Same S3 bucket as
+   *  the legacy single-image path; cached by content hash. */
   imageUrl: string;
   /** What the image model paints. Distinct from the scene's overall
    *  visual_description (which describes the whole scene); each

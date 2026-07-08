@@ -51,8 +51,8 @@ export interface Scene {
   source_notes: string;
   created_at: string;
   updated_at: string;
-  /** AI-generated books only — Supabase URL for pre-rendered scene
-   *  narration. When present, the live reader streams it directly
+  /** AI-generated books only — S3/CloudFront URL for pre-rendered
+   *  scene narration. When present, the live reader streams it directly
    *  instead of round-tripping through /api/livebook/tts. */
   narration_audio_url?: string;
   /** Cinematic multi-beat track. Each beat is a distinct shot the

@@ -35,7 +35,12 @@ test.describe('Living World Mode — Ramayana', () => {
   });
 
   test('courier loop: deliver a fragment, unlock the next scene, persist, reset', async ({ page }) => {
-    await page.goto('/world/ramayana');
+    // domcontentloaded: the world stage is offline (no AI, no DB) and
+    // asserts DOM state. Waiting for full `load` couples the test to
+    // remote-CDN image completion, which flakes when the CDN is
+    // deploy-pending. The .world-viewport toBeVisible wait below covers
+    // JS init; domcontentloaded is enough here.
+    await page.goto('/world/ramayana', { waitUntil: 'domcontentloaded' });
 
     // The world stage renders with at least one node.
     await expect(page.locator('.world-viewport')).toBeVisible({ timeout: 15000 });
@@ -45,7 +50,7 @@ test.describe('Living World Mode — Ramayana', () => {
 
     // Deterministic synthesis: reload produces the same node set.
     const firstNodeIds = await unlockedNodeIds(page);
-    await page.reload();
+    await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.locator('.world-viewport')).toBeVisible({ timeout: 15000 });
     const secondNodeIds = await unlockedNodeIds(page);
     expect(secondNodeIds).toEqual(firstNodeIds);
@@ -109,7 +114,7 @@ test.describe('Living World Mode — Ramayana', () => {
   });
 
   test('side missions complete and award XP (ask / collect clue if present)', async ({ page }) => {
-    await page.goto('/world/ramayana');
+    await page.goto('/world/ramayana', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.world-viewport')).toBeVisible({ timeout: 15000 });
     const xpBefore = Number((await readSession(page))?.xp ?? 0);
 
@@ -147,7 +152,7 @@ test.describe('Living World Mode — Ramayana', () => {
       // Fake the reduced-motion media query so the hook reports true.
       Object.defineProperty(mq, 'matches', { get: () => true });
     });
-    await page.goto('/world/ramayana');
+    await page.goto('/world/ramayana', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.world-viewport')).toBeVisible({ timeout: 15000 });
 
     const readyPortal = page.locator('.world-portal.is-ready');

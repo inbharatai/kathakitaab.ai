@@ -22,10 +22,9 @@ export default function PrivacyPage() {
 
       <h2>What we collect</h2>
       <ul>
-        <li><b>Anonymous cookie ID</b> (<code>katha:owner</code>) on first visit so you can read and delete your own private books without an account.</li>
-        <li><b>Sign-in account</b> when you choose to create a book: your email address and your name as shared by your sign-in provider (Google).</li>
+        <li><b>Anonymous cookie ID</b> (<code>katha:owner</code>) on first visit so you can read and delete your own private books. There is no sign-in and no account — identity is this cookie alone.</li>
         <li><b>What you type into the generator</b>: book title, prompt, classroom or personalisation details.</li>
-        <li><b>Generated content</b>: the scenes, images, and audio we make for you. Stored on Supabase Storage (EU/India region).</li>
+        <li><b>Generated content</b>: the scenes, images, and audio we make for you. Stored on <b>AWS S3</b> and served via <b>CloudFront</b> (<code>cdn.kathakitaab.com</code>); book metadata is stored in <b>AWS Aurora PostgreSQL</b>.</li>
         <li><b>Operational logs</b>: timestamps, request IDs, error messages — never your story content.</li>
       </ul>
 
@@ -41,7 +40,6 @@ export default function PrivacyPage() {
         <li>To show you the book you made and let you delete it.</li>
         <li>To enforce the free-era cap and per-user generation quota fairly.</li>
         <li>To debug errors when generation fails.</li>
-        <li>To send you a sign-in link (the only operational email we use today).</li>
       </ul>
 
       <h2>Who else processes your data</h2>
@@ -51,8 +49,9 @@ export default function PrivacyPage() {
       <ul>
         <li><b>AI narration engine</b> — generates scene text and illustrations.</li>
         <li><b>AI voice engine</b> — generates narration audio.</li>
-        <li><b>Supabase</b> — storage and database.</li>
-        <li><b>Upstash</b> — Redis cache.</li>
+        <li><b>AWS S3 + CloudFront</b> — generated asset storage (images, audio, MP4).</li>
+        <li><b>AWS Aurora PostgreSQL</b> — durable story database, quota, and reports.</li>
+        <li><b>Upstash</b> — Redis cache and in-flight generation state.</li>
         <li><b>Vercel</b> — hosting.</li>
         <li><b>Sentry</b> (when enabled) — error monitoring; sanitised logs only.</li>
         <li><b>PostHog</b> (when enabled) — anonymous analytics.</li>
@@ -67,13 +66,13 @@ export default function PrivacyPage() {
       <p>You can at any time:</p>
       <ul>
         <li>Delete any book you own from inside the app.</li>
-        <li>Email <a href="mailto:privacy@kathakitaab.com">privacy@kathakitaab.com</a> to request deletion of your account and all associated data within 30 days.</li>
+        <li>Email <a href="mailto:privacy@kathakitaab.com">privacy@kathakitaab.com</a> to request deletion of your books and the anonymous cookie data associated with you, within 30 days.</li>
         <li>Export your books on request (we will provide JSON of the book record).</li>
       </ul>
 
       <h2>Retention</h2>
       <p>
-        Generated books are retained for 30 days from last access, then auto-deleted from cache. Public books shipped with the app (Ramayana seed) are retained indefinitely. Account records are deleted within 30 days of a deletion request.
+        Generated books are retained for 30 days from last access, then auto-deleted from cache. Public books shipped with the app (Ramayana seed) are retained indefinitely. Because there are no accounts, there is no account record to retain — only the anonymous cookie id and the books tied to it.
       </p>
 
       <h2>Contact</h2>

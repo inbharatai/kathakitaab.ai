@@ -14,7 +14,7 @@
 //   - Doesn't touch existing narration — user wants sharp cinematic
 //     text, not long audiobook-style.
 //   - Doesn't re-render Sarvam audio — same text = same audio. Existing
-//     Sarvam WAVs on Supabase keep streaming.
+//     Sarvam WAVs on S3 / CloudFront keep streaming.
 //   - Doesn't change scene count — 12 scenes stay 12 scenes.
 //
 // Cost: ~12 × ~4 beats × $0.04 (gpt-image-1 medium) = ~$1.90 one-time.

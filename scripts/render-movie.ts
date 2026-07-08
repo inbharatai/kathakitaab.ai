@@ -92,7 +92,7 @@ async function renderOne(slug: string, mode: 'movie' | 'trailer', force: boolean
       inputProps: { manifest },
       // Mirror the route's settings so this CLI produces byte-identical
       // output (modulo timestamps) to the API path. 540p, CRF 28, 96k
-      // audio — share-grade fidelity at <50MB, fits Supabase free tier.
+      // audio — share-grade fidelity at <50MB, streams fast over CloudFront.
       scale: 0.5,
       crf: 28,
       audioBitrate: '96k',

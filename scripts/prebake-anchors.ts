@@ -12,7 +12,7 @@
 // canon file. Pass `--include-places` to also bake place anchors.
 //
 // Pre-bake is idempotent — file paths are stable per (book, id), so a
-// re-run overwrites the same Supabase Storage object and the canon
+// re-run overwrites the same S3 object and the canon
 // URL stays valid.
 //
 // Usage:
@@ -21,7 +21,7 @@
 //   npx tsx scripts/prebake-anchors.ts --all
 // ============================================================
 
-// MUST be the first import — populates process.env before Supabase /
+// MUST be the first import — populates process.env before the S3 /
 // OpenAI clients are constructed inside the modules below.
 import './_loadEnv';
 

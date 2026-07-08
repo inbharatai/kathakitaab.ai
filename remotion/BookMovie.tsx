@@ -76,7 +76,7 @@ export interface BookMovieScene {
    *  composition reads these directly instead of computing in
    *  React, so the manifest is the single source of truth. */
   subtitles?: SubtitleCue[];
-  /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
+  /** Either an absolute http(s) URL (S3 / CloudFront CDN) or `/`-prefixed local path. */
   imagePath: string;
   /** Optional multi-beat visual track. Each beat is a distinct shot
    *  (wide / close-up / reaction / detail) that gets its own camera
@@ -90,7 +90,7 @@ export interface BookMovieScene {
    *  `motion` get one assigned deterministically by index so even
    *  legacy books look more alive on re-render. */
   beats?: BookMovieBeat[];
-  /** Either an absolute http(s) URL (Supabase Storage) or `/`-prefixed local path. */
+  /** Either an absolute http(s) URL (S3 / CloudFront CDN) or `/`-prefixed local path. */
   audioPath: string;
   /** Per Phase 10 spec — alias of audioPath but explicit. Either is fine. */
   narrationAudioUrl?: string;
@@ -160,7 +160,7 @@ export function computeBookMovieFrames(manifest: BookMovieManifest): number {
   return TITLE_FRAMES + scenes + END_FRAMES;
 }
 
-// Manifest paths can be absolute URLs (Supabase CDN narration) or
+// Manifest paths can be absolute URLs (S3 / CloudFront CDN narration) or
 // `/`-prefixed local paths (static images in /public). staticFile()
 // expects bare relative names; absolute URLs pass through untouched.
 const resolveAsset = (path: string): string =>
@@ -472,7 +472,7 @@ const SceneShot: React.FC<{
           // Only mount beats that are visible or about to be visible.
           // This prevents Remotion from decoding every beat image at
           // once — a major source of blank frames on books with large
-          // remote PNGs (generated books on Supabase).
+          // remote PNGs (generated books on S3 / CloudFront).
           const DISSOLVE_FRAMES = 2;
           const PRELOAD_BUFFER = 5;
           const isNear = frame >= win.startF - DISSOLVE_FRAMES - PRELOAD_BUFFER

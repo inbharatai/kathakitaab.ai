@@ -19,13 +19,15 @@ import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { canReadBook } from '@/lib/auth/bookAccess';
 import { getBook } from '@/lib/data/bookRegistry';
 
-// Anonymous visitors can watch only the curated Ramayana movie. Every
-// other movie / trailer needs sign-in — matches the read access rule
-// in /api/books/[slug].
-const ANONYMOUS_WATCHABLE_SLUGS = new Set(['ramayana']);
+// Access control: private books can only be watched by their owner or
+// an admin — enforced via canReadBook below, same rule as
+// /api/books/[slug]. Public books (including the curated Ramayana
+// movie) are watchable by anyone. (Auth is anonymous-only now; the old
+// sign-in-gated "anonymous can watch only Ramayana" rule was removed
+// with the rest of the accounts surface.)
 
 // First call for an AI-generated book hydrates all scene narrations
-// via Gemini → Supabase. ~11 scenes × 6s = ~70s. Subsequent calls
+// via Gemini → S3 (CloudFront CDN). ~11 scenes × 6s = ~70s. Subsequent calls
 // hit the cached URLs and return in milliseconds.
 export const maxDuration = 300;
 

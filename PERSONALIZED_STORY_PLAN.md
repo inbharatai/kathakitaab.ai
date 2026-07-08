@@ -1,5 +1,14 @@
 # Personalized Story — design plan (NOT YET SHIPPED)
 
+> **⚠ SUPERSEDED STORAGE BACKEND — read before implementing.**
+> This plan was written when KathaKitaab used **Supabase Storage** for assets and
+> Supabase auth for identity. Both were removed on 2026-07-07. Storage is now
+> **AWS S3 served via CloudFront** (`cdn.kathakitaab.com`); the durable DB is
+> **AWS Aurora PostgreSQL**; auth is anonymous-only (`katha:owner` cookie, no
+> accounts). Any step below that says "upload to a private Supabase bucket" or
+> relies on a Supabase session must be reworked against S3 + CloudFront signed
+> URLs and the anonymous owner-id model before it ships.
+
 This document captures the design decisions for KathaKitaab's personalized story feature so the next engineering session can implement it without re-litigating the architecture. Nothing here is live in the product. Do not let landing copy, Studio copy, or README claim any of these features until they ship and pass safety review.
 
 Audience: any future engineer (human or AI) picking this up.
@@ -190,7 +199,7 @@ In addition to V2 criteria:
 
 `katha:owner` — `Set-Cookie: katha:owner=<uuid>; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`
 
-Created in middleware on first request that doesn't have one. NOT in `/api/books/generate` — the middleware approach guarantees every request has one before any handler runs.
+Created in the Next.js 16 proxy (`proxy.ts`, formerly `middleware.ts`) on first request that doesn't have one. NOT in `/api/books/generate` — the proxy approach guarantees every request has one before any handler runs.
 
 ### Redis keys (additions)
 
@@ -243,7 +252,7 @@ A linter rule (custom or comment-based) forbids `console.error(err)` in `lib/saf
 
 When the next engineering session picks this up:
 
-1. **Add anonymous cookie middleware** — `middleware.ts` at the project root, sets `katha:owner` UUID cookie if missing. Touches every request. Cheap.
+1. **Anonymous cookie proxy** — already shipped as `proxy.ts` at the project root (Next.js 16 proxy, formerly `middleware.ts`); sets `katha:owner` UUID cookie if missing. Touches every request. Cheap.
 2. **Extend GeneratedBook schema** — add the 4 fields above as optional. No migration needed; existing books just have `mode` undefined.
 3. **Build mode-aware generation route** — single `POST /api/books/generate` accepts `{ mode, payload }`, dispatches to mode-specific prompt builders. For V2, only `world` (existing) and `personalized` are wired. Classroom waits for V1.
 4. **Wire moderatePrompt() and moderateOutput() throughout** — already built; now plumbed into every personalized code path

@@ -15,10 +15,36 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import WorldStage from '@/components/world/WorldStage';
+import WorldA11yLayer from '@/components/world/WorldA11yLayer';
 import MissionPanel from '@/components/world/MissionPanel';
-import { synthesizeWorldManifest, type WorldManifest, type WorldMission, type WorldNpc, type WorldPortal } from '@/lib/world/worldManifest';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import { useWebglAvailable } from '@/lib/hooks/useWebglAvailable';
+import { synthesizeWorldManifest, WORLD_WIDTH, WORLD_HEIGHT, type WorldManifest, type WorldMission, type WorldNpc, type WorldPortal } from '@/lib/world/worldManifest';
+
+// Lazy-load the WebGL canvas. `ssr:false` is only legal inside a Client
+// Component (this file is `'use client'`) — Next 16 rejects it in a
+// Server Component. See node_modules/next/dist/docs/01-app/02-guides/
+// lazy-loading.md. The canvas is feature-gated by
+// NEXT_PUBLIC_KK_WORLD_3D; when off (or WebGL unavailable) we render
+// the v1 DOM stage instead, which is also the e2e + fallback path.
+const World3DCanvas = dynamic(() => import('@/components/world3d/World3DCanvas'), {
+  ssr: false,
+  loading: () => (
+    // Distinct class — must NOT reuse `.world-viewport`, else the
+    // loading spinner + the outer wrapper both match `.world-viewport`
+    // and Playwright's strict mode sees two elements during chunk load.
+    <div className="world3d-loading">
+      <div className="world-spinner" />
+    </div>
+  ),
+});
+
+// Base build never touches WebGL unless the flag is explicitly enabled.
+// Defaults to on; opt out with NEXT_PUBLIC_KK_WORLD_3D=0.
+const WORLD_3D_ENABLED = process.env.NEXT_PUBLIC_KK_WORLD_3D !== '0';
 import {
   clearWorldSession,
   createInitialSession,
@@ -49,8 +75,16 @@ interface Props {
 }
 
 export default function LivingWorldScreen({ bookSlug }: Props) {
+  const reducedMotion = usePrefersReducedMotion();
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
+  // WebGL presence is only knowable on the client. useSyncExternalStore
+  // returns false during SSR + on the first client render, then re-renders
+  // with the real capability — so a headless / WebGL-less browser falls
+  // back to the v1 DOM stage (and the e2e suite) instead of crashing,
+  // with no setState-in-effect.
+  const webglAvailable = useWebglAvailable();
+  const use3D = WORLD_3D_ENABLED && webglAvailable;
   const [manifest, setManifest] = useState<WorldManifest | null>(null);
   const [session, setSession] = useState<WorldSessionState | null>(null);
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -155,8 +189,24 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
   );
 
   const handleSetAvatar = useCallback(
-    (x: number, y: number) => {
-      apply({ type: 'SET_AVATAR', x, y });
+    (x: number, y: number, lat?: number, lon?: number) => {
+      apply({ type: 'SET_AVATAR', x, y, lat, lon });
+    },
+    [apply],
+  );
+
+  // 3D click-to-move: the raycast gave us a lat/lon on the planet but no
+  // flat-projected x/y. Project it equirectangularly so the v1 fields stay
+  // consistent with the v1 fallback stage + a11y layer (both read x/y).
+  // Mirrors projectFlat() in worldManifest.ts (PAD_X=96, PAD_Y=78).
+  const handleMoveTo = useCallback(
+    (lat: number, lon: number) => {
+      const PAD_X = 96, PAD_Y = 78;
+      const usableW = WORLD_WIDTH - 2 * PAD_X;
+      const usableH = WORLD_HEIGHT - 2 * PAD_Y;
+      const x = Math.max(PAD_X, Math.min(WORLD_WIDTH - PAD_X, WORLD_WIDTH / 2 + (lon / Math.PI) * (usableW / 2)));
+      const y = Math.max(PAD_Y, Math.min(WORLD_HEIGHT - PAD_Y, WORLD_HEIGHT / 2 - (lat / (Math.PI / 2)) * (usableH / 2)));
+      apply({ type: 'SET_AVATAR', x, y, lat, lon });
     },
     [apply],
   );
@@ -276,16 +326,40 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
         </Link>
       </header>
 
-      <WorldStage
-        key={resetNonce}
-        manifest={manifest}
-        session={session}
-        onArriveNode={handleArriveNode}
-        onArrivePortal={handleArrivePortal}
-        onSetAvatar={handleSetAvatar}
-        onSpeakNpc={handleSpeakNpc}
-        onCollectClue={handleCollectClue}
-      />
+      {use3D ? (
+        <div className="world-viewport world-stage-3d" key={resetNonce}>
+          <World3DCanvas
+            manifest={manifest}
+            session={session}
+            reducedMotion={reducedMotion}
+            onMoveTo={handleMoveTo}
+          />
+          {/* The DOM accessibility/mirror layer is the canonical
+              interaction + screen-reader surface and carries the exact
+              data-* hooks the Playwright e2e spec asserts, so the 3D
+              rewrite stays green without touching the spec. */}
+          <WorldA11yLayer
+            manifest={manifest}
+            session={session}
+            onArriveNode={handleArriveNode}
+            onArrivePortal={handleArrivePortal}
+            onSetAvatar={handleSetAvatar}
+            onSpeakNpc={handleSpeakNpc}
+            onCollectClue={handleCollectClue}
+          />
+        </div>
+      ) : (
+        <WorldStage
+          key={resetNonce}
+          manifest={manifest}
+          session={session}
+          onArriveNode={handleArriveNode}
+          onArrivePortal={handleArrivePortal}
+          onSetAvatar={handleSetAvatar}
+          onSpeakNpc={handleSpeakNpc}
+          onCollectClue={handleCollectClue}
+        />
+      )}
 
       <MissionPanel
         manifest={manifest}

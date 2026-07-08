@@ -9,16 +9,16 @@
 //      memory. Branches, scenes, and entity-interact responses all
 //      live under this prefix and regenerate cleanly on next request.
 //
-//   2. Supabase Storage — list every object in the `scene-images`
+//   2. S3 storage — list every object in the `scene-images`
 //      bucket and remove anything older than `--older-than-days N`
-//      that *isn't* under the `*/anchors/` path. Anchors are the
-//      pre-baked portraits we want to keep; everything else is a
-//      regenerable per-scene PNG. Default: 7 days.
+//      that *isn't* under the `*/anchors/` or `*/portraits/` path.
+//      Anchors/portraits are the pre-baked art we want to keep;
+//      everything else is a regenerable per-scene PNG. Default: 7 days.
 //
-//   3. Supabase tables  — `--reset-scenes` truncates the `scenes`
-//      and `scene_branches` tables (DB-side stories). Off by default
-//      since destroying user-saved scenes is irreversible; opt in
-//      explicitly when you want a clean slate.
+//   3. Aurora tables  — `--reset-scenes` truncates the `story_scenes`
+//      table (DB-side stories). Off by default since destroying
+//      user-saved scenes is irreversible; opt in explicitly when you
+//      want a clean slate.
 //
 // Universal: works for any deployment. No book-specific logic.
 //
@@ -62,7 +62,7 @@ function parseFlags(argv: string[]): Flags {
   const flags: Flags = { s3: false, resetScenes: false, olderThanDays: 7, dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--s3' || a === '--supabase') flags.s3 = true;
+    if (a === '--s3') flags.s3 = true;
     else if (a === '--reset-scenes') flags.resetScenes = true;
     else if (a === '--dry-run') flags.dryRun = true;
     else if (a === '--older-than-days') flags.olderThanDays = Math.max(0, Number(argv[++i]) || 7);

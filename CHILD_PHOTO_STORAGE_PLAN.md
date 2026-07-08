@@ -1,5 +1,16 @@
 # Child photo upload — storage & safety plan (NOT YET SHIPPED)
 
+> **⚠ SUPERSEDED STORAGE BACKEND — read before implementing.**
+> This plan was written when KathaKitaab used **Supabase Storage** for assets.
+> Supabase was removed on 2026-07-07. Asset storage is now **AWS S3 served via
+> CloudFront** (`cdn.kathakitaab.com`); the durable DB is **AWS Aurora PostgreSQL**;
+> auth is anonymous-only (`katha:owner` cookie, no Supabase auth, no accounts).
+> Every "Supabase bucket / RLS / signed-URL / service-role key" instruction below
+> must be reworked against S3 (private bucket + CloudFront signed URLs / origin
+> access control) and Aurora before any of this ships. The *safety* requirements
+> (no public child URLs, per-owner isolation, signed-URL-only read path) still
+> hold — only the storage substrate changed.
+
 This document is the engineering contract for shipping `personalized_photo` mode. **Nothing in this file is live in the product.** Until every requirement here is implemented and tested, the Studio's Coming-Soon strip continues to say "Child photo upload — coming soon."
 
 Audience: any future engineer (human or AI) picking this up.
@@ -67,7 +78,7 @@ Already shipped in V1 and inherits cleanly — listed here so the V3 reviewer do
 
 | # | Requirement | Implementation |
 |---|---|---|
-| A1 | Owner cookie required | `katha:owner` cookie set by `middleware.ts`. Photo upload route refuses without it. |
+| A1 | Owner cookie required | `katha:owner` cookie set by `proxy.ts` (Next.js 16 proxy, formerly `middleware.ts`). Photo upload route refuses without it. |
 | A2 | Random non-enumerable slug | `pv-…` 16-hex prefix, distinct from `cl-…`. (May add `pp-` prefix for photo-mode if we want to grep them apart in Redis.) |
 | A3 | Private by default | `visibility: 'private'`. The book listing filters cl-/pv-/pp- away from non-owners. |
 | A4 | Owner-only delete | DELETE `/api/books/[slug]` already enforces. Photo cleanup must be wrapped into the same handler. |

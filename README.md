@@ -81,6 +81,7 @@ Type any title ("Mahabharata", "Akbar and Birbal", "NCERT History — Ancient In
                     ┌─────────────────────┐
                     │  Interactive reader │
                     │  + Cinematic movie  │
+                    │  + Living World     │
                     └─────────────────────┘
 ```
 
@@ -128,14 +129,16 @@ The result lands in Redis and is immediately playable at `/books/<slug>` interac
 <details open>
 <summary><b>🚶 Living World Mode</b></summary>
 
-A spatial companion to the linear reader — the same Book becomes a small, walkable planet you cross in one sitting. Open it at `/world/<slug>` (e.g. `/world/ramayana`).
+A spatial companion to the linear reader — the same Book becomes a small, walkable 3D planet you cross in one sitting. Open it at `/world/<slug>` (e.g. `/world/ramayana`).
 
-- **Universal WorldManifest engine** — a pure, deterministic function of `(book, scenes, characters)` turns any book into a tiny world: one node per scene on a golden-angle spiral, a portal between each pair, NPCs placed from each scene's `characters_present`, and a cozy palette keyed by book slug. No AI, no database, no network — it runs client-side and works offline against the curated seed canon.
-- **Soft camera + tap-to-move avatar** — the camera follows a story courier across a 1000×620 ground layer; interactive markers are projected into screen space so they stay a constant, readable, tappable size on phones. Snap-on-arrival when the OS requests reduced motion.
+- **Universal WorldManifest engine (v2)** — a pure, deterministic function of `(book, scenes, characters)` turns any book into a tiny planet: one place per scene laid out on a **fibonacci sphere** (lat/lon), a portal for each story-graph edge (branching-aware DAG, not just the linear chain), NPCs scheduled from each scene's `characters_present` so characters traverse the same places in the same order as the book (Rama: Ayodhya → forest → Lanka), a per-place biome inferred from mood/keywords, and a cozy palette keyed by book slug. No AI, no database, no network — it runs client-side and works offline against the curated seed canon.
+- **3D planet (progressive enhancement)** — when WebGL is available, the planet renders with **three.js + React Three Fiber** (`components/world3d/World3DCanvas.tsx`): a soft camera follows the courier, click-to-move raycasts onto the sphere, readable destinations. When WebGL is absent (or `NEXT_PUBLIC_KK_WORLD_3D=0`), it falls back to the v1 DOM stage — a CSS-scaled 1000×620 ground layer with screen-space markers. Either way the interaction contract is identical.
+- **Accessibility-first compass** — the canonical interaction + screen-reader surface is a DOM compass panel (`components/world/WorldA11yLayer.tsx`) that mirrors the 3D world: one labelled `<button>` per place, portal, clue, and character. It is **action-first** — the current place's ready portal, clues, and characters sit at the top so the next thing to do is always visible without scrolling; the full Places/Characters reference lists follow. Keyboard-focusable, screen-reader labelled, and carrying the exact `data-*` hooks the Playwright e2e asserts.
+- **Soft camera + reduced motion** — the camera follows a story courier; markers stay a constant, readable, tappable size on phones. Snap-on-arrival when the OS requests reduced motion (no tween).
 - **A simple, cozy mission loop** — carry this scene's story fragment to the glowing portal, deliver it, and the next scene unfolds. Side missions along the way: ask a character, collect a clue (a learning point), answer a reflection quiz. A lightweight world-XP counter tallies it all.
-- **Lightweight NPC life** — idle characters ring each node with an emoji and a phrase drawn from their `talk_examples`. They do not gate progress; they are warmth.
+- **Lightweight NPC life** — idle characters ring each place with an emoji and a phrase drawn from their `talk_examples`. They do not gate progress; they are warmth.
 - **Persistence** — progress is saved to `localStorage` (`kathakitaab_world_session:<slug>`), separate from Play Mode keys. Living World Mode is an additive layer and never perturbs Play Mode's progress.
-- **No game engine** — plain DOM + CSS transforms + `requestAnimationFrame`. No PixiJS/Phaser/Spinel, deliberately, to keep Playwright accessibility and Remotion parity with the rest of the app.
+- **Accuracy audit** — `npm run world:verify` exercises every public function of the manifest synthesizer, session reducer, and media resolver against the Ramayana seed (determinism, fibonacci spawn at the north pole, slerp/vec3 round-trips, branching-aware unlocks, dead-URL → procedural fallback, v1→v2 session migration). Hard-fails on any broken invariant.
 
 Benchmarked in emotional principle only on Messenger (abeto.co) — a small explorable planet, soft camera, readable destinations, cozy feeling. We do not copy its art, characters, name, delivery story, or exact gameplay.
 
@@ -366,13 +369,20 @@ Open [http://localhost:5009](http://localhost:5009).
 # mobile overflow, API integrity, and generation pipeline.
 npx playwright test tests/e2e/platform-integrity.spec.ts --project=chromium --workers=1
 
+# Living World v2 engine — accuracy audit (no browser; tsx). Exercises
+# every public function of the manifest synthesizer + session reducer +
+# media resolver against the Ramayana seed. Hard-fails on any invariant.
+npm run world:verify
+
 # Priority sweep — serial, no flakes. ~45s warm.
 npx playwright test --project=chromium --workers=1 \
   character-state.spec.ts hotspot-branch.spec.ts \
   cache-hit.spec.ts landing-truth.spec.ts movie-cues.spec.ts \
   reader-panel-layout.spec.ts
 
-# Full suite
+# Full suite (237 tests, chromium + Mobile Safari). Run against a
+# production build for deterministic results:
+#   npm run build && npx next start -p 5009 &  then  npx playwright test
 npx playwright test tests/e2e/
 ```
 
@@ -435,9 +445,11 @@ components/
   livebook/AmbientFigure.tsx  Breathing / swaying / blinking figures
   library/BookGenerator.tsx   Title input + style preset + SSE form
   library/StoryCard.tsx       Poster card with Ken-Burns crossfade
-  world/WorldStage.tsx        Living World diorama (camera + avatar + markers)
-  world/LivingWorldScreen.tsx Living World orchestrator (fetch + reducer + overlays)
+  world/WorldStage.tsx        Living World v1 DOM stage (WebGL fallback: camera + avatar + markers)
+  world/LivingWorldScreen.tsx Living World orchestrator (fetch + reducer + overlays, 3D/v1 switch)
+  world/WorldA11yLayer.tsx    Living World a11y compass (action-first, screen-reader surface)
   world/MissionPanel.tsx      Mission list + ask/quiz/reset
+  world3d/World3DCanvas.tsx   Living World 3D planet (three.js + R3F, progressive enhancement)
 
 lib/
   world/worldManifest.ts         Universal WorldManifest engine (pure, offline)
@@ -470,8 +482,8 @@ scripts/
 - **Character cutouts are virtual by default.** Ellipse-masked hotspots around the bg image. Run `npm run slice:layers` (~$2/book) for true alpha cutouts.
 - **Lip-pulse is amplitude-driven, not phoneme-aligned.** Reads as "they're talking", not "their lips are forming these words".
 - **Music is procedural.** Synthesized mood beds — don't expect a film soundtrack.
-- **No game engine.** Plain DOM + CSS + framer-motion. Deliberately no PixiJS/Phaser/Spine to keep Playwright a11y and Remotion parity.
-- **Auth is fully removed (anonymous-only).** Identity is the `katha:owner` cookie set by middleware; admin access is granted by listing an owner id in `KATHA_ADMIN_OWNER_IDS`. Quota + reports live in Aurora (migration `0002_quota_and_reports.sql`). There is no sign-in surface to re-enable.
+- **Living World is a light 3D layer, not a game engine.** The planet uses three.js + React Three Fiber as a progressive enhancement over a v1 DOM stage, with an a11y compass as the canonical interaction surface. No PixiJS/Phaser/Spine — the 3D is deliberately minimal so Playwright a11y and Remotion parity hold.
+- **Auth is fully removed (anonymous-only).** Identity is the `katha:owner` cookie set by the Next.js 16 proxy (`proxy.ts`, formerly `middleware.ts`); admin access is granted by listing an owner id in `KATHA_ADMIN_OWNER_IDS`. Quota + reports live in Aurora (migration `0002_quota_and_reports.sql`). There is no sign-in surface to re-enable.
 - **Resume has four fixed branches.** Unexpected sub-step failures may re-run more than strictly necessary.
 - **OpenAI billing must be active** for image generation to work. If the quota is exhausted, the engine falls back to the Gemini image provider (when configured) or returns empty placeholders.
 

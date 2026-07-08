@@ -65,9 +65,9 @@ export interface CanonEntry {
   allowed_actions?: string[];
   /**
    * Public CDN URL of a pre-baked canonical portrait. Generated once
-   * by `scripts/prebake-portraits.ts` and stored in Supabase Storage,
-   * then referenced as the anchor image for `images.edit` calls so
-   * faces stay locked across scenes (especially deities).
+   * by `scripts/prebake-portraits.ts` and stored in S3 (served via
+   * CloudFront), then referenced as the anchor image for `images.edit`
+   * calls so faces stay locked across scenes (especially deities).
    */
   anchor_image_url?: string;
   /**

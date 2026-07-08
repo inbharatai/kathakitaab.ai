@@ -40,7 +40,7 @@ Aurora integration is genuine (not cosmetic).
         ▲ new durable writes                  ▲ legacy reads + cache +
         │ (dual-write on save)                  transient state (unchanged)
         │
-   Image/audio bytes live in Supabase Storage (CDN URLs).
+   Image/audio bytes live in S3 (served via the CloudFront CDN).
    Only the URL strings are stored in Redis book/scene JSON and
    mirrored to Aurora generated_assets.
 ```
@@ -139,7 +139,9 @@ swallow their own errors):
 
 ## 6. Environment variables
 
-Existing Upstash / Supabase / OpenAI / Gemini / Sarvam vars are **unchanged**.
+Existing Upstash / OpenAI / Gemini / Sarvam vars are **unchanged**. Supabase
+was removed (2026-07-07); storage is now AWS S3 + CloudFront and the durable
+DB is AWS Aurora PostgreSQL.
 
 | Variable | Purpose | Example (no real secrets) |
 |---|---|---|

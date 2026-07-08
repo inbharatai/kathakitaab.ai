@@ -46,8 +46,9 @@ export async function GET(
     // Self-heal: trigger hydration in after() when any scene either
     // lacks audio OR isn't explicitly tagged as Sarvam-rendered. The
     // provider tag is the global signal — legacy books rendered
-    // before the Sarvam chunker fix have Gemini WAVs on Supabase and
-    // no provider tag, so they auto-heal the first time the live
+    // before the Sarvam chunker fix have Gemini WAVs on now-dead
+    // Supabase URLs and no provider tag, so they auto-heal the first
+    // time the live
     // reader opens them. After re-render every scene is tagged
     // 'sarvam' and subsequent visits short-circuit.
     const needsHydration = generated.scenes.some(s =>

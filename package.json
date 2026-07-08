@@ -24,15 +24,20 @@
     "migrate:legacy": "npx tsx scripts/migrate-redis-to-aurora.ts",
     "regenerate:book": "npx tsx scripts/regenerate-book.ts",
     "verify:book": "npx tsx scripts/verify-book.ts",
-    "hydrate:book": "npx tsx scripts/hydrate-book-audio.ts"
+    "hydrate:book": "npx tsx scripts/hydrate-book-audio.ts",
+    "hydrate:media": "npx tsx scripts/rehydrate-showcase-media.ts",
+    "world:verify": "npx tsx scripts/verify-world-manifest.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1080.0",
     "@google/genai": "^1.51.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@remotion/bundler": "4.0.457",
     "@remotion/cli": "4.0.457",
     "@remotion/player": "4.0.457",
     "@remotion/renderer": "4.0.457",
+    "@types/three": "^0.180.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "framer-motion": "^12.38.0",
@@ -41,7 +46,8 @@
     "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "remotion": "4.0.457"
+    "remotion": "4.0.457",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
