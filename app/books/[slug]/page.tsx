@@ -12,7 +12,7 @@ import DeleteBookButton from '@/components/library/DeleteBookButton';
 // their own scene id vocabulary.
 const RAMAYANA_DEFAULT_SCENE = 'ayodhya_intro';
 
-function SceneViewerWrapper({ params }: { params: { slug: string } }) {
+function SceneViewerWrapper({ params, onSceneChange }: { params: { slug: string }; onSceneChange?: (sceneId: string) => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const explicitScene = searchParams.get('scene');
@@ -139,7 +139,11 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
           {accuracyLabel.replace(/_/g, ' ')}
         </div>
       )}
-      <SceneViewer bookSlug={params.slug} initialSceneId={resolvedSceneId} />
+      <SceneViewer
+        bookSlug={params.slug}
+        initialSceneId={resolvedSceneId}
+        onSceneChange={(scene) => onSceneChange?.(scene.scene_id)}
+      />
     </div>
   );
 }
@@ -147,6 +151,10 @@ function SceneViewerWrapper({ params }: { params: { slug: string } }) {
 export default function BookPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
   const [title, setTitle] = useState('Loading...');
+  // #5 — World↔SceneViewer gateway: track the scene the reader is on so
+  // the "Living World" link can ask the world to land on (or highlight)
+  // that scene's place.
+  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,7 +192,7 @@ export default function BookPage({ params }: { params: Promise<{ slug: string }>
               ▶ Watch as Movie
             </Link>
             <Link
-              href={`/world/${resolvedParams.slug}`}
+              href={currentSceneId ? `/world/${resolvedParams.slug}?scene=${currentSceneId}` : `/world/${resolvedParams.slug}`}
               className="btn-secondary"
               style={{ textDecoration: 'none', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 6 }}
               title="Explore this story as a tiny walkable world"
@@ -215,7 +223,7 @@ export default function BookPage({ params }: { params: Promise<{ slug: string }>
             <p style={{ color: 'var(--color-gold)', fontWeight: 600 }}>Opening the book...</p>
           </div>
         }>
-          <SceneViewerWrapper params={resolvedParams} />
+          <SceneViewerWrapper params={resolvedParams} onSceneChange={setCurrentSceneId} />
         </Suspense>
       </div>
     </main>

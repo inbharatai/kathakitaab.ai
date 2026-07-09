@@ -22,7 +22,7 @@ import WorldA11yLayer from '@/components/world/WorldA11yLayer';
 import MissionPanel from '@/components/world/MissionPanel';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { useWebglAvailable } from '@/lib/hooks/useWebglAvailable';
-import { synthesizeWorldManifest, replyFor, WORLD_WIDTH, WORLD_HEIGHT, type WorldManifest, type WorldMission, type WorldNpc, type WorldPortal, type WorldIdentity } from '@/lib/world/worldManifest';
+import { synthesizeWorldManifest, replyFor, isNodeUnlocked, WORLD_WIDTH, WORLD_HEIGHT, type WorldManifest, type WorldMission, type WorldNpc, type WorldPortal, type WorldIdentity } from '@/lib/world/worldManifest';
 // Voice (TTS "Hear" + STT "Speak") buttons are lazy-loaded so the
 // useWorldVoice module stays OUT of the World screen's initial mount
 // bundle — it only loads when a speech overlay opens. Keeping the
@@ -86,6 +86,11 @@ interface Props {
   bookSlug: string;
   /** W3 — optional uint32 seed override for reproducible planets. */
   seedOverride?: number;
+  /** #5 — World↔SceneViewer gateway. A scene id the reader linked to.
+   *  When unlocked in the (fresh or persisted) session the avatar lands
+   *  on it; when locked the world spawns at the beginning and highlights
+   *  the place so the reader can see where it lives + how to earn it. */
+  placeOverride?: string;
 }
 
 // Ambient biome audio is opt-in (default OFF) so a fresh visit never
@@ -99,7 +104,7 @@ const WorldAudioEngine = dynamic(() => import('@/lib/audio/worldAudioEngine').th
   ssr: false,
 });
 
-export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
+export default function LivingWorldScreen({ bookSlug, seedOverride, placeOverride }: Props) {
   const reducedMotion = usePrefersReducedMotion();
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
@@ -120,6 +125,10 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
   // Remounts the stage on reset so the avatar re-spawns cleanly
   // without a synchronous setState-in-effect sync.
   const [resetNonce, setResetNonce] = useState(0);
+  // #5 — a place the reader asked us to surface (locked: highlight +
+  // hint; cleared once the avatar reaches it). Null when no gateway
+  // target is active.
+  const [gatewayTargetNodeId, setGatewayTargetNodeId] = useState<string | null>(null);
 
   // Latest session mirror for event handlers that need to read
   // current state without making their useCallback dep on `session`
@@ -146,15 +155,26 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
         setManifest(m);
         setBookLanguage(json.book.language);
         const stored = loadWorldSession(bookSlug);
-        if (
-          stored &&
-          stored.bookSlug === bookSlug &&
-          m.nodes.some(n => n.id === stored.currentNodeId)
-        ) {
-          setSession(stored);
-        } else {
-          setSession(createInitialSession(m));
+        let base = (stored && stored.bookSlug === bookSlug && m.nodes.some(n => n.id === stored.currentNodeId))
+          ? stored
+          : createInitialSession(m);
+
+        // #5 — gateway landing. If the reader asked for a place that exists
+        // and is unlocked in this session, walk the avatar there through
+        // the reducer (so visit + fragment auto-pickup stay consistent).
+        // If it is locked, leave the avatar where it is and highlight the
+        // place so the reader can see how to earn it.
+        const target = placeOverride && m.nodes.some(n => n.id === placeOverride)
+          ? placeOverride
+          : null;
+        if (target && target !== base.currentNodeId && isNodeUnlocked(m, base.completedMissionIds, target)) {
+          const node = m.nodes.find(n => n.id === target)!;
+          base = reduceWorldSession(base, { type: 'SET_AVATAR', x: node.x, y: node.y, lat: node.lat, lon: node.lon }, m);
+          base = reduceWorldSession(base, { type: 'VISIT_NODE', nodeId: target }, m);
+        } else if (target && !isNodeUnlocked(m, base.completedMissionIds, target)) {
+          setGatewayTargetNodeId(target);
         }
+        setSession(base);
         setPhase('ready');
       } catch (err) {
         if (!cancelled) {
@@ -166,7 +186,7 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [bookSlug, seedOverride]);
+  }, [bookSlug, seedOverride, placeOverride]);
 
   // ---- Session dispatch helper (pure updater; persistence is a
   //      separate effect below, so the setState updater stays clean) ----
@@ -191,6 +211,9 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
   const handleArriveNode = useCallback(
     (nodeId: string) => {
       apply({ type: 'VISIT_NODE', nodeId });
+      // #5 — once the avatar reaches the gateway target, the highlight
+      // has served its purpose; drop it so the compass reads normally.
+      setGatewayTargetNodeId(prev => (prev === nodeId ? null : prev));
     },
     [apply],
   );
@@ -341,6 +364,40 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
     setOverlay({ kind: 'quiz', mission, selected: null, feedback: null, correct: false });
   }, []);
 
+  // #6 — escort a character onward to their next canon place. Only fires
+  // when the target is unlocked (the panel disables otherwise, but we
+  // double-guard) and the courier isn't mid-carry. Walks the avatar to
+  // the target (reusing VISIT_NODE so the place is visited + any fragment
+  // there auto-picked-up) and completes the escort mission for its XP.
+  const handleEscort = useCallback(
+    (mission: WorldMission) => {
+      const s = sessionRef.current;
+      if (!s || !manifest) return;
+      if (s.completedMissionIds.includes(mission.id)) return;
+      if (s.carriedFragmentNodeId) {
+        setOverlay({ kind: 'hint', text: 'Deliver the fragment you are carrying before escorting anyone onward.' });
+        return;
+      }
+      const targetId = mission.targetNodeId;
+      if (!targetId) return;
+      const target = manifest.nodes.find(n => n.id === targetId);
+      if (!target) return;
+      if (!isNodeUnlocked(manifest, s.completedMissionIds, targetId)) {
+        setOverlay({ kind: 'hint', text: `${target.title} unlocks via the courier loop — carry a story fragment to its portal first.` });
+        return;
+      }
+      apply({ type: 'SET_AVATAR', x: target.x, y: target.y, lat: target.lat, lon: target.lon });
+      apply({ type: 'VISIT_NODE', nodeId: targetId });
+      apply({ type: 'COMPLETE_MISSION', missionId: mission.id, rewardXP: mission.rewardXP });
+      const npc = manifest.npcs.find(n => n.slug === mission.characterSlug);
+      setOverlay({
+        kind: 'hint',
+        text: `${npc?.name ?? 'Your companion'} walks with you to ${target.title}.`,
+      });
+    },
+    [apply, manifest],
+  );
+
   const handleQuizSelect = useCallback(
     (mission: WorldMission, optionIndex: number) => {
       const quiz = mission.quiz;
@@ -411,8 +468,8 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
   return (
     <main className="world-page">
       <header className="world-header">
-        <Link href={`/books/${bookSlug}`} className="btn-secondary world-back" style={{ textDecoration: 'none', borderRadius: 999 }}>
-          ← Read mode
+        <Link href={`/books/${bookSlug}?scene=${session.currentNodeId}`} className="btn-secondary world-back" style={{ textDecoration: 'none', borderRadius: 999 }}>
+          ← Read this scene
         </Link>
         <div className="world-header-title">
           <div className="world-header-eyebrow">Living World Mode</div>
@@ -443,6 +500,7 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
             onSetAvatar={handleSetAvatar}
             onSpeakNpc={handleSpeakNpc}
             onCollectClue={handleCollectClue}
+            highlightNodeId={gatewayTargetNodeId}
           />
         </div>
       ) : (
@@ -463,7 +521,9 @@ export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
         session={session}
         onAskCharacter={handleAskCharacter}
         onAnswerQuiz={handleAnswerQuiz}
+        onEscort={handleEscort}
         onReset={handleReset}
+        gatewayTargetNodeId={gatewayTargetNodeId}
       />
 
       {/* W1 — ambient biome audio. Opt-in (NEXT_PUBLIC_KATHA_WORLD_AUDIO=1)

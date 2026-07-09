@@ -77,7 +77,12 @@ export type MissionKind =
   | 'deliver_fragment'
   | 'ask_character'
   | 'collect_clue'
-  | 'answer_question';
+  | 'answer_question'
+  // #6 — wider mission grammar: walk an NPC from the place they currently
+  // stand to their next canon place. Synthesized from the NPC's schedule
+  // (canon-accurate traversal); completes when the avatar escorts them
+  // to the target (a side mission — the courier loop is still the spine).
+  | 'escort';
 
 export interface WorldMission {
   id: string;
@@ -100,6 +105,10 @@ export interface WorldMission {
     correctAnswer: number;
     explanation: string;
   };
+  /** #6 — escort: the place id the NPC is to be walked to (their next
+   *  canon place). The mission is offered at the NPC's current place
+   *  (`nodeId`); completing it = the avatar escorts them to the target. */
+  targetNodeId?: string;
 }
 
 /**
@@ -578,6 +587,49 @@ function buildSideMissions(
   return missions;
 }
 
+/**
+ * #6 — escort missions. For each NPC standing at this node, if their
+ * canon-accurate schedule has a next place after this node, emit an
+ * "Escort {NPC} onward" side mission whose target is that next place.
+ * The mission completes when the avatar walks them there (the screen
+ * handler checks the target is reachable — unlocked — before moving).
+ *
+ * NPCs placed by the round-robin fallback (no `characters_present`
+ * data) have a schedule that does NOT contain this node, so they get
+ * no escort — only canon-traversing characters do. Deterministic: a
+ * given (book, scenes, characters) always emits the same escort set.
+ */
+function buildEscortMissions(
+  nodeId: string,
+  npcSlugs: string[],
+  characterById: Map<string, Character>,
+  scheduleBySlug: Map<string, string[]>,
+  titleByNodeId: Map<string, string>,
+): WorldMission[] {
+  const missions: WorldMission[] = [];
+  for (const slug of npcSlugs) {
+    const schedule = scheduleBySlug.get(slug);
+    if (!schedule || schedule.length < 2) continue;
+    const idx = schedule.indexOf(nodeId);
+    if (idx < 0 || idx >= schedule.length - 1) continue; // not here, or last stop
+    const targetNodeId = schedule[idx + 1];
+    const char = characterById.get(slug);
+    if (!char) continue;
+    const nextTitle = titleByNodeId.get(targetNodeId) ?? 'their next place';
+    missions.push({
+      id: `me-${nodeId}-${slug}`,
+      kind: 'escort',
+      nodeId,
+      characterSlug: slug,
+      targetNodeId,
+      title: `Escort ${char.name} onward`,
+      description: `Walk with ${char.name} to ${nextTitle}.`,
+      rewardXP: 12,
+    });
+  }
+  return missions;
+}
+
 // ---- NPC placement + schedule ---------------------------------------
 
 function pickEmoji(seed: string, palette: string[]): string {
@@ -805,6 +857,12 @@ export function synthesizeWorldManifest(
   const characterById = new Map(characters.map(c => [c.slug, c]));
   const npcAssignment = assignNpcs(ordered, characters);
   const { successors, predecessors } = buildStoryGraph(ordered);
+  // #6 — precompute each character's canon schedule + a place→title map
+  // so escort missions can name the NPC's next stop. Built once here (not
+  // per-node) to keep the synthesizer deterministic + O(scenes × npcs).
+  const scheduleBySlug = new Map<string, string[]>();
+  for (const char of characters) scheduleBySlug.set(char.slug, scheduleFor(char.slug, ordered));
+  const titleByNodeId = new Map<string, string>(ordered.map(s => [s.scene_id, s.title]));
 
   const nodes: WorldNode[] = ordered.map((scene, index) => {
     const { lat, lon } = fibonacciSphere(index, ordered.length);
@@ -813,6 +871,7 @@ export function synthesizeWorldManifest(
     const succ = successors.get(scene.scene_id) ?? [];
     const primary = buildMissions(scene, scene.scene_id, succ);
     const side = buildSideMissions(scene, scene.scene_id, npcSlugs, characterById);
+    const escort = buildEscortMissions(scene.scene_id, npcSlugs, characterById, scheduleBySlug, titleByNodeId);
     // Universal rewrite: prefer the LLM WorldIdentity override for this
     // scene's mood/biome/ambient; fall back to the universal lexicons.
     const identNode = worldIdentity?.nodes.find(n => n.sceneId === scene.scene_id);
@@ -837,7 +896,7 @@ export function synthesizeWorldManifest(
       lat,
       lon,
       npcSlugs,
-      missions: [...primary, ...side],
+      missions: [...primary, ...side, ...escort],
       unlockedBy,
       nextNodeId: scene.next_scene_id ?? undefined,
     };

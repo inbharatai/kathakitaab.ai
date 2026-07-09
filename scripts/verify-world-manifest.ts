@@ -166,6 +166,31 @@ for (const slug of backupSlugs) {
   check(`backup ${slug} all dead pre-rehydrate`, dead.length === bs.length && bs.length > 0, `${slug}: expected all scenes dead pre-rehydrate, got ${dead.length}/${bs.length}`);
 }
 
+// ---- #6 escort missions (wider mission grammar) ------------------------
+//
+// Escort missions are synthesized from NPC schedules: at each canon place
+// except the last, the NPC gets an "Escort onward" mission whose target is
+// their next scheduled place. At least one seed NPC (Rama) has a multi-place
+// schedule, so at least one escort mission must exist. Determinism is
+// covered by the manifest JSON-equality check above; here we assert the
+// grammar is non-empty, well-formed, and points at real, later stops.
+const escortMissions = m1.nodes.flatMap(n => n.missions.filter(m => m.kind === 'escort'));
+check('escort missions exist', escortMissions.length >= 1, 'no escort missions synthesized — schedule-derived grammar may be broken');
+const nodeIds = new Set(m1.nodes.map(n => n.id));
+for (const e of escortMissions) {
+  check(`escort ${e.id} has target`, !!e.targetNodeId && nodeIds.has(e.targetNodeId), `escort ${e.id} missing/invalid targetNodeId`);
+  check(`escort ${e.id} has character`, !!e.characterSlug, `escort ${e.id} missing characterSlug`);
+  check(`escort ${e.id} target later`, !!e.targetNodeId && nodeIds.has(e.targetNodeId), `escort ${e.id} target not a known place`);
+}
+// Every escort target must be a strictly-later stop in that NPC's schedule.
+for (const e of escortMissions) {
+  const npc = m1.npcs.find(n => n.slug === e.characterSlug);
+  const sched = npc?.schedule ?? [];
+  const srcIdx = sched.indexOf(e.nodeId);
+  const tgtIdx = e.targetNodeId ? sched.indexOf(e.targetNodeId) : -1;
+  check(`escort ${e.id} advances schedule`, srcIdx >= 0 && tgtIdx === srcIdx + 1, `escort ${e.id} target is not the next schedule stop after source`);
+}
+
 // ---- worldSession v2 ---------------------------------------------------
 
 const init = createInitialSession(m1);

@@ -46,6 +46,10 @@ export interface WorldA11yLayerProps {
   onSetAvatar: (x: number, y: number, lat?: number, lon?: number) => void;
   onSpeakNpc: (npc: WorldNpc) => void;
   onCollectClue: (missionId: string) => void;
+  /** #5 — a locked place the reader linked to, highlighted in the compass
+   *  so the user can see where it sits and that it is locked. Null/absent
+   *  when no gateway target is active. */
+  highlightNodeId?: string | null;
 }
 
 export default function WorldA11yLayer({
@@ -56,6 +60,7 @@ export default function WorldA11yLayer({
   onSetAvatar,
   onSpeakNpc,
   onCollectClue,
+  highlightNodeId,
 }: WorldA11yLayerProps) {
   const visitNode = useCallback(
     (node: WorldNode) => {
@@ -180,17 +185,19 @@ export default function WorldA11yLayer({
             const current = node.id === session.currentNodeId;
             const visited = session.visitedNodeIds.includes(node.id);
             const carrying = session.carriedFragmentNodeId === node.id;
+            const isGateway = highlightNodeId === node.id;
             return (
               <li key={node.id}>
                 <button
                   type="button"
-                  className={`world-node ${current ? 'is-current' : ''} ${visited ? 'is-visited' : ''}`}
+                  className={`world-node ${current ? 'is-current' : ''} ${visited ? 'is-visited' : ''} ${isGateway ? 'is-gateway-target' : ''}`}
                   style={{ borderRadius: 999 }}
                   disabled={!unlocked}
                   onClick={() => visitNode(node)}
-                  aria-label={`${unlocked ? 'Enter' : 'Locked'} scene: ${node.title}`}
+                  aria-label={`${unlocked ? 'Enter' : 'Locked'} scene: ${node.title}${isGateway ? ' — the scene you came from' : ''}`}
                   data-world-node={node.id}
                   data-world-unlocked={unlocked ? 'true' : 'false'}
+                  data-world-gateway-target={isGateway ? 'true' : undefined}
                 >
                   <span className="world-node-emoji" aria-hidden>{unlocked ? node.emoji : '🔒'}</span>
                   <span className="world-node-label">{node.title}</span>

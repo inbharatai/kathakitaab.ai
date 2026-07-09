@@ -2,7 +2,7 @@
 
 Date: 2026-07-09
 Author: Claude (engine audit, 3 parallel deep-read agents, file:line evidence)
-Status: **Tier 1 code fixes done + gate green (code level). Not committed yet. Not eye-verified.**
+Status: **Tier 1 code fixes done + gate green (code level). Phase 1 (escort grammar + World↔SceneViewer gateway + honest gate) done + committed on `feat/world-engine-tier1`. Not eye-verified.**
 
 This is the honest record behind the README's accuracy pass. It exists so the
 gap between what we *claim* and what the engines *do* is written down in one
@@ -208,3 +208,64 @@ Messenger's handcrafted watercolor (a 2-person art team) is unchanged: code
 can build toward it on the achievable axes (universal story-driven world,
 warm painterly art direction, ambient audio, living NPCs, voiced TTS + STT),
 but cannot clone handcrafted illustration.
+
+---
+
+## 8. Phase 1 — escort grammar (#6) + World↔SceneViewer gateway (#5) + honest gate
+
+Two follow-on tasks the audit surfaced, shipped + gate-verified this pass
+on `feat/world-engine-tier1` (not pushed/merged).
+
+### #6 — Wider mission grammar: escort
+- A 5th `MissionKind` `'escort'` + `WorldMission.targetNodeId`. Synthesized
+  in `buildEscortMissions`: at each NPC's canon place except their last,
+  an "Escort {NPC} onward → {next place}" side mission whose target is the
+  NPC's next scheduled place (`scheduleFor`). Deterministic; only
+  canon-traversing characters (those with `characters_present` data) get
+  escorts — round-robin-placed NPCs have no schedule entry for the node, so
+  no false escort.
+- Completes via the existing `COMPLETE_MISSION` reducer (no new session
+  surface). The screen handler walks the avatar to the target through
+  `VISIT_NODE` (reusing visit + fragment auto-pickup) when the target is
+  unlocked; the panel disables the button when the target is locked or a
+  fragment is mid-carry (honest: you can't escort someone to a place you
+  can't reach). rewardXP 12.
+- Gate: `world:verify` adds 5 escort invariants (existence, target validity,
+  character slug, schedule-advancement) → 91/91. e2e asserts the `me-` grammar
+  renders (presence-only, offline-stable).
+
+### #5 — World↔SceneViewer gateway (bidirectional)
+- **World → Reader:** the "Read this scene" links (header + mission-panel
+  foot) now carry `?scene=<currentNodeId>` so the reader opens at the place
+  the avatar is standing on. Reuses the reader's existing `?scene=` handling.
+- **Reader → World:** the reader tracks its current scene via `onSceneChange`
+  and the "🌍 Living World" link carries `?scene=<currentSceneId>`. The world
+  reads `?scene=` as a `placeOverride`: when that place is unlocked in the
+  fresh-or-persisted session the avatar lands on it (through the reducer, so
+  visit + fragment pickup stay consistent); when locked the world spawns at
+  the beginning, highlights the place in the compass
+  (`data-world-gateway-target` + `.is-gateway-target` pulse), and shows a
+  one-line "carry story fragments through the portals to reach it" hint.
+  Honest: a first-time reader on scene 5 lands on the spawn (only the spawn
+  is unlocked with no progress); a returning reader with progress lands on
+  the scene if earned. No overclaim.
+- The landing page hero CTA (`/books/ramayana`, asserted verbatim by the
+  full-flow e2e) is untouched.
+
+### Honest gate (regression caught + fixed this pass)
+`eslint .` was **not** actually 0-error at the prior commit: the W4
+flythrough script (`scripts/build-world-flythrough.ts`) carried three
+`no-explicit-any` casts. Fixed by casting through `unknown` to the real
+`Book`/`Scene`/`Character` types. The gate is now genuinely:
+
+`tsc --noEmit` 0 errors · `eslint .` 0 errors (11 pre-existing warnings in
+untouched W4/seed-portrait files, tolerated — `lint` is `eslint` without
+`--max-warnings=0`) · `next build --webpack` success · `world:verify` 91/91
+· `living-world` e2e green (3/3 chromium) · reader e2e green in isolation.
+
+### What I could NOT verify (honest, unchanged)
+The visual confirmation that the gateway highlight pulse + the escort
+"walk to target" read well in a browser is still outstanding (I can't
+process images). The code path compiles, builds, and the e2e drives the
+world + reader mounts without regression. Env-gated e2e (API routes that
+need OpenAI/Sarvam keys) was not run this pass — no keys in this env.

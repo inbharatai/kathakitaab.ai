@@ -23,6 +23,7 @@ import { putObject } from '../lib/storage/s3Storage';
 import { synthesizeWorldManifest } from '../lib/world/worldManifest';
 import type { WorldManifest, WorldNode, WorldIdentity } from '../lib/world/worldManifest';
 import type { FlythroughNode, WorldFlythroughManifest } from '../remotion/WorldFlythrough';
+import type { Book, Scene, Character } from '../lib/types/livebook';
 
 const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
 const BASE = process.env.MOVIE_BUILD_BASE || 'http://localhost:5009';
@@ -114,10 +115,13 @@ async function main() {
   // Synthesize the WorldManifest (pure code, deterministic). Pass the
   // book's worldIdentity (opt-in LLM override) so the flythrough reads
   // FROM the story when present; absent → universal lexicon.
+  // The /api/books/[slug] payload is a structural subset; cast through
+  // `unknown` to the synthesizer's full Book/Scene/Character types rather
+  // than `any` (the synthesizer only reads the fields the API guarantees).
   const world = synthesizeWorldManifest(
-    payload.book as any,
-    payload.scenes as any,
-    payload.characters as any,
+    payload.book as unknown as Book,
+    payload.scenes as unknown as Scene[],
+    payload.characters as unknown as Character[],
     undefined,
     payload.book.worldIdentity,
   );

@@ -139,6 +139,13 @@ test.describe('Living World Mode — Ramayana', () => {
       await expect(clueOverlay).toBeHidden();
     }
 
+    // #6 — the wider mission grammar renders: at least one "escort onward"
+    // side mission is present at the spawn (its target is locked until the
+    // courier loop opens it, so the button is disabled but in the DOM).
+    // Presence-only — we do not click, to keep this test offline-stable.
+    const escortMarker = page.locator('[data-world-mission^="me-"]');
+    expect(await escortMarker.count()).toBeGreaterThanOrEqual(1);
+
     // XP should have grown if any side mission was available.
     const xpAfter = Number((await readSession(page))?.xp ?? 0);
     if ((await askButton.count()) + (await clueMarker.count()) > 0) {

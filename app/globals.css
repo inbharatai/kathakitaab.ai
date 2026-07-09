@@ -1540,6 +1540,22 @@ body {
   color: var(--color-text-dim);
   margin: 0 0 12px;
 }
+/* #5 — World↔SceneViewer gateway: a one-line hint that the scene the
+   reader linked to lives at a locked place, and how to earn it. */
+.world-panel-gateway {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--color-gold-light);
+  background: rgba(212, 168, 71, 0.08);
+  border: 1px solid rgba(212, 168, 71, 0.25);
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin: 0 0 12px;
+}
+.world-panel-gateway strong { color: var(--color-gold); }
+/* Compass highlight for the locked place the reader linked to. Mirrors
+   the existing .is-target pulse so a gateway target reads like a target. */
+.world-node.is-gateway-target .world-node-ring { animation: world-pulse 1.1s ease-in-out infinite; }
 .world-panel-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .world-action {
   display: inline-flex;

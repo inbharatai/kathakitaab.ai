@@ -31,5 +31,14 @@ export default async function WorldPage({
       seedOverride = parsed;
     }
   }
-  return <LivingWorldScreen bookSlug={slug} seedOverride={seedOverride} />;
+  // #5 — World↔SceneViewer gateway. `?scene=<id>` (from the reader's
+  // "Living World" link) asks the world to land the avatar on that
+  // place when it is unlocked; otherwise the world spawns at the
+  // beginning and highlights the place (see LivingWorldScreen). Validated
+  // client-side; an unknown id is ignored so a stale reader scene can't
+  // crash the world.
+  const rawScene = sp.scene;
+  const sceneStr = Array.isArray(rawScene) ? rawScene[0] : rawScene;
+  const placeOverride = sceneStr || undefined;
+  return <LivingWorldScreen bookSlug={slug} seedOverride={seedOverride} placeOverride={placeOverride} />;
 }

@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import type { WorldManifest, WorldMission } from '@/lib/world/worldManifest';
-import { deliverMissionId } from '@/lib/world/worldManifest';
+import { deliverMissionId, isNodeUnlocked } from '@/lib/world/worldManifest';
 import { totalMissionCount, type WorldSessionState } from '@/lib/world/worldSession';
 
 interface MissionPanelProps {
@@ -21,7 +21,12 @@ interface MissionPanelProps {
   session: WorldSessionState;
   onAskCharacter: (mission: WorldMission) => void;
   onAnswerQuiz: (mission: WorldMission) => void;
+  onEscort: (mission: WorldMission) => void;
   onReset: () => void;
+  /** #5 — a place the reader linked to that is locked in this session.
+   *  When set (and not the current place), show a one-line "this scene is
+   *  here — earn it via the courier loop" hint. Null when inactive. */
+  gatewayTargetNodeId?: string | null;
 }
 
 function primaryStatus(manifest: WorldManifest, session: WorldSessionState): string {
@@ -41,14 +46,24 @@ export default function MissionPanel({
   session,
   onAskCharacter,
   onAnswerQuiz,
+  onEscort,
   onReset,
+  gatewayTargetNodeId,
 }: MissionPanelProps) {
   const node = manifest.nodes.find(n => n.id === session.currentNodeId);
   const totalMissions = totalMissionCount(manifest);
   const completed = session.completedMissionIds.length;
+  // #5 — the gateway hint, only when the target is a real, locked place
+  // the avatar is not currently standing on.
+  const gatewayNode = gatewayTargetNodeId && gatewayTargetNodeId !== session.currentNodeId
+    ? manifest.nodes.find(n => n.id === gatewayTargetNodeId)
+    : undefined;
 
+  // Side missions surface the at-node actions: ask a character, answer
+  // a reflection, and (#6) escort a character onward to their next canon
+  // place. Clue collection happens on the stage, not here.
   const sideMissions: WorldMission[] = node
-    ? node.missions.filter(m => m.kind === 'ask_character' || m.kind === 'answer_question')
+    ? node.missions.filter(m => m.kind === 'ask_character' || m.kind === 'answer_question' || m.kind === 'escort')
     : [];
 
   return (
@@ -68,6 +83,12 @@ export default function MissionPanel({
       </div>
 
       <p className="world-panel-status">{primaryStatus(manifest, session)}</p>
+
+      {gatewayNode && (
+        <p className="world-panel-gateway" data-world-gateway-hint={gatewayNode.id}>
+          📖 <strong>{gatewayNode.title}</strong> is here in the World — carry story fragments through the portals to reach it.
+        </p>
+      )}
 
       {sideMissions.length > 0 && (
         <div className="world-panel-actions">
@@ -89,6 +110,44 @@ export default function MissionPanel({
                 </button>
               );
             }
+            if (mission.kind === 'escort') {
+              // #6 — escort onward. Disabled when the target place is
+              // locked (you can't walk someone to a place you can't
+              // reach) or already done. The screen handler walks the
+              // avatar to the target + completes the mission.
+              const target = mission.targetNodeId
+                ? manifest.nodes.find(n => n.id === mission.targetNodeId)
+                : undefined;
+              const targetUnlocked = target
+                ? isNodeUnlocked(manifest, session.completedMissionIds, target.id)
+                : false;
+              const carrying = !!session.carriedFragmentNodeId;
+              const blocked = !done && (!targetUnlocked || carrying);
+              return (
+                <button
+                  key={mission.id}
+                  type="button"
+                  className="world-action"
+                  disabled={done || blocked}
+                  onClick={() => onEscort(mission)}
+                  data-world-mission={mission.id}
+                  title={
+                    done
+                      ? undefined
+                      : carrying
+                        ? 'Deliver the fragment you are carrying first'
+                        : !targetUnlocked
+                          ? 'The next place unlocks via the courier loop'
+                          : undefined
+                  }
+                >
+                  <span aria-hidden>{done ? '✓' : '🚶'}</span>
+                  {done
+                    ? `Escorted ${manifest.npcs.find(n => n.slug === mission.characterSlug)?.name ?? 'a character'} onward`
+                    : `Escort ${manifest.npcs.find(n => n.slug === mission.characterSlug)?.name ?? 'a character'} → ${target?.title ?? 'onward'}`}
+                </button>
+              );
+            }
             return (
               <button
                 key={mission.id}
@@ -107,8 +166,8 @@ export default function MissionPanel({
       )}
 
       <div className="world-panel-foot">
-        <Link href={`/books/${manifest.bookSlug}`} className="btn-secondary" style={{ textDecoration: 'none', borderRadius: 999 }}>
-          ← Read mode
+        <Link href={`/books/${manifest.bookSlug}?scene=${session.currentNodeId}`} className="btn-secondary" style={{ textDecoration: 'none', borderRadius: 999 }}>
+          ← Read this scene
         </Link>
         <Link href="/books" className="btn-secondary" style={{ textDecoration: 'none', borderRadius: 999 }}>
           Library
