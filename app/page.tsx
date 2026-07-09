@@ -869,7 +869,7 @@ export default function HomePage() {
             <strong style={{ color: 'var(--color-gold-light)' }}>What it does not do (yet):</strong>{' '}
             ambient audio is opt-in (<code style={{ fontSize: '0.78rem' }}>KATHA_WORLD_AUDIO=1</code>) and
             not on by default. NPC replies are deterministic by default; in-character LLM dialogue is
-            an opt-in (set <code style={{ fontSize: '0.78rem' }}>OPENAI_API_KEY</code>). There is no
+            an opt-in (configure an AI narration key). There is no
             multiplayer. There is no licensed soundtrack — every sound is procedural or absent.
           </p>
         </div>

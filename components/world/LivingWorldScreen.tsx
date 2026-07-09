@@ -23,7 +23,13 @@ import MissionPanel from '@/components/world/MissionPanel';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { useWebglAvailable } from '@/lib/hooks/useWebglAvailable';
 import { synthesizeWorldManifest, replyFor, WORLD_WIDTH, WORLD_HEIGHT, type WorldManifest, type WorldMission, type WorldNpc, type WorldPortal, type WorldIdentity } from '@/lib/world/worldManifest';
-import { useWorldTTS, useWorldSTT, WORLD_TTS_ENABLED, WORLD_VOICE_INPUT_ENABLED } from '@/components/world/useWorldVoice';
+// Voice (TTS "Hear" + STT "Speak") buttons are lazy-loaded so the
+// useWorldVoice module stays OUT of the World screen's initial mount
+// bundle — it only loads when a speech overlay opens. Keeping the
+// cold mount fast is what lets the e2e `.world-viewport` assertion
+// clear its 15s timeout in headless Chromium. ssr:false because the
+// hooks probe browser-only APIs (speechSynthesis / SpeechRecognition).
+const SpeechVoiceButtons = dynamic(() => import('@/components/world/SpeechVoiceButtons'), { ssr: false });
 
 // Lazy-load the WebGL canvas. `ssr:false` is only legal inside a Client
 // Component (this file is `'use client'`) — Next 16 rejects it in a
@@ -608,74 +614,34 @@ function SpeechBody({
   const deterministicReply = replyFor(npc, dialogTurn);
   const text = llmReply ?? deterministicReply;
 
-  const tts = useWorldTTS(text, bookLanguage);
-  const stt = useWorldSTT(bookLanguage);
-  const [heard, setHeard] = useState(false);
-
-  const handleHear = () => {
-    if (tts.speaking) { tts.stop(); return; }
-    setHeard(true);
-    void tts.speak();
-  };
-
-  const handleSpeak = () => {
-    if (stt.listening) { stt.stop(); return; }
-    stt.start((transcript) => {
-      // Feed the spoken question to the LLM ask-character flow. When no
-      // key is configured, fireLlmAsk is a no-op — the deterministic
-      // reply stays and the transcript is shown as an acknowledgement.
-      onSpokenAsk(transcript);
-    });
-  };
-
   return (
     <div className="world-speech">
       <div className="world-speech-name">{npc.emoji} {npc.name}</div>
       <p className="world-speech-text">{text}</p>
       {llmLoading && <p style={{ fontSize: '0.78rem', opacity: 0.6, margin: '4px 0 8px' }}>Thinking…</p>}
-      {stt.listening && (
-        <p style={{ fontSize: '0.78rem', opacity: 0.7, margin: '4px 0 8px' }}>🎤 Listening… speak your question.</p>
-      )}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {!llmLoading && (
           <button type="button" className="btn-secondary" onClick={onAdvance} style={{ borderRadius: 999 }}>
             Ask again
           </button>
         )}
-        {WORLD_TTS_ENABLED && (
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={handleHear}
-            style={{ borderRadius: 999 }}
-            aria-label={tts.speaking ? 'Stop voice' : 'Hear this reply spoken'}
-          >
-            {tts.speaking ? '⏹ Stop voice' : '🔊 Hear'}
-          </button>
-        )}
-        {WORLD_VOICE_INPUT_ENABLED && stt.supported && (
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={handleSpeak}
-            style={{ borderRadius: 999 }}
-            aria-label={stt.listening ? 'Stop listening' : 'Speak your question'}
-          >
-            {stt.listening ? '⏹ Listening…' : '🎤 Speak'}
-          </button>
-        )}
+        {/* Voice buttons (TTS Hear + STT Speak) load lazily — see
+            SpeechVoiceButtons. They render nothing when the voice
+            flags are off (the default), so the common path adds no
+            bundle cost and the cold mount stays fast. */}
+        <SpeechVoiceButtons
+          text={text}
+          bookLanguage={bookLanguage}
+          llmAvailable={llmAvailable}
+          onSpokenAsk={onSpokenAsk}
+        />
         <button type="button" className="btn-primary" onClick={onClose} style={{ borderRadius: 999 }}>
-          {llmLoading ? 'Continue' : 'Done'}
+          Continue
         </button>
       </div>
       {!llmAvailable && (
         <p style={{ fontSize: '0.72rem', opacity: 0.45, margin: '6px 0 0' }}>
           Deterministic replies. Set OPENAI_API_KEY for in-character LLM dialogue.
-        </p>
-      )}
-      {WORLD_TTS_ENABLED && heard && !llmAvailable && (
-        <p style={{ fontSize: '0.72rem', opacity: 0.45, margin: '4px 0 0' }}>
-          Voiced via your browser&apos;s built-in speech. Set a TTS key (Sarvam/Gemini) for warmer per-character voices.
         </p>
       )}
     </div>
