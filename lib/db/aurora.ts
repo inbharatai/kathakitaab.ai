@@ -130,3 +130,50 @@ export function sanitizeErr(err: unknown): string {
     .replace(/password=[^\s;]+/gi, 'password=[redacted]')
     .replace(/([a-z0-9.-]+\.rds\.amazonaws\.com)/gi, '[redacted-host]');
 }
+
+// ============================================================
+// Persistent character conversation memory (migration 0004)
+//
+// ask-character (app/api/livebook/ask-character/route.ts) was stateless;
+// these helpers load/append a per-(owner, book, character) thread so a
+// character remembers across turns. Both are gated on isAuroraEnabled()
+// and never throw — callers treat "Aurora off / error" as "no thread",
+// falling back to Redis then to stateless single-turn.
+// ============================================================
+
+/** Load the prior turn history for a (owner, book, character) thread.
+ *  Returns [] when Aurora is off, the row is absent, or any error
+ *  occurs — so the caller can prepend it unconditionally. */
+export async function getCharacterThread(
+  ownerId: string,
+  bookSlug: string,
+  charSlug: string,
+): Promise<{ role: string; content: string }[]> {
+  if (!isAuroraEnabled() || !ownerId) return [];
+  const res = await auroraQuery<{ thread: { role: string; content: string }[] }>(
+    `SELECT thread FROM character_memory
+      WHERE owner_id = $1 AND book_slug = $2 AND character_slug = $3`,
+    [ownerId, bookSlug, charSlug],
+  );
+  if (!res || res.rowCount === 0) return [];
+  const thread = res.rows[0]?.thread;
+  return Array.isArray(thread) ? thread : [];
+}
+
+/** Append one turn to a (owner, book, character) thread via the
+ *  append_character_turn plpgsql fn (migration 0004). No-op when Aurora
+ *  is off or the owner is empty. Never throws — the route must never
+ *  fail to answer the user because the memory write failed. */
+export async function appendCharacterTurn(
+  ownerId: string,
+  bookSlug: string,
+  charSlug: string,
+  role: string,
+  content: string,
+): Promise<void> {
+  if (!isAuroraEnabled() || !ownerId) return;
+  await auroraQuery(
+    `SELECT append_character_turn($1, $2, $3, $4, $5)`,
+    [ownerId, bookSlug, charSlug, role, content],
+  );
+}

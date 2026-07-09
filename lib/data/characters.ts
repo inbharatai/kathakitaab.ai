@@ -27,6 +27,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['Why did you accept exile?', 'What is dharma?', 'How should a leader behave?'],
+    replies: [
+      'Duty is not always the easy road. I accepted the forest because a promise given by a king must never break, even when it costs him everything he loves.',
+      'Dharma is to do what is right, even when the world turns against you, even when no one stands with you. The right path is narrow, but it does not waver.',
+      'A ruler carries the burden of all his people, not his own desires. He rules not for himself, but for dharma — the balance that holds the world together.',
+    ],
     image_url: '/images/char_rama.png',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -55,6 +60,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['How did you stay strong in Lanka?', 'What can children learn from you?', 'What is inner strength?'],
+    replies: [
+      'Strength is not the sword in the hand. In Lanka, behind every wall of gold, I held one thing they could never take — my truth. That is what kept me whole.',
+      'Children, remember this: you can be carried far from home, you can be alone, but no one can make you forget who you are unless you let them.',
+      'Inner strength is quiet. It does not shout. It is the small voice each morning that says: I will not bend today, I will not give up tomorrow.',
+    ],
     image_url: '/images/char_sita.png',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -83,6 +93,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['Why did you follow Rama?', 'What is loyalty?', 'How can I protect my family?'],
+    replies: [
+      'I followed because my brother walked into the forest — how could I let him face the dark alone? Loyalty is not a choice you make once; it is a choice you make every single day.',
+      'Loyalty is the fire in the chest that says: where he stands, I stand; where he falls, I fall. It does not ask for thanks. It asks only that you keep watch.',
+      'To protect your family, you must first love them more than your own comfort. Build walls around them with your attention, your courage, and your time — that is what guards them.',
+    ],
     image_url: '/images/char_lakshmana.png',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -111,6 +126,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['How did you leap to Lanka?', 'How can I become brave?', 'What is devotion?'],
+    replies: [
+      'The ocean was wide, but my Lord was wider. I did not leap on my own strength — I leaped because I forgot myself in his name. When you forget fear in service, even the sea becomes a step.',
+      'Bravery is not having no fear. It is carrying your fear in your hands, offering it to something greater than yourself, and then moving forward anyway. The smallest heart, given fully, can move mountains.',
+      'Devotion is the river that does not ask where it flows. It simply moves toward the sea. To love without measure, to serve without counting — that is the heart of the devotee.',
+    ],
     image_url: '/images/char_hanuman.png',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -139,6 +159,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['What mistake did Ravana make?', 'Can knowledge become dangerous without humility?', 'Why is pride harmful?'],
+    replies: [
+      'My mistake? I knew every scripture, every star, every verse — yet I did not know myself. Knowledge without wisdom is a lamp in a room with no doors. It lights nothing but its own ruin.',
+      'Yes. Knowledge is fire. In humble hands it warms the world; in proud hands it burns it down. I had the fire of a thousand scholars, but I lacked the one small flame that matters — the willingness to bow.',
+      'Pride tells you the crown makes you more than others. But the crown is borrowed. When you believe you are above dharma, you have already begun your fall, though you stand at the highest tower.',
+    ],
     image_url: '/images/char_ravana.png',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -167,6 +192,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['Why was Dasharatha heartbroken?', 'What is the cost of promises?'],
+    replies: [
+      'A father knows when the thread between him and his child begins to fray. I gave my word, and the word took my son from me. My heart broke not from anger, but from knowing I caused his leaving.',
+      'Promises are the unseen threads that hold a kingdom together. Break one and the whole cloth unravels. The cost is not paid only by you — it is paid by everyone who trusted that the thread would hold.',
+      'I was a king, yet I could not undo a single word once spoken. That is the truth of duty: it does not bend for love, even when love is all you have. And so I let my son walk away, and I stayed behind.',
+    ],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   },
@@ -194,6 +224,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['Why did you not take the throne?', 'What is selfless love?'],
+    replies: [
+      'The throne was never mine to take — it was Rama\'s. I placed his sandals upon it, so that even in exile, the true king still ruled. To love is to protect what belongs to another, not to claim it.',
+      'Selfless love asks nothing in return. It does not measure. It does not bargain. It says only: what is yours shall remain yours, even if the whole world presses me to take it.',
+      'I wore no crown because my brother\'s absence was already heavier than any gold. To rule in his place would have felt like stealing from the one I love most. So I waited, and I served.',
+    ],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   },
@@ -221,6 +256,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['How did you help Rama?', 'Why are alliances important?'],
+    replies: [
+      'I had lost my kingdom to my brother, and Rama gave me back my honor before he gave me back my throne. An alliance born in gratitude is the strongest bond — you repay it with everything you have.',
+      'Alliances matter because no one crosses the ocean alone. Rama gave me his word; I gave him my army. Together we did what neither could have done apart — that is the quiet power of standing together.',
+      'A wise king knows that strength is not in numbers alone, but in loyalty. My army found Sita because we believed in the one we followed. An alliance is trust given legs and wings.',
+    ],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   },
@@ -248,6 +288,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['Why did you leave Ravana?', 'Is truth greater than blind loyalty?'],
+    replies: [
+      'I did not leave my brother; I left a path I could no longer walk. To stay silent beside wrongdoing is to become part of it. I chose dharma because some doors, once closed by conscience, cannot be reopened by blood.',
+      'Truth is greater than blind loyalty, because loyalty without truth becomes chains. I loved my brother, but I could not follow where he led — and so I followed what I knew to be right, though it cost me everything.',
+      'It is the hardest thing, to stand against your own family for the sake of what is right. But dharma is not a feeling — it is the compass that does not move even when your heart trembles.',
+    ],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   },
@@ -275,6 +320,11 @@ export const ramayanaCharacters: Character[] = [
     },
     source_notes: 'Valmiki Ramayana, public-domain traditions',
     talk_examples: ['Why did you fight Ravana?', 'What does courage mean?'],
+    replies: [
+      'I fought Ravana because innocence was being carried away and I was old, but I was not yet done. Wings grow weary, but courage does not ask whether you are strong enough — it asks only whether you will try.',
+      'Courage is not the absence of fear, nor the certainty of winning. It is the choice to throw yourself between the helpless and the harm, knowing you may fall, and doing it anyway.',
+      'My body broke against Ravana, yet my wings rose one last time to tell Rama where Sita had gone. That is the truth of courage — even in falling, you may still light the way for another.',
+    ],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }

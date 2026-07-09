@@ -75,6 +75,14 @@ export async function GET(
           source_tradition: generated.source_tradition,
           stylePreset: generated.stylePreset,
           accuracyLabel: generated.accuracyLabel ?? 'CREATIVE_RETELLING',
+          // S4 — book-level narration language (hi/en/auto). Read
+          // defensively by the Movie build + the World engine.
+          language: generated.language,
+          // Universal World-engine identity (opt-in). When present,
+          // the World engine uses it to override the deterministic
+          // universal lexicon so the explorable world reads FROM this
+          // story. Absent → deterministic derivation (no key needed).
+          worldIdentity: generated.worldIdentity,
         },
         scenes: generated.scenes,
         characters: generated.characters,

@@ -20,6 +20,24 @@ Rules:
 - Include a brief source note.
 - Suggest 2-3 natural follow-up questions.`;
 
+/** A short language directive appended to the system + character
+ *  prompts when the book is routed to Hindi. Empty for 'en'/'auto'/undefined
+ *  so the default English path is byte-identical to before S4. */
+export function livebookLanguageDirective(language?: string): string {
+  if (language === 'hi') {
+    return '\n\nLanguage directive: Answer in Hindi (Devanagari script). Keep the JSON keys and labels in English; only the human-readable answer, source_note, and next_options content should be in Hindi.';
+  }
+  return '';
+}
+
+/** Build the LiveBook system prompt, optionally appending a Hindi
+ *  directive. The no-arg call returns the exact same string as the
+ *  exported LIVEBOOK_SYSTEM_PROMPT const so existing callers are
+ *  unaffected. */
+export function buildLivebookSystemPrompt(language?: string): string {
+  return LIVEBOOK_SYSTEM_PROMPT + livebookLanguageDirective(language);
+}
+
 export function buildCharacterPrompt(params: {
   characterName: string;
   characterRole: string;
@@ -30,9 +48,17 @@ export function buildCharacterPrompt(params: {
   sourceNotes: string;
   mode: string;
   question: string;
+  /** Optional language route ('hi'|'en'|'auto'). When 'hi', the
+   *  answer / source_note / next_options are asked to be in Hindi
+   *  (Devanagari). Default 'en'/undefined → unchanged English. */
+  language?: 'hi' | 'en' | 'auto';
 }): string {
-  const { characterName, characterRole, characterTraits, characterSpeechTone, sceneName, sceneNarration, sourceNotes, mode, question } = params;
-  
+  const { characterName, characterRole, characterTraits, characterSpeechTone, sceneName, sceneNarration, sourceNotes, mode, question, language } = params;
+
+  const languageLine = language === 'hi'
+    ? '\n\nLanguage directive: Respond in Hindi (Devanagari script). The `answer`, `source_note`, and each entry in `next_options` MUST be in Hindi. Keep the JSON keys and the `label` value in English.'
+    : '';
+
   return `The user is currently in the scene: "${sceneName}"
 They are talking to: ${characterName}
 Character role: ${characterRole}
@@ -59,5 +85,5 @@ You MUST respond with valid JSON in this exact format:
   "source_note": "brief note about the source basis for this answer",
   "next_options": ["follow-up question 1", "follow-up question 2", "follow-up question 3"],
   "safety_note": ""
-}`;
+}${languageLine}`;
 }

@@ -34,6 +34,12 @@ import os from 'node:os';
 import { createHash } from 'crypto';
 
 import { getManifestForSlugAsync } from '@/lib/video/manifestRegistry';
+import { synthesizeWorldManifest } from '@/lib/world/worldManifest';
+import type { WorldManifest, WorldNode } from '@/lib/world/worldManifest';
+// Type-only import — the WorldFlythrough composition module pulls in
+// Remotion + R3F client code we must NOT execute in a server route. The
+// manifest types are pure interfaces, safe to import as types.
+import type { WorldFlythroughManifest, FlythroughNode } from '@/remotion/WorldFlythrough';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { analyzeImageForTargets } from '@/lib/agents/visionAgent';
 import { getBook } from '@/lib/data/bookRegistry';
@@ -55,10 +61,12 @@ interface RenderRequest {
    *  hash already exists. Useful when the composition itself changed. */
   force?: boolean;
   /** Which composition to render. 'movie' = full BookMovie (default).
-   *  'trailer' = the cinematic teaser cut (BookTrailer). Both write
-   *  to the same `public/movies/` folder under different basenames
-   *  so they cache independently. */
-  mode?: 'movie' | 'trailer';
+   *  'trailer' = the cinematic teaser cut (BookTrailer). 'flythrough' =
+   *  the World flythrough — a camera glide across the explorable planet
+   *  (WorldFlythrough), built from the book's WorldManifest, not a
+   *  scene manifest. All three write under different basenames so they
+   *  cache independently. */
+  mode?: 'movie' | 'trailer' | 'flythrough';
 }
 
 /** Returns true when this process is explicitly authorized to run
@@ -74,6 +82,39 @@ interface RenderRequest {
  */
 function canRenderMp4(): boolean {
   return process.env.KATHA_MP4_EXPORT_ENABLED === '1';
+}
+
+/** Render-quality env knobs (shared contract with scripts/render-movie.ts).
+ *
+ *  KATHA_RENDER_SCALE — output resolution multiplier. The composition's
+ *  native size is 1920×1080; 0.5 → 960×540 (default, share-grade), 1.0 →
+ *  1080p (archival), 2.0 → 4K. Only {0.5,1.0,2.0} are accepted —
+ *  fractional scales like 0.667 break FFmpeg's integer-ratio stitch step.
+ *  Any other value falls back to the default (0.5).
+ *
+ *  KATHA_RENDER_CRF — H.264 Constant Rate Factor. 18 = visually lossless
+ *  (large), 28 = default share-grade, 32 = small. Clamped to [18,32].
+ *
+ *  Defaults keep the 540p / CRF-28 behaviour the route has always shipped
+ *  unless an operator opts into higher quality.
+ */
+const ALLOWED_SCALES = new Set([0.5, 1.0, 2.0]);
+const DEFAULT_SCALE = 0.5;
+const DEFAULT_CRF = 28;
+
+function readRenderScale(): number {
+  const raw = process.env.KATHA_RENDER_SCALE;
+  if (raw === undefined || raw === '') return DEFAULT_SCALE;
+  const val = Number(raw);
+  return ALLOWED_SCALES.has(val) ? val : DEFAULT_SCALE;
+}
+
+function readRenderCrf(): number {
+  const raw = process.env.KATHA_RENDER_CRF;
+  if (raw === undefined || raw === '') return DEFAULT_CRF;
+  const val = Math.round(Number(raw));
+  if (!Number.isFinite(val)) return DEFAULT_CRF;
+  return Math.max(18, Math.min(32, val));
 }
 
 export async function POST(request: Request) {
@@ -105,8 +146,8 @@ export async function POST(request: Request) {
   if (!/^[a-z0-9-]+$/.test(bookSlug)) {
     return NextResponse.json({ error: 'Invalid bookSlug format' }, { status: 400 });
   }
-  if (mode !== 'movie' && mode !== 'trailer') {
-    return NextResponse.json({ error: `mode must be 'movie' or 'trailer', got '${mode}'` }, { status: 400 });
+  if (mode !== 'movie' && mode !== 'trailer' && mode !== 'flythrough') {
+    return NextResponse.json({ error: `mode must be 'movie', 'trailer', or 'flythrough', got '${mode}'` }, { status: 400 });
   }
 
   // Visibility check: private books can only be rendered by owner or admin.
@@ -121,35 +162,74 @@ export async function POST(request: Request) {
     }
   }
 
-  const manifest = await getManifestForSlugAsync(bookSlug);
-  if (!manifest) {
-    return NextResponse.json({ error: `No manifest for book "${bookSlug}"` }, { status: 404 });
+  // ── Manifest load ──────────────────────────────────────────────
+  // movie/trailer use the scene manifest from the video registry.
+  // flythrough is a DIFFERENT composition (WorldFlythrough) driven by
+  // the book's WorldManifest — not a scene manifest — so it skips the
+  // registry lookup AND the per-image vision-QA pass (which only makes
+  // sense against scene images). The flythrough manifest is synthesized
+  // from the book's scenes + worldIdentity (universal lexicon, no key),
+  // preferring a pre-built JSON if scripts/build-world-flythrough.ts
+  // already wrote one (which may carry pre-rendered TTS narration audio).
+  const renderScale = readRenderScale();
+
+  let compositionId: string;
+  let filenameStem: string;
+  // `inputProps` is what Remotion receives — { manifest } for all three
+  // modes, but the manifest object differs (BookMovieManifest vs
+  // WorldFlythroughManifest). Typed loosely here; selectComposition +
+  // the composition's calculateMetadata interpret it.
+  let inputProps: { manifest: unknown };
+  let manifestHashInput: unknown;
+
+  if (mode === 'flythrough') {
+    const fly = await loadOrBuildFlythroughManifest(bookSlug, book);
+    if (!fly) {
+      return NextResponse.json(
+        { error: `No flythrough manifest for book "${bookSlug}" (book not found in registry — pre-build via scripts/build-world-flythrough.ts for seed books)` },
+        { status: 404 },
+      );
+    }
+    compositionId = 'WorldFlythrough';
+    filenameStem = 'flythrough';
+    inputProps = { manifest: fly };
+    manifestHashInput = { flythrough: fly, scale: renderScale };
+  } else {
+    const manifest = await getManifestForSlugAsync(bookSlug);
+    if (!manifest) {
+      return NextResponse.json({ error: `No manifest for book "${bookSlug}"` }, { status: 404 });
+    }
+
+    // Vision QA pass — non-blocking safety net. For each scene image,
+    // ask gpt-4o-vision whether the scene's named characters actually
+    // appear. Character consistency is supposed to be guaranteed by
+    // the anchor-portrait + canon-appearance system at image generation
+    // time; this is the belt-and-suspenders check that catches drift
+    // before / while we render the MP4.
+    //
+    // Wrapped in after() so the lambda keeps it alive even when the
+    // render path is a cache hit and returns instantly — a plain
+    // `void runVisionQA()` would be killed when the response flushes.
+    // Cost: ~$0.05 for a 12-scene book. Skipped for flythrough (no
+    // scene images in that composition).
+    after(async () => {
+      try {
+        await runVisionQA(bookSlug, manifest);
+      } catch (err) {
+        console.warn('[render-movie] vision QA pass failed:',
+          err instanceof Error ? err.message : err);
+      }
+    });
+
+    compositionId = mode === 'trailer' ? 'BookTrailer' : 'BookMovie';
+    filenameStem = mode === 'trailer' ? 'trailer' : 'movie';
+    inputProps = { manifest };
+    manifestHashInput = { manifest, mode, scale: renderScale };
   }
 
-  // Vision QA pass — non-blocking safety net. For each scene image,
-  // ask gpt-4o-vision whether the scene's named characters actually
-  // appear. Character consistency is supposed to be guaranteed by
-  // the anchor-portrait + canon-appearance system at image generation
-  // time; this is the belt-and-suspenders check that catches drift
-  // before / while we render the MP4.
-  //
-  // Wrapped in after() so the lambda keeps it alive even when the
-  // render path is a cache hit and returns instantly — a plain
-  // `void runVisionQA()` would be killed when the response flushes.
-  // Cost: ~$0.05 for a 12-scene book.
-  after(async () => {
-    try {
-      await runVisionQA(bookSlug, manifest);
-    } catch (err) {
-      console.warn('[render-movie] vision QA pass failed:',
-        err instanceof Error ? err.message : err);
-    }
-  });
-
-  // Cache key includes mode so movie + trailer don't collide.
-  const manifestHash = hashManifest({ manifest, mode });
-  const compositionId = mode === 'trailer' ? 'BookTrailer' : 'BookMovie';
-  const filenameStem = mode === 'trailer' ? 'trailer' : 'movie';
+  // Cache key includes mode + render scale so movie/trailer/flythrough
+  // and different resolutions don't collide in the S3/local cache.
+  const manifestHash = hashManifest(manifestHashInput);
   const objectPath = `${bookSlug}/${filenameStem}.${manifestHash}.mp4`;
 
   // Cached path — if the same manifest already produced an MP4,
@@ -209,7 +289,7 @@ export async function POST(request: Request) {
     const composition = await selectComposition({
       serveUrl: bundled,
       id: compositionId,
-      inputProps: { manifest },
+      inputProps,
     });
 
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), `kk-${filenameStem}-`));
@@ -221,19 +301,13 @@ export async function POST(request: Request) {
         serveUrl: bundled,
         codec: 'h264',
         outputLocation: outFile,
-        inputProps: { manifest },
-        // 540p (scale 0.5) keeps render time manageable for share embeds.
-        // The composition's native size is 1920×1080, so 0.5 gives integer
-        // dimensions (960×540) — fractional scales like 0.667 break the
-        // FFmpeg stitch step. Bump to 1.0 for archival quality at 1080p.
-        scale: 0.5,
-        // Constant Rate Factor for H.264. Default 18 produces archival
-        // quality at large file sizes (~250MB for a 7-min 1080p movie);
-        // 28 cuts that to <50MB which streams quickly over the CloudFront
-        // CDN and fits share-preview size budgets while staying
-        // perceptually close to the original. This is a share preview —
-        // visual fidelity > file precision.
-        crf: 28,
+        inputProps,
+        // Resolution multiplier — env-gated via KATHA_RENDER_SCALE.
+        // Default 0.5 = 540p (share-grade). 1.0 = 1080p, 2.0 = 4K.
+        scale: readRenderScale(),
+        // CRF — env-gated via KATHA_RENDER_CRF. Default 28 = share-grade,
+        // 18 = archival. See readRenderCrf() for the clamp range.
+        crf: readRenderCrf(),
         audioBitrate: '96k',
       }),
       RENDER_BUDGET_MS,
@@ -291,6 +365,85 @@ export async function POST(request: Request) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+
+/** Load (or synthesize) a WorldFlythroughManifest for the flythrough mode.
+ *
+ *  1. Prefer a pre-built JSON at `remotion/manifests/world-{slug}.json`
+ *     — written by `scripts/build-world-flythrough.ts`, which may also
+ *     pre-render TTS narration audio per node. This is the only path
+ *     that carries narration audio; the on-the-fly synthesis is text-only.
+ *  2. Otherwise synthesize a text-only flythrough manifest from the
+ *     book's scenes + characters + worldIdentity (universal lexicon,
+ *     no key needed). Per-node narration = the scene's deliver_fragment
+ *     mission text, falling back to its title.
+ *
+ *  Returns null when the book isn't in the registry (seed books like
+ *  Ramayana aren't — those must be pre-built via the build script, which
+ *  fetches through /api/books/{slug} where seeds resolve). This keeps the
+ *  route honest: it never fabricates scenes for a book it can't load. */
+async function loadOrBuildFlythroughManifest(
+  bookSlug: string,
+  book: Awaited<ReturnType<typeof getBook>>,
+): Promise<WorldFlythroughManifest | null> {
+  // (1) Pre-built JSON.
+  const prebuilt = path.join(process.cwd(), 'remotion', 'manifests', `world-${bookSlug}.json`);
+  try {
+    const raw = await fs.readFile(prebuilt, 'utf8');
+    const parsed = JSON.parse(raw) as Partial<WorldFlythroughManifest>;
+    if (parsed && Array.isArray(parsed.nodes) && parsed.world && Array.isArray((parsed.world as WorldManifest).nodes)) {
+      return parsed as WorldFlythroughManifest;
+    }
+  } catch { /* not pre-built — fall through to synthesis */ }
+
+  // (2) On-the-fly synthesis — requires the registry book (has scenes,
+  // characters, worldIdentity). Seed books return null from getBook.
+  if (!book) return null;
+
+  const world: WorldManifest = synthesizeWorldManifest(
+    book as unknown as Parameters<typeof synthesizeWorldManifest>[0],
+    book.scenes as unknown as Parameters<typeof synthesizeWorldManifest>[1],
+    book.characters as unknown as Parameters<typeof synthesizeWorldManifest>[2],
+    undefined,
+    book.worldIdentity ?? null,
+  );
+
+  const nodes: FlythroughNode[] = world.nodes.map((n: WorldNode): FlythroughNode => {
+    const scene = book.scenes.find(s => s.scene_id === n.id);
+    const narration = scene?.short_summary || scene?.narration || narrationForWorldNode(n);
+    return {
+      nodeId: n.id,
+      narration,
+      narrationAudioUrl: null, // text-only on the fly; pre-built carries audio
+      durationInFrames: framesForNarration(narration),
+      mood: n.mood,
+    };
+  });
+
+  return {
+    bookSlug: book.slug,
+    bookTitle: book.title,
+    nodes,
+    world,
+  };
+}
+
+/** Narration text for a world node — the deliver_fragment mission's
+ *  fragmentText, or the node's title. Mirrors scripts/build-world-flythrough.ts. */
+function narrationForWorldNode(node: WorldNode): string {
+  const frag = node.missions.find(m => m.kind === 'deliver_fragment');
+  // fragmentText may be absent on synthesized nodes; title is the safe floor.
+  return (frag as { fragmentText?: string } | undefined)?.fragmentText ?? node.title;
+}
+
+/** Duration in frames for a narration string — ~1 frame per 30 chars at
+ *  30fps, clamped to [60, 240], 90 when empty. Mirrors
+ *  scripts/build-world-flythrough.ts:framesForNode so the route-built and
+ *  script-built manifests match. */
+function framesForNarration(narration: string): number {
+  if (!narration) return 90;
+  const est = Math.ceil(narration.length / 30) * 10;
+  return Math.max(60, Math.min(240, est));
+}
 
 function hashManifest(manifest: unknown): string {
   return createHash('sha1').update(JSON.stringify(manifest)).digest('hex').slice(0, 12);

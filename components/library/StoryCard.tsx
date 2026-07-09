@@ -93,15 +93,12 @@ export default function StoryCard({
   }
   const visibleBadges = badges.slice(0, 2);
 
-  // Icon fallback for missing cover
+  // Icon fallback for missing cover. Only the working Ramayana seed
+  // has a dedicated icon; the dead Supabase-backed seeds were removed
+  // so they no longer have entries here. AI-generated books that lack a
+  // cover fall back to the generic 📖 below.
   const COVER_ICONS: Record<string, string> = {
     ramayana: '🏛️',
-    mahabharata: '⚔️',
-    panchatantra: '🦊',
-    'akbar-and-birbal': '👑',
-    'akbar-and-birbal-stories': '👑',
-    'tenali-raman': '🪔',
-    'vikram-and-betaal': '🌙',
   };
   const icon = COVER_ICONS[slug] || '📖';
 

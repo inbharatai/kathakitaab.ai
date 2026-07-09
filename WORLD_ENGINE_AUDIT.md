@@ -83,65 +83,115 @@ Network tab.
 
 ---
 
-## 4. Tier 2 — next, not done (no-half-measures)
+## 4. Tier 2 — DONE AS CODE (live-burn deferred, gated)
 
-- Persistent character persona/memory thread (ask-character is stateless today).
-- Vision-verify hotspots at *initial* gen, not only on the regen path.
-- Whole-arc QA critic (one outline call decides the whole book today).
-- Language-routed system prompts + TTS voice matching (Hindi system prompt, Hindi voice).
-- Eased/bezier camera; true post-process bloom; DOF; lift the 540p render cap.
-- Regenerate Ramayana narration audio to S3 (replaces the honest nulls with real voiced narration).
+Each item below ships complete as code with a no-key / offline fallback proven
+by the no-key path. Paid/infra calls are env-gated (default OFF). Nothing is
+fake-passed; visual eye-checks I can't perform are flagged.
+
+- **Persistent character persona/memory thread** — `ask-character` now carries
+  a `threadId`, threads prior turns, persists per `(owner_id, book_slug,
+  character_slug)` in Aurora `character_memory` (migration `0004`, applied
+  live + verified capping), Redis fallback when `USE_AURORA=false`. Degrades
+  to today's stateless single-turn when no Aurora + no OpenAI. *(S1)*
+- **Vision-verify hotspots at initial gen** — after beat-0 image lands,
+  `analyzeImageForTargets` overwrites LLM-guessed hotspot coords. Gated
+  `KATHA_VISION_HOTSPOTS_ENABLED=1`; off → LLM-guessed coords stand.
+  `analyzeImageForTargets` no-ops when unconfigured. *(S3)*
+- **Whole-arc QA critic** — `lib/agents/arcCriticAgent.ts`: one gpt-4o-mini
+  call post-outline flags arc breaks into `GeneratedBook.qaNotes`
+  (non-blocking). Gated `KATHA_ARC_CRITIC_ENABLED=1`; off → returns score 100
+  (skip), like `branchQAAgent`. *(S2)*
+- **Language-routed prompts + TTS voice** — `language?: 'hi'|'en'|'auto'` on
+  `GeneratedBook`, threaded into the system/character prompts, persisted on
+  the book + registry, and the TTS route already threads it end-to-end. Pure
+  code. *(S4)*
+- **Eased/bezier camera** — `MOTION_EASING` per motion token, resolved
+  client-side via `resolveEasing()` (motion.ts exports a serializable
+  `EasingSpec` so it stays server-safe — see build note below). *(M1)*
+- **True-ish bloom + DOF/CA/MB** — SVG `feColorMatrix` luminance-key →
+  `feGaussianBlur` → screen-composite replaces the faux-`Bloom`; new
+  `depth_of_field` / `chromatic_aberration` / `motion_blur` effect types
+  with no-dep approximations. True WebGL post-processing deferred (risky in
+  headless Chromium). *(M2)*
+- **Lift the 540p cap** — `KATHA_RENDER_SCALE` (0.5/1.0/2.0) + `KATHA_RENDER_CRF`
+  (18–32) read in both the route + the CLI; `scale` is in the manifest hash so
+  resolutions don't collide. Default stays 540p / CRF 28. *(M3)*
+- **Per-character voiced dialogue (movie)** — `build-book-video.ts` loops
+  `scene.dialogue[]` through `/api/livebook/tts` per line → per-scene
+  `dialogueAudioUrl`; `<Audio>` mounted in `BookMovie`. Gated
+  `KATHA_DIALOGUE_TTS_ENABLED=1`; off → narrate-only (today's manifest). *(M4)*
+- **Regenerate Ramayana narration to S3** — DEFERRED (credit-burning).
+  `ramayana.json` stays honestly null; `movie:verify` reports the nulls as
+  "regenerate the manifest to restore voiced narration." Not faked.
+
+### Build note (regression caught + fixed this pass)
+M1 initially imported `Easing` from `remotion` into `lib/video/motion.ts`.
+That module is imported server-side by the manifest synthesizer
+(`/api/books/[slug]`), which pulled the `remotion` package into an RSC
+bundle and crashed `next build` on `React.createContext` undefined. Fixed by
+exporting a serializable `EasingSpec` from `motion.ts` and resolving it to
+`Easing` client-side in `BookMovie.tsx` / `BookTrailer.tsx`. `motion.ts` now
+has zero `remotion` runtime import — the build is green.
 
 ---
 
-## 5. Tier 3 — beat Messenger on its own axis (not done)
+## 5. Tier 3 — DONE AS CODE (live-burn deferred, gated)
 
-- Ambient biome audio + NPC murmur (the `voiceMood` field is waiting) + footsteps — there is **no audio in the World engine today**; only the Movie engine has mood beds.
-- `ask_character` dialogue tree using the `talk_examples` array (today it returns one static line).
-- Per-character voiced dialogue in the movie (use the `dialogue[]` schema, turn on per-cue emotion TTS by default).
+- **Ambient biome audio + NPC murmur + footsteps** —
+  `lib/audio/worldAudioEngine.ts` (browser WebAudio): synth biome beds
+  transcribed from `proceduralWav.ts`, crossfade on node change, spatialized
+  NPC murmur from `voiceMood`, footstep SFX on avatar step. Mounted in
+  `LivingWorldScreen.tsx` gated by `NEXT_PUBLIC_KATHA_WORLD_AUDIO=1` + the 3D
+  path. Off → silent world (the v1 DOM fallback is always silent). *(W1)*
+- **`ask_character` dialogue tree** — `replies[]` on seed characters +
+  `replyFor(character, turn)`; `ADVANCE_DIALOG` action persists the turn in
+  `livingMemory`; LLM opt-in via `ask-character` with `threadId` (S1) when
+  `OPENAI_API_KEY` set. Default (no key) → deterministic replies. *(W2)*
+- **Per-character voiced dialogue in the movie** — see M4 above (Tier 2).
+- **Voice in the World engine (TTS + STT)** — the user's "but with tts sts":
+  `components/world/useWorldVoice.ts` adds a "Hear" button (TTS route →
+  `speechSynthesis` no-key fallback) and a "Speak" mic button (browser
+  `SpeechRecognition`, no key) that feeds the spoken question to the
+  ask-character LLM flow. Gated `NEXT_PUBLIC_KATHA_WORLD_TTS=1` /
+  `NEXT_PUBLIC_KATHA_WORLD_VOICE_INPUT=1`. No-key path is real (browser
+  voices + no mic).
 
 ---
 
 ## 6. Innovations addendum (beyond the 3-tier plan)
 
 These are the ideas the audit surfaced that don't fit cleanly into "fix the
-bug" or "match Messenger." They are speculative — listed so they aren't lost,
-not because they're endorsed.
+bug" or "match Messenger." Items marked **DONE** shipped this pass
+(complete as code, gated, no-key fallback proven); the rest stay speculative.
 
-1. **Whole-arc QA critic with a budget.** A second model reads the completed
-   outline + all branch narrations and flags arc-level breaks (a promise in
-   scene 2 never paid off; a character whose arc flatlines). Gated behind a
-   per-book token budget so it can't run away. This is the single biggest
-   quality lever the Story engine is missing.
+1. **Whole-arc QA critic with a budget.** **DONE (S2)** — `arcCriticAgent.ts`,
+   gated `KATHA_ARC_CRITIC_ENABLED`, non-blocking, degrades to skip.
 
-2. **Deterministic-but-seeded replay.** The World synthesizer is already pure
-   FNV-1a. Exposing the seed in the URL (`/world/ramayana?s=...`) lets a reader
-   share an exact planet layout — and lets us snapshot a layout across deploys
-   so a book's planet doesn't silently reshuffle. Near-free; the purity is
-   already there.
+2. **Deterministic-but-seeded replay.** **DONE (W3)** — `?s=<uint32>` seed in
+   `/world/[slug]` overrides the slug-derived seed; invalid/mismatched seeds
+   are ignored. The synthesizer's purity makes this near-free.
 
-3. **Portrait-on-demand via the existing image route.** NPC `portraitUrl` is
-   blank for seed characters today. The `generate-image` route already exists;
-   wiring it to generate + cache one portrait per seed character (once, at
-   seed time, not per session) would fill the portrait billboards without
-   per-user cost. Behind the same child-safety gate as `personalized_photo`.
+3. **Portrait-on-demand via the existing image route.** **DONE (W5)** —
+   `scripts/generate-seed-portraits.ts` generates + caches one portrait per
+   seed character (once, at seed time). Gated `KATHA_SEED_PORTRAITS_ENABLED`;
+   off → emoji portraits stand (the honest fallback).
 
-4. **Hot-link the World planet and the Movie.** The same `WorldManifest` nodes
-   that tint the planet could feed a "world flythrough" movie mode — camera
-   glides place → place along the DAG, narration per node. One manifest, two
-   products. Reuses everything; new composition only.
+4. **Hot-link the World planet and the Movie.** **DONE (W4)** —
+   `remotion/WorldFlythrough.tsx` composition + `mode:'flythrough'` branch in
+   the render-movie route (pre-built manifest preferred, else synthesized
+   text-only from the book's scenes + worldIdentity). Behind
+   `KATHA_MP4_EXPORT_ENABLED`.
 
-5. **Audio in the World engine, finally.** Tier 3 lists ambient biome audio,
-   but the cheaper first step is a single looping biome bed per place (forest
-   birds / battle drone / temple bells) crossfaded on travel — using the same
-   `proceduralWav.ts` synth that already ships the movie beds. No new licensed
-   assets, no new infra.
+5. **Audio in the World engine, finally.** **DONE (W1)** — full ambient biome
+   audio + NPC murmur + footsteps, not just the single looping bed. Gated
+   `NEXT_PUBLIC_KATHA_WORLD_AUDIO`.
 
-6. **Honest "what this is" rail on the landing page.** The audit's recurring
-   failure mode was calling dead schema fields "implemented." A short, plainly
-   worded "what the World engine does / does not do" rail (text-only, no art)
-   would set expectations correctly and is the cheapest defense against
-   future half-measures creeping back into marketing copy.
+6. **Honest "what this is" rail on the landing page.** **DONE (W6)** — a
+   text-only "what the World engine does / does not do" block on the landing
+   page. The dead Supabase showcase books (Mahabharata, Akbar & Birbal,
+   Vikram & Betaal) were also removed from the landing cards + CTAs this
+   pass — only Ramayana stays until they're regenerated fresh.
 
 ---
 
@@ -149,6 +199,12 @@ not because they're endorsed.
 
 I shipped a 3D planet whose headline visual was silently broken, and labeled
 dead schema fields "implemented" — the half-measures the user warned against.
-This pass fixes the headline bug and stops the mislabeling, but the *visual*
-confirmation is still outstanding because I can't process images. Tier 2/3
-remain the real distance to Messenger's cozy axis.
+Tier 1 fixed the headline bug; this pass completes Tier 2 + Tier 3 + the six
+innovations **as code**, each with a no-key / offline fallback proven by the
+no-key path and gated so the paid burns are deferred. The *visual* and
+*audible* confirmation is still outstanding because I can't process images or
+hear audio — those are flagged, not claimed. The honest distance to
+Messenger's handcrafted watercolor (a 2-person art team) is unchanged: code
+can build toward it on the achievable axes (universal story-driven world,
+warm painterly art direction, ambient audio, living NPCs, voiced TTS + STT),
+but cannot clone handcrafted illustration.

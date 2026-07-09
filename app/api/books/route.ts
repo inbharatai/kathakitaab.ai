@@ -5,6 +5,23 @@ import { getAllBooks as getRegistryBooks } from '@/lib/data/bookRegistry';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { resolveBookVisibility } from '@/lib/auth/bookAccess';
 
+// Dead-asset host: the previous curated showcase seeds (mahabharata,
+// akbar-and-birbal, vikram-and-betaal, panchatantra, tenali-raman) were
+// persisted to Redis with scene images + narration audio on the
+// now-decommissioned Supabase bucket. Those URLs 404 today, so the
+// books are broken for readers. We exclude any book whose scene assets
+// reference this host. Self-healing: a story regenerated via the
+// universal engine persists S3-backed assets and reappears here.
+const DEAD_SUPABASE_HOST = 'esaypdyvmymsmlgxxylv.supabase.co';
+
+function hasDeadSupabaseAssets(book: { scenes?: Array<{ background_asset_url?: string; narration_audio_url?: string }> }): boolean {
+  const scenes = Array.isArray(book.scenes) ? book.scenes : [];
+  return scenes.some(
+    s => (s.background_asset_url?.includes(DEAD_SUPABASE_HOST))
+      || (s.narration_audio_url?.includes(DEAD_SUPABASE_HOST)),
+  );
+}
+
 /** Public + my-private books listing.
  *
  *  Privacy contract:
@@ -66,6 +83,9 @@ export async function GET(request: Request) {
     .filter(b => {
       // Defensive: skip corrupted Redis entries with no slug or title.
       if (!b || !b.slug || !b.title) return false;
+      // Skip books whose scene assets still point at the dead Supabase
+      // bucket — they 404 for readers. Reappear once regenerated to S3.
+      if (hasDeadSupabaseAssets(b)) return false;
       const effective = resolveBookVisibility(b);
       // Public AI-generated books: always visible.
       if (effective === 'public') return true;

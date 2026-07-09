@@ -315,3 +315,33 @@ export function privateSlug(mode: 'classroom' | 'personalized_text' | 'personali
   for (let i = 0; i < 8; i++) s += buf[i].toString(16).padStart(2, '0');
   return `${prefix}-${s}`;
 }
+
+// ── Language directive (S4) ───────────────────────────────────
+
+/** Map a free-form mode metadata language string ("Hindi", "English",
+ *  "hi", "en", ...) to the normalized book-level code used by the
+ *  generator + TTS routing. Returns 'auto' for anything we can't
+ *  confidently call Hindi, so callers default to the existing English
+ *  pipeline rather than misroute Hindi content to an English voice. */
+export function normalizeLanguageCode(raw?: string | null): 'hi' | 'en' | 'auto' {
+  if (!raw) return 'auto';
+  const v = raw.trim().toLowerCase();
+  if (!v) return 'auto';
+  if (v === 'hi' || v === 'hindi' || v.startsWith('हिन्द') || v.includes('devanagari')) return 'hi';
+  if (v === 'en' || v === 'english' || v.startsWith('eng')) return 'en';
+  return 'auto';
+}
+
+/** A short system-level directive appended to the outline + scene-detail
+ *  system prompts when the book is routed to Hindi. Empty for 'en'/'auto'
+ *  so the default English system prompts stay byte-identical. The user
+ *  content (outlinePrompt) already carries a "Language: Hindi" line for
+ *  classroom/personalized modes via the meta.language field — this just
+ *  reinforces it at the system level so the model doesn't drift back to
+ *  English mid-generation. */
+export function outlineLanguageDirective(language?: 'hi' | 'en' | 'auto'): string {
+  if (language === 'hi') {
+    return '\n\nLanguage directive: Write ALL narration and dialogue in Hindi using the Devanagari script. Keep the JSON structure, keys, and scene_id/title values in English. Character speech_tone and source_notes may stay in English for downstream tooling, but every in-story narration and spoken line must be Hindi.';
+  }
+  return '';
+}

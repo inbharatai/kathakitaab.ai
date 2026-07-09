@@ -14,6 +14,7 @@
 // ============================================================
 import { GeneratedBook } from '@/lib/openai/bookGeneratorAgent';
 import { getRedis } from '@/lib/redis';
+import { normalizeLanguageCode } from '@/lib/openai/modePrompts';
 import { registerRuntimeCanon } from './canonLookup';
 import type { CanonEntry } from '@/lib/types/canon';
 // Aurora durable layer (new, optional). All calls are best-effort and
@@ -213,6 +214,24 @@ function validateGeneratedBook(book: unknown): asserts book is GeneratedBook {
 
 export async function saveGeneratedBook(book: GeneratedBook): Promise<void> {
   validateGeneratedBook(book);
+  // S4 — ensure the top-level `language` field is populated before
+  // persistence so later reads (Movie build agent, TTS routing) that
+  // read `book.language` defensively see a value. The generator sets it
+  // when the route passed options.language; when it didn't (e.g. world
+  // mode, or a route that hasn't been updated to thread the language),
+  // lift it from the mode metadata (classroom / personalized language
+  // string) here. Never overwrites an explicit 'hi'/'en'; only fills in
+  // 'auto' from metadata, and leaves world-mode books undefined.
+  if (!book.language) {
+    const metaLang = book.metadata?.classroom?.language ?? book.metadata?.personalized?.language;
+    if (metaLang) {
+      const code = normalizeLanguageCode(metaLang);
+      // 'auto' means "unspecified / mixed" — don't persist a misleading
+      // code on the book; leave it undefined so the TTS path uses its
+      // own default. Only stamp a confident 'hi'/'en'.
+      if (code !== 'auto') book.language = code;
+    }
+  }
   const result = await withLock(bookKey(book.slug), async () => {
     memBooks.set(book.slug, book);
     capMap(memBooks, MAX_MEM_BOOKS);

@@ -144,6 +144,7 @@ export type WorldSessionAction =
   | { type: 'SET_AVATAR'; x: number; y: number; lat?: number; lon?: number }
   | { type: 'DELIVER_FRAGMENT'; fromNodeId: string }
   | { type: 'COMPLETE_MISSION'; missionId: string; rewardXP: number }
+  | { type: 'ADVANCE_DIALOG'; npcSlug: string }
   | { type: 'RESET' };
 
 function awardXp(state: WorldSessionState, amount: number): WorldSessionState {
@@ -201,6 +202,21 @@ export function reduceWorldSession(
       return {
         ...awardXp(state, action.rewardXP),
         completedMissionIds: [...state.completedMissionIds, action.missionId],
+      };
+    }
+    case 'ADVANCE_DIALOG': {
+      // W2 — bump the per-NPC dialogue turn inside the persisted
+      // livingMemory blob. Mirrors COMPLETE_MISSION's shape: read the
+      // existing map, increment, write back. The turn is cycled mod
+      // reply length by replyFor() at render time, not here.
+      const mem = { ...(state.livingMemory ?? {}) } as Record<string, unknown>;
+      const dialogTurns = (mem.dialogTurns ?? {}) as Record<string, number>;
+      const current = dialogTurns[action.npcSlug] ?? 0;
+      dialogTurns[action.npcSlug] = current + 1;
+      mem.dialogTurns = dialogTurns;
+      return {
+        ...state,
+        livingMemory: mem,
       };
     }
     case 'RESET':

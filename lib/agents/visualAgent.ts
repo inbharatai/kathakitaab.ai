@@ -30,6 +30,31 @@ import { toFile } from 'openai';
 const IMAGE_CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const IMAGE_TIMEOUT_MS = 60_000; // gpt-image-1 median is ~35s; 60s catches stragglers
 
+// ── Universal warm painterly art direction ─────────────────────
+// Prepended to every image prompt so AI art reads as a cohesive warm
+// hand-painted storybook — expressive illustrated humans rather than
+// flat pixel sprites. This is the STYLE layer only; the scene's own
+// visual_description supplies the SUBJECT. Culture-neutral — no
+// Ramayana/Indian-specific terms baked in here. Anchor-consistency
+// and forbidden-character constraints (applied later by the prompt
+// builder) are untouched; only the STYLE wrapper changes.
+export const UNIVERSAL_STYLE_DIRECTIVE =
+  'Warm hand-painted storybook illustration — soft gouache and coloured-pencil textures, ' +
+  'gentle ambient light, expressive human figures with readable faces and natural body language, ' +
+  'cohesive warm painterly colour palette, cosy illustrated children\'s-book register, ' +
+  'rich naturalistic detail, soft shading with visible brushwork. ' +
+  'Render figures as warm illustrated humans, not flat sprites. ' +
+  'No flat shading, no pixel art, no harsh black outlines, no vector look, no low-detail minimalist style.';
+
+// Portrait-specific layer — emphasises the face/skin/posture so a
+// character portrait reads as a warm illustrated human rather than a
+// flat sprite. Stacked on top of UNIVERSAL_STYLE_DIRECTIVE.
+export const UNIVERSAL_PORTRAIT_STYLE_DIRECTIVE =
+  UNIVERSAL_STYLE_DIRECTIVE + ' ' +
+  'For this character portrait: expressive face with warm natural skin tones, ' +
+  'readable eyes and gentle emotion, natural relaxed posture, soft painted light on the features — ' +
+  'the figure reads as a warm illustrated human, not a flat sprite.';
+
 function imageCacheKey(
   prompt: string,
   bookSlug: string | undefined,
@@ -162,6 +187,14 @@ export async function generateSceneImage(
     stylePreset: ctx.stylePreset,
   });
 
+  // Prepend the universal warm-painterly style directive so the model
+  // leads with the cohesive storybook aesthetic. gpt-image-1 weights
+  // the top of the prompt most heavily, so this dominates the look
+  // even when a per-book style preset follows. The cache key keeps
+  // using `built.prompt` (without the directive) so existing cached
+  // URLs remain valid — the directive only affects fresh generations.
+  const styledPrompt = `${UNIVERSAL_STYLE_DIRECTIVE}\n\n${built.prompt}`;
+
   // ── Prompt-level validation ─────────────────────────────────
   // Catches the most common pipeline bug: the full cast being
   // injected into a scene where some characters should be absent.
@@ -210,9 +243,9 @@ export async function generateSceneImage(
             const edited = await client.images.edit({
               model: 'gpt-image-1',
               image: anchorRefs.map(r => r.file),
-              prompt: built.prompt,
+              prompt: styledPrompt,
               size: '1536x1024',
-              quality: 'medium',
+              quality: 'high',
               input_fidelity: 'high',
             }, { signal: ctrl.signal });
             clearTimeout(timer);
@@ -226,9 +259,9 @@ export async function generateSceneImage(
           const timer = setTimeout(() => ctrl.abort(), IMAGE_TIMEOUT_MS);
           const response = await client.images.generate({
             model: 'gpt-image-1',
-            prompt: built.prompt,
+            prompt: styledPrompt,
             size: '1536x1024',
-            quality: 'medium',
+            quality: 'high',
           }, { signal: ctrl.signal });
           clearTimeout(timer);
           b64 = response.data?.[0]?.b64_json;
@@ -242,7 +275,7 @@ export async function generateSceneImage(
           const result: VisualGenerationResult = {
             imageUrl,
             source: 'openai',
-            promptUsed: built.prompt,
+            promptUsed: styledPrompt,
             charactersLocked: built.charactersInjected,
           };
           await setCachedResponse(cacheKey, result, 'gpt-image-1', IMAGE_CACHE_TTL_MS);
@@ -269,7 +302,7 @@ export async function generateSceneImage(
       // shape as OpenAI. Wrap in a Promise.race with a manual timeout.
       const geminiPromise = gemini.models.generateImages({
         model: 'imagen-3.0-generate-002',
-        prompt: built.prompt,
+        prompt: styledPrompt,
         config: {
           numberOfImages: 1,
           aspectRatio: '16:9',
@@ -291,7 +324,7 @@ export async function generateSceneImage(
         const result: VisualGenerationResult = {
           imageUrl,
           source: 'gemini',
-          promptUsed: built.prompt,
+          promptUsed: styledPrompt,
           charactersLocked: built.charactersInjected,
         };
         await setCachedResponse(cacheKey, result, 'gemini-imagen', IMAGE_CACHE_TTL_MS);
@@ -303,7 +336,7 @@ export async function generateSceneImage(
   }
 
   console.error('[VisualAgent] All image generation attempts failed. Last error:', lastErr instanceof Error ? lastErr.message : lastErr);
-  return { imageUrl: '', source: 'fallback', promptUsed: built.prompt, charactersLocked: built.charactersInjected };
+  return { imageUrl: '', source: 'fallback', promptUsed: styledPrompt, charactersLocked: built.charactersInjected };
 }
 
 // ── Character Portrait Generation ────────────────────────────
@@ -327,6 +360,11 @@ export async function generateCharacterPortrait(
     stylePreset,
   });
 
+  // Prepend the portrait-specific warm-painterly directive so portraits
+  // read as warm illustrated humans (expressive face, natural skin
+  // tones) instead of flat pixel sprites.
+  const styledPrompt = `${UNIVERSAL_PORTRAIT_STYLE_DIRECTIVE}\n\n${built.prompt}`;
+
   const maxRetries = 3;
   let lastErr: unknown;
   if (isOpenAIConfigured()) {
@@ -337,9 +375,9 @@ export async function generateCharacterPortrait(
         const pTimer = setTimeout(() => pCtrl.abort(), IMAGE_TIMEOUT_MS);
         const response = await client.images.generate({
           model: 'gpt-image-1',
-          prompt: built.prompt,
-          size: '1024x1024',
-          quality: 'medium',
+          prompt: styledPrompt,
+          size: '1024x1536',
+          quality: 'high',
         }, { signal: pCtrl.signal });
         clearTimeout(pTimer);
 
@@ -352,7 +390,7 @@ export async function generateCharacterPortrait(
           return {
             imageUrl,
             source: 'openai',
-            promptUsed: built.prompt,
+            promptUsed: styledPrompt,
             charactersLocked: built.charactersInjected,
           };
         }
@@ -368,5 +406,5 @@ export async function generateCharacterPortrait(
   }
 
   console.error('[VisualAgent] All portrait generation attempts failed. Last error:', lastErr instanceof Error ? lastErr.message : lastErr);
-  return { imageUrl: '', source: 'fallback', promptUsed: built.prompt };
+  return { imageUrl: '', source: 'fallback', promptUsed: styledPrompt };
 }

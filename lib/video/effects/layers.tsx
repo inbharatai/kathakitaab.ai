@@ -261,14 +261,76 @@ const DustShaft: React.FC<LayerProps & { effect: Extract<SceneEffect, { type: 'd
   );
 };
 
-const Bloom: React.FC<{ effect: Extract<SceneEffect, { type: 'bloom' }> }> = ({ effect }) => {
+// ── Bloom (true-ish, no deps) ──────────────────────────────
+// Replaces the old gradient faux-bloom with a real thresholded
+// luminance bloom: an SVG <filter> uses feColorMatrix to key pixels
+// above `threshold`, feGaussianBlur to soften them, then the result
+// is composited over the scene image via mixBlendMode:'screen'.
+// The overlay is a *duplicate* of the scene <Img> with the filter
+// applied + a brightness boost scaled by `intensity` — so the
+// highlight regions of the actual scene art glow, not a generic
+// radial gradient. The image src is threaded down from SceneShot /
+// TrailerShot via the `imageSrc` prop on EffectStack.
+//
+// When no imageSrc is supplied (legacy callers), we fall back to
+// the gradient approximation so the component never renders nothing.
+const Bloom: React.FC<{ effect: Extract<SceneEffect, { type: 'bloom' }>; imageSrc?: string }> = ({ effect, imageSrc }) => {
   const intensity = effect.intensity ?? 1.2;
+  const threshold = effect.threshold ?? 0.7;
+  const filterId = React.useMemo(() => `kk-bloom-${Math.round(threshold * 100)}-${Math.round(intensity * 100)}`, [threshold, intensity]);
+  // feColorMatrix: luminance key. Each output channel = weighted luma
+  // scaled by intensity, minus the threshold (bias). feColorMatrix
+  // clamps to [0,1], so pixels dimmer than the threshold go to 0
+  // and only bright regions survive → the "bloom" highlights.
+  const r = 0.2126 * intensity;
+  const g = 0.7152 * intensity;
+  const b = 0.0722 * intensity;
+  const bias = -threshold;
+  // All three color rows are identical so the bloom reads as
+  // neutral-white rather than tinted. Alpha row keeps full opacity.
+  const matrix = `${r} ${g} ${b} 0 ${bias}  ${r} ${g} ${b} 0 ${bias}  ${r} ${g} ${b} 0 ${bias}  0 0 0 0 1`;
+
+  if (!imageSrc) {
+    // Legacy fallback — no image src threaded, use the soft gradient.
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 12,
+        background: `radial-gradient(circle at 50% 50%, rgba(255,240,200,${0.05 * intensity}) 0%, transparent 60%)`,
+        mixBlendMode: 'screen',
+      }} />
+    );
+  }
+
   return (
-    <div style={{
-      position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 12,
-      background: `radial-gradient(circle at 50% 50%, rgba(255,240,200,${0.05 * intensity}) 0%, transparent 60%)`,
-      mixBlendMode: 'screen',
-    }} />
+    <>
+      <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden>
+        <filter id={filterId}>
+          {/* Luminance key: compute luma, subtract threshold so only
+              bright pixels survive, then amplify by intensity. */}
+          <feColorMatrix
+            type="matrix"
+            values={matrix}
+          />
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 12,
+        mixBlendMode: 'screen',
+      }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageSrc}
+          alt=""
+          style={{
+            position: 'absolute', inset: 0,
+            width: '100%', height: '100%', objectFit: 'cover',
+            filter: `url(#${filterId}) brightness(${1 + intensity * 0.15})`,
+            opacity: Math.min(0.85, 0.4 + intensity * 0.15),
+          }}
+        />
+      </div>
+    </>
   );
 };
 
@@ -283,6 +345,82 @@ const Desaturation: React.FC<{ effect: Extract<SceneEffect, { type: 'desaturatio
       position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
       backdropFilter: `saturate(${sat})`,
       WebkitBackdropFilter: `saturate(${sat})`,
+    }} />
+  );
+};
+
+// ── Depth of field (no-dep approximation) ───────────────────
+// Radial blur via a vignette-mask: the in-focus band (vertical center
+// = `focus`) stays sharp, the top and bottom edges blur progressively.
+// Implemented as two stacked gradient overlays whose `filter: blur()`
+// strength is driven by `blur`. The mask is a radial gradient keyed
+// to `focus` so the softness concentrates at the edges, reading as a
+// shallow-focus lens without a real bokeh shader. Same `filter: blur()`
+// precedent the Fog component uses.
+const DepthOfField: React.FC<{ effect: Extract<SceneEffect, { type: 'depth_of_field' }> }> = ({ effect }) => {
+  const focus = effect.focus ?? 0.5;
+  const blur = effect.blur ?? 0.6;
+  const blurPx = Math.max(0, blur * 16);
+  // Mask: transparent at the focus band, opaque (blur) at top/bottom.
+  const focusTop = Math.max(0, focus - 0.18) * 100;
+  const focusBot = Math.min(1, focus + 0.18) * 100;
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: `linear-gradient(180deg, rgba(0,0,0,${blur * 0.35}) 0%, transparent ${focusTop}%, transparent ${focusBot}%, rgba(0,0,0,${blur * 0.35}) 100%)`,
+        filter: `blur(${blurPx}px)`,
+        mixBlendMode: 'multiply',
+        zIndex: 3,
+      }} />
+    </div>
+  );
+};
+
+// ── Chromatic aberration (no-dep approximation) ─────────────
+// RGB-split: three stacked copies of the overlay tinted red / green /
+// blue, offset in opposite directions by `amount` px, composited with
+// `mixBlendMode: 'screen'`. Reads as the lens-fringing CA effect on
+// high-contrast edges. Pure CSS — no canvas, no shader.
+const ChromaticAberration: React.FC<{ effect: Extract<SceneEffect, { type: 'chromatic_aberration' }> }> = ({ effect }) => {
+  const amount = effect.amount ?? 4;
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 13, mixBlendMode: 'screen' }}>
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(255,0,0,0.12)',
+        transform: `translateX(${-amount}px)`,
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(0,255,0,0.06)',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(0,180,255,0.12)',
+        transform: `translateX(${amount}px)`,
+      }} />
+    </div>
+  );
+};
+
+// ── Motion blur (no-dep approximation) ──────────────────────
+// Directional blur via CSS `filter: blur()` on a translated copy of
+// the overlay. `direction` picks the translate axis; `amount` scales
+// the blur radius. Reads as a fast-pan streak without a velocity-
+// buffer shader. Same `filter: blur()` precedent as Fog.
+const MotionBlur: React.FC<{ effect: Extract<SceneEffect, { type: 'motion_blur' }> }> = ({ effect }) => {
+  const direction = effect.direction ?? 'horizontal';
+  const amount = effect.amount ?? 0.5;
+  const blurPx = Math.max(0, amount * 14);
+  const tx = direction === 'horizontal' ? amount * 8 : 0;
+  const ty = direction === 'vertical' ? amount * 8 : direction === 'diagonal' ? amount * 6 : 0;
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 13,
+      backdropFilter: `blur(${blurPx}px)`,
+      WebkitBackdropFilter: `blur(${blurPx}px)`,
+      transform: `translate(${tx}px, ${ty}px)`,
     }} />
   );
 };
@@ -379,27 +517,34 @@ interface RenderEffectProps {
   fps: number;
   /** Stable seed prefix so deterministic rng across re-renders. */
   seedPrefix: string;
+  /** Resolved scene image URL — threaded down so Bloom can duplicate
+   *  the actual scene art for its luminance-keyed overlay. Optional:
+   *  effects that don't need the image src ignore it. */
+  imageSrc?: string;
 }
 
-export const RenderEffect: React.FC<RenderEffectProps> = ({ effect, frame, fps, seedPrefix }) => {
+export const RenderEffect: React.FC<RenderEffectProps> = ({ effect, frame, fps, seedPrefix, imageSrc }) => {
   switch (effect.type) {
-    case 'particles':    return <Particles effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
-    case 'glow':         return <Glow effect={effect} frame={frame} fps={fps} />;
-    case 'flash':        return <Flash effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
-    case 'tint':         return <Tint effect={effect} />;
-    case 'vignette':     return <Vignette effect={effect} />;
-    case 'rim_light':    return <RimLight effect={effect} frame={frame} fps={fps} />;
-    case 'dust_shaft':   return <DustShaft effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
-    case 'bloom':        return <Bloom effect={effect} />;
-    case 'desaturation': return <Desaturation effect={effect} />;
-    case 'fog':          return <Fog effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
-    case 'ripple':       return <Ripple effect={effect} frame={frame} fps={fps} />;
+    case 'particles':           return <Particles effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
+    case 'glow':                return <Glow effect={effect} frame={frame} fps={fps} />;
+    case 'flash':               return <Flash effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
+    case 'tint':                return <Tint effect={effect} />;
+    case 'vignette':            return <Vignette effect={effect} />;
+    case 'rim_light':           return <RimLight effect={effect} frame={frame} fps={fps} />;
+    case 'dust_shaft':          return <DustShaft effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
+    case 'bloom':                return <Bloom effect={effect} imageSrc={imageSrc} />;
+    case 'desaturation':        return <Desaturation effect={effect} />;
+    case 'fog':                 return <Fog effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
+    case 'ripple':              return <Ripple effect={effect} frame={frame} fps={fps} />;
+    case 'depth_of_field':      return <DepthOfField effect={effect} />;
+    case 'chromatic_aberration':return <ChromaticAberration effect={effect} />;
+    case 'motion_blur':         return <MotionBlur effect={effect} />;
     // shake + parallax modify the *underlying image transform*, not an
     // overlay. BookMovie consumes shake (shakeOffset) + parallax (a slow
     // parallax-style sway on the beat transform). RenderEffect no-ops.
-    case 'shake':        return null;
-    case 'parallax':     return null;
-    default:             return null;
+    case 'shake':               return null;
+    case 'parallax':            return null;
+    default:                    return null;
   }
 };
 
@@ -413,10 +558,13 @@ export const EffectStack: React.FC<{
   frame: number;
   fps: number;
   seedPrefix: string;
-}> = ({ effects, frame, fps, seedPrefix }) => (
+  /** Resolved scene image URL for image-dependent effects (Bloom).
+   *  Optional — when absent, Bloom falls back to a gradient overlay. */
+  imageSrc?: string;
+}> = ({ effects, frame, fps, seedPrefix, imageSrc }) => (
   <>
     {effects.map((eff, i) => (
-      <RenderEffect key={`${eff.type}-${i}`} effect={eff} frame={frame} fps={fps} seedPrefix={`${seedPrefix}-${i}`} />
+      <RenderEffect key={`${eff.type}-${i}`} effect={eff} frame={frame} fps={fps} seedPrefix={`${seedPrefix}-${i}`} imageSrc={imageSrc} />
     ))}
   </>
 );

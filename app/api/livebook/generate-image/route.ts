@@ -11,7 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { buildCacheKey, getCachedResponse, setCachedResponse } from '@/lib/cache/responseCache';
-import { generateSceneImage } from '@/lib/agents/visualAgent';
+import { generateSceneImage, UNIVERSAL_STYLE_DIRECTIVE } from '@/lib/agents/visualAgent';
 import { checkRateLimit } from '@/lib/middleware/rateLimit';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
@@ -93,15 +93,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ imageUrl: cached, cached: true });
     }
 
-    // Build visual prompt
+    // Build visual prompt. The universal warm-painterly style directive
+    // is prepended here so every hotspot-click image (character / info /
+    // free) leads with the cohesive storybook aesthetic — expressive
+    // illustrated humans rather than flat pixel sprites. Culture-neutral:
+    // the subject (e.g. Rama) carries any culture-specific terms; this
+    // wrapper supplies only the STYLE. generateSceneImage prepends the
+    // same directive again at the very top of the model prompt, so the
+    // style is reinforced (not lost) regardless of the per-book preset.
     let prompt: string;
     if (targetType === 'character' && targetId && CHARACTER_VISUAL_PROMPTS[targetId]) {
-      prompt = CHARACTER_VISUAL_PROMPTS[targetId];
+      prompt = `${UNIVERSAL_STYLE_DIRECTIVE}\n\n${CHARACTER_VISUAL_PROMPTS[targetId]}`;
     } else if (targetType !== 'character' && targetId && INFO_VISUAL_PROMPTS[targetId]) {
-      prompt = INFO_VISUAL_PROMPTS[targetId];
+      prompt = `${UNIVERSAL_STYLE_DIRECTIVE}\n\n${INFO_VISUAL_PROMPTS[targetId]}`;
     } else {
       const subject = label || resolvedTargetId.replace(/_/g, ' ');
-      prompt = `"${subject}" from the scene "${sceneTitle}". Rich detailed setting with characters and objects.`;
+      prompt = `${UNIVERSAL_STYLE_DIRECTIVE}\n\n"${subject}" from the scene "${sceneTitle}". Rich detailed setting with characters and objects.`;
     }
 
     if (promptHint) {

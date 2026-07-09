@@ -1,5 +1,5 @@
 import { getOpenAIClient, getOpenAIModel } from './openaiClient';
-import { LIVEBOOK_SYSTEM_PROMPT, buildCharacterPrompt } from './prompts';
+import { buildLivebookSystemPrompt, buildCharacterPrompt } from './prompts';
 import { LiveBookAgentInput, AskCharacterResponse } from './types';
 import { parseStructuredAgentResponse } from './structuredResponse';
 
@@ -11,7 +11,23 @@ const FALLBACK_RESPONSE: AskCharacterResponse = {
   safety_note: 'This is a fallback response.'
 };
 
-export async function askCharacter(input: LiveBookAgentInput): Promise<AskCharacterResponse> {
+/**
+ * Ask a character a question.
+ *
+ * Optional `history` (S1): prior {role, content} turns for this
+ * (owner, book, character) thread, loaded by the route from Aurora
+ * (or Redis fallback). When present, it is prepended between the
+ * system prompt and the new user question so the model answers with
+ * memory of the conversation. Absent → today's stateless behaviour.
+ *
+ * Optional `language` (S4): 'hi' routes the answer (and follow-up
+ * options) to Hindi. Absent / 'en' / 'auto' → unchanged English.
+ */
+export async function askCharacter(
+  input: LiveBookAgentInput,
+  history?: { role: string; content: string }[],
+  language?: 'hi' | 'en' | 'auto',
+): Promise<AskCharacterResponse> {
   try {
     const client = getOpenAIClient();
     const model = getOpenAIModel();
@@ -26,14 +42,28 @@ export async function askCharacter(input: LiveBookAgentInput): Promise<AskCharac
       sourceNotes: input.character.source_notes + '\n' + input.scene.source_notes,
       mode: input.mode,
       question: input.userQuestion,
+      language,
     });
+
+    // Build the messages array: system, then prior history (user/assistant
+    // turns in order), then the new user question. Only roles 'user' and
+    // 'assistant' are valid chat turns; anything else is coerced to
+    // 'user' so a corrupt thread can't 400 the request.
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: buildLivebookSystemPrompt(language) },
+    ];
+    if (Array.isArray(history)) {
+      for (const turn of history) {
+        if (!turn || typeof turn.content !== 'string') continue;
+        const role = turn.role === 'assistant' ? 'assistant' : 'user';
+        messages.push({ role, content: turn.content });
+      }
+    }
+    messages.push({ role: 'user', content: userPrompt });
 
     const completion = await client.chat.completions.create({
       model,
-      messages: [
-        { role: 'system', content: LIVEBOOK_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
+      messages,
       response_format: { type: 'json_object' },
       temperature: 0.7,
       max_tokens: 1000,

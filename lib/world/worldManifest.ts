@@ -61,9 +61,17 @@ export const PLANET_RADIUS = 6;
 
 // ---- Types -----------------------------------------------------------
 
+// Universal biome vocabulary. Previously this was a small set tuned to
+// the Ramayana seed (lanka/ayodhya/mithila hardcoded into BIOME_KEYWORDS);
+// non-Indian stories collapsed to 'wilds'. The expanded set covers any
+// story geography deterministically — see BIOME_KEYWORDS below, which is
+// now a UNIVERSAL landscape lexicon with zero proper nouns.
 export type Biome =
   | 'city' | 'forest' | 'river' | 'temple' | 'palace'
-  | 'battlefield' | 'shore' | 'mountain' | 'village' | 'wilds';
+  | 'battlefield' | 'shore' | 'mountain' | 'village' | 'wilds'
+  // Universality additions: landscapes the Ramayana-tinted set couldn't
+  // express (deserts, frozen north, volcanic, open ocean, caves).
+  | 'desert' | 'snow' | 'volcano' | 'ocean' | 'cave';
 
 export type MissionKind =
   | 'deliver_fragment'
@@ -110,6 +118,11 @@ export interface WorldNode {
   bgImageUrl: string;
   mood: string;
   biome: Biome;
+  /** Optional ambient-SFX tag for the World audio engine (W1). When a
+   *  `WorldIdentity` override is present this carries the LLM-suggested
+   *  ambient (e.g. 'birds'/'drone'/'bells'/'wind'/'crowd'); otherwise
+   *  the audio engine derives a bed from mood/biome. */
+  ambient?: string;
   /** Spherical position (radians). The 3D renderer reads these. */
   lat: number;
   lon: number;
@@ -144,6 +157,10 @@ export interface WorldNpc {
   /** v2: voice mood for spatialized murmur (from the character's bible
    *  speech tone / first scene mood). */
   voiceMood?: string;
+  /** W2: deterministic in-character replies for the dialogue tree.
+   *  Cycled by `replyFor(npc, turn)`. When absent, the caller falls
+   *  back to `idlePhrase`-style content. */
+  replies?: string[];
 }
 
 export interface WorldPortal {
@@ -173,7 +190,10 @@ export interface WorldPalette {
   accent: string;
 }
 
-/** Per-biome terrain + sky colors for the 3D planet. */
+/** Per-biome terrain + sky colors for the 3D planet. Universal —
+ *  no biome is tied to a specific story. The five added biomes
+ *  (desert/snow/volcano/ocean/cave) let non-Indian stories express
+ *  their actual geography instead of collapsing to 'wilds'. */
 export const BIOME_COLORS: Record<Biome, { terrain: string; sky: string; accent: string }> = {
   city: { terrain: '#8a7d6b', sky: '#d9c9a8', accent: '#c89b3c' },
   palace: { terrain: '#9b8a6e', sky: '#e6d2a8', accent: '#d4af37' },
@@ -185,6 +205,11 @@ export const BIOME_COLORS: Record<Biome, { terrain: string; sky: string; accent:
   mountain: { terrain: '#6b6b78', sky: '#cdd6e0', accent: '#9fb2c9' },
   village: { terrain: '#9a8a6a', sky: '#e0d2a8', accent: '#c2a14b' },
   wilds: { terrain: '#3a4a3a', sky: '#a8b8a8', accent: '#6fae6f' },
+  desert: { terrain: '#c2a86a', sky: '#ecd9a8', accent: '#e0b352' },
+  snow: { terrain: '#cdd6e0', sky: '#eaf0f6', accent: '#9fb8d0' },
+  volcano: { terrain: '#3a2a2a', sky: '#5a2a1a', accent: '#ff5a2a' },
+  ocean: { terrain: '#2a4a6a', sky: '#bfe0e8', accent: '#5fb8d6' },
+  cave: { terrain: '#2a2a33', sky: '#3a3a44', accent: '#8a7fb0' },
 };
 
 export interface WorldPlanet {
@@ -229,6 +254,11 @@ function hashString(value: string): number {
   return h >>> 0;
 }
 
+/** W3 — validate a seed override is a safe unsigned 32-bit integer. */
+function isUint32(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -258,28 +288,93 @@ const NPC_EMOJI_PALETTE = [
 
 const CLUE_EMOJI = ['🔎', '🗝️', '✨', '📜', '💎'];
 
-// ---- Mood + biome ----------------------------------------------------
+// ---- Mood + biome (UNIVERSAL) --------------------------------------
+//
+// PREVIOUSLY these derivations were Ramayana-tinted keyword lists
+// (MOOD_KEYWORDS contained 'ravana'/'dharma'; BIOME_KEYWORDS contained
+// 'lanka'/'ayodhya'/'mithila'/'ganga'/'sarayu'/'sabha'/'ashram'). For
+// any story that wasn't the Ramayana seed, almost no keywords hit and
+// every destination collapsed to mood='serene' / biome='wilds' — the
+// world looked identical regardless of prompt. That was the opposite
+// of "universal."
+//
+// NOW both lexicons are universal human affect / landscape vocabulary
+// with ZERO proper nouns, so any story — Norse saga, sci-fi, a Korean
+// folktale — derives a tonally- and geographically-appropriate world
+// deterministically, with no key. An optional LLM-derived `WorldIdentity`
+// (see worldIdentityAgent.ts, gated default OFF) can OVERRIDE these per
+// scene when present; the deterministic path below is the no-key fallback
+// the honesty contract requires.
 
-/** Infer a cozy mood from scene content so each destination reads
- *  distinctly. Falls back to 'serene'. */
+/** Universal affect lexicon → one of the 7 cozy moods. Word-match against
+ *  scene title + visual_description + short_summary. No proper nouns,
+ *  no story-specific terms. Falls back to 'serene'. */
 const MOOD_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
+  // tense — conflict, danger, aggression
   ['battle', 'tense'], ['war', 'tense'], ['fight', 'tense'], ['combat', 'tense'],
-  ['sword', 'tense'], ['demon', 'tense'], ['ravana', 'tense'], ['attack', 'tense'],
+  ['sword', 'tense'], ['attack', 'tense'], ['enemy', 'tense'], ['blood', 'tense'],
+  ['rage', 'tense'], ['fury', 'tense'], ['fear', 'tense'], ['danger', 'tense'],
+  ['strike', 'tense'], ['weapon', 'tense'], ['siege', 'tense'], ['army', 'tense'],
+  ['violence', 'tense'], ['monster', 'tense'], ['beast', 'tense'], ['hunt', 'tense'],
+  // serene — calm, nature, rest
   ['forest', 'serene'], ['hermitage', 'serene'], ['river', 'serene'], ['calm', 'serene'],
-  ['peace', 'serene'], ['simple living', 'serene'], ['nature', 'serene'],
+  ['peace', 'serene'], ['simple living', 'serene'], ['nature', 'serene'], ['quiet', 'serene'],
+  ['gentle', 'serene'], ['rest', 'serene'], ['garden', 'serene'], ['meadow', 'serene'],
+  ['harmony', 'serene'], ['tranquil', 'serene'], ['stillness', 'serene'], ['soft light', 'serene'],
+  // joyful — celebration, reunion, hope
   ['wedding', 'joyful'], ['joy', 'joyful'], ['celebration', 'joyful'], ['festival', 'joyful'],
-  ['return', 'joyful'], ['homecoming', 'joyful'], ['reunion', 'joyful'],
+  ['return', 'joyful'], ['homecoming', 'joyful'], ['reunion', 'joyful'], ['laugh', 'joyful'],
+  ['feast', 'joyful'], ['dance', 'joyful'], ['birth', 'joyful'], ['victory', 'joyful'],
+  ['hope', 'joyful'], ['spring', 'joyful'], ['bloom', 'joyful'], ['gift', 'joyful'],
+  // somber — loss, grief, parting
   ['exile', 'somber'], ['sorrow', 'somber'], ['grief', 'somber'], ['death', 'somber'],
-  ['loss', 'somber'], ['departure', 'somber'], ['sacrifice', 'somber'],
+  ['loss', 'somber'], ['departure', 'somber'], ['sacrifice', 'somber'], ['mourn', 'somber'],
+  ['tears', 'somber'], ['farewell', 'somber'], ['winter', 'somber'], ['ruin', 'somber'],
+  ['alone', 'somber'], ['despair', 'somber'], ['goodbye', 'somber'], ['funeral', 'somber'],
+  // sacred — worship, the divine
   ['temple', 'sacred'], ['prayer', 'sacred'], ['divine', 'sacred'], ['blessing', 'sacred'],
-  ['dharma', 'sacred'], ['lamp', 'sacred'], ['ritual', 'sacred'],
+  ['lamp', 'sacred'], ['ritual', 'sacred'], ['shrine', 'sacred'], ['altar', 'sacred'],
+  ['sacred', 'sacred'], ['holy', 'sacred'], ['spirit', 'sacred'], ['worship', 'sacred'],
+  ['faith', 'sacred'], ['chant', 'sacred'], ['monastery', 'sacred'], ['grace', 'sacred'],
+  // mysterious — the unknown, enchantment
   ['mystery', 'mysterious'], ['riddle', 'mysterious'], ['magic', 'mysterious'],
   ['dream', 'mysterious'], ['disguise', 'mysterious'], ['secret', 'mysterious'],
+  ['fog', 'mysterious'], ['shadow', 'mysterious'], ['whisper', 'mysterious'],
+  ['enchanted', 'mysterious'], ['illusion', 'mysterious'], ['unknown', 'mysterious'],
+  ['twilight', 'mysterious'], ['prophecy', 'mysterious'], ['curse', 'mysterious'],
+  // dramatic — confrontation, vows, turning points
   ['confront', 'dramatic'], ['betrayal', 'dramatic'], ['kidnap', 'dramatic'],
-  ['abduction', 'dramatic'], ['oath', 'dramatic'], ['boon', 'dramatic'],
+  ['abduction', 'dramatic'], ['oath', 'dramatic'], ['boon', 'dramatic'], ['promise', 'dramatic'],
+  ['vow', 'dramatic'], ['trial', 'dramatic'], ['defiance', 'dramatic'], ['choice', 'dramatic'],
+  ['revelation', 'dramatic'], ['bargain', 'dramatic'], ['ultimatum', 'dramatic'],
 ];
 
-function sceneMood(scene: Scene): string {
+/** An optional per-scene mood/biome/ambient tag set produced by the
+ *  gated LLM world-identity pass (lib/agents/worldIdentityAgent.ts).
+ *  When present on a book, `synthesizeWorldManifest` uses it to OVERRIDE
+ *  the deterministic universal derivation — so the world reads its mood
+ *  + biome FROM the actual prose, not a keyword match. When absent
+ *  (no key, or gate off), the universal lexicons above are the source
+ *  of truth. The deterministic layer also emits one of these (via
+ *  `deriveWorldIdentity`) so the "identity" concept exists without a key. */
+export interface WorldIdentityNode {
+  sceneId: string;
+  mood: string;
+  biome: Biome;
+  /** Optional ambient SFX tag for the world audio engine (W1), e.g.
+   *  'birds' / 'drone' / 'bells' / 'wind' / 'crowd'. */
+  ambient?: string;
+}
+
+export interface WorldIdentity {
+  /** Palette family derived from the story's dominant tone. Drives the
+   *  planet's sky/ground/accent so the world's color reads the emotion. */
+  paletteFamily: PaletteFamily;
+  nodes: WorldIdentityNode[];
+}
+
+function sceneMood(scene: Scene, override?: string): string {
+  if (override) return override;
   if (scene.mode === 'quiz') return 'mysterious';
   const hay = `${scene.title} ${scene.visual_description || ''} ${scene.short_summary || ''}`.toLowerCase();
   for (const [keyword, mood] of MOOD_KEYWORDS) {
@@ -288,22 +383,38 @@ function sceneMood(scene: Scene): string {
   return 'serene';
 }
 
-/** Derive a biome from scene content. The biome drives 3D terrain
- *  color + sky tint + the procedural fallback when media is missing. */
+/** Derive a biome from scene content. UNIVERSAL landscape lexicon — no
+ *  place names. The biome drives 3D terrain color + sky tint + the
+ *  procedural fallback when media is missing. Falls back to 'wilds'. */
 const BIOME_KEYWORDS: ReadonlyArray<readonly [string, Biome]> = [
   ['battlefield', 'battlefield'], ['war', 'battlefield'], ['battle', 'battlefield'],
-  ['lanka', 'battlefield'], ['army', 'battlefield'],
-  ['forest', 'forest'], ['hermitage', 'forest'], ['ashram', 'forest'], ['woods', 'forest'],
-  ['river', 'river'], ['ganga', 'river'], ['sarayu', 'river'], ['stream', 'river'], ['waterfall', 'river'],
-  ['shore', 'shore'], ['sea', 'shore'], ['ocean', 'shore'], ['beach', 'shore'], ['island', 'shore'],
-  ['mountain', 'mountain'], ['hill', 'mountain'], ['peak', 'mountain'],
+  ['army', 'battlefield'], ['siege', 'battlefield'], ['trench', 'battlefield'],
+  ['forest', 'forest'], ['hermitage', 'forest'], ['woods', 'forest'], ['grove', 'forest'],
+  ['jungle', 'forest'], ['thicket', 'forest'], ['glade', 'forest'], ['canopy', 'forest'],
+  ['river', 'river'], ['stream', 'river'], ['waterfall', 'river'], ['brook', 'river'],
+  ['creek', 'river'], ['rapids', 'river'],
+  ['shore', 'shore'], ['beach', 'shore'], ['coast', 'shore'], ['island', 'shore'],
+  ['bay', 'shore'], ['cliff', 'shore'], ['harbour', 'shore'], ['harbor', 'shore'], ['tide', 'shore'],
+  ['ocean', 'ocean'], ['sea', 'ocean'], ['deep water', 'ocean'], ['open sea', 'ocean'],
+  ['mountain', 'mountain'], ['hill', 'mountain'], ['peak', 'mountain'], ['ridge', 'mountain'],
+  ['summit', 'mountain'], ['slope', 'mountain'], ['alp', 'mountain'],
+  ['cave', 'cave'], ['cavern', 'cave'], ['tunnel', 'cave'], ['grotto', 'cave'], ['underground', 'cave'],
   ['temple', 'temple'], ['shrine', 'temple'], ['prayer', 'temple'], ['ritual', 'temple'],
-  ['palace', 'palace'], ['court', 'palace'], ['throne', 'palace'], ['sabha', 'palace'],
-  ['city', 'city'], ['ayodhya', 'city'], ['mithila', 'city'], ['kingdom', 'city'],
-  ['village', 'village'], ['hamlet', 'village'], ['cottage', 'village'],
+  ['altar', 'temple'], ['monastery', 'temple'], ['chapel', 'temple'],
+  ['palace', 'palace'], ['court', 'palace'], ['throne', 'palace'], ['castle', 'palace'],
+  ['hall', 'palace'], ['keep', 'palace'], ['manor', 'palace'], ['fortress', 'palace'],
+  ['city', 'city'], ['kingdom', 'city'], ['town', 'city'], ['market', 'city'],
+  ['street', 'city'], ['gate', 'city'], ['capital', 'city'], ['citadel', 'city'],
+  ['village', 'village'], ['hamlet', 'village'], ['cottage', 'village'], ['farm', 'village'],
+  ['settlement', 'village'], ['homestead', 'village'],
+  ['desert', 'desert'], ['dune', 'desert'], ['sand', 'desert'], ['oasis', 'desert'], ['arid', 'desert'],
+  ['snow', 'snow'], ['ice', 'snow'], ['frost', 'snow'], ['blizzard', 'snow'],
+  ['tundra', 'snow'], ['glacier', 'snow'], ['frozen', 'snow'],
+  ['volcano', 'volcano'], ['lava', 'volcano'], ['ember', 'volcano'], ['magma', 'volcano'], ['crater', 'volcano'],
 ];
 
-function sceneBiome(scene: Scene): Biome {
+function sceneBiome(scene: Scene, override?: Biome): Biome {
+  if (override) return override;
   const hay = `${scene.title} ${scene.visual_description || ''} ${scene.short_summary || ''}`.toLowerCase();
   for (const [keyword, biome] of BIOME_KEYWORDS) {
     if (hay.includes(keyword)) return biome;
@@ -480,6 +591,18 @@ function idlePhraseFor(character: Character): string {
   return character.role || 'A quiet presence in this corner of the world.';
 }
 
+/** W2 — deterministic reply for the dialogue tree. Cycles through
+ *  the NPC's hand-authored `replies` by `turn` (mod length). Falls
+ *  back to `idlePhrase`-style content when no replies are present so
+ *  AI-generated characters without authored replies still speak. */
+export function replyFor(npc: WorldNpc, turn: number): string {
+  if (npc.replies && npc.replies.length > 0) {
+    const idx = ((turn % npc.replies.length) + npc.replies.length) % npc.replies.length;
+    return npc.replies[idx];
+  }
+  return npc.idlePhrase;
+}
+
 /**
  * Assign each character to a node + derive a canon-accurate schedule.
  *
@@ -554,14 +677,78 @@ function placeNpcNear(node: { x: number; y: number }, slug: string, index: numbe
 
 // ---- Palette + planet ------------------------------------------------
 
-function paletteFor(book: Book): WorldPalette {
-  const palettes: WorldPalette[] = [
-    { sky: 'radial-gradient(circle at 50% 18%, #4A0404 0%, #1C120E 45%, #0C0806 85%)', ground: '#160F0B', accent: '#FF9933' },
-    { sky: 'radial-gradient(circle at 50% 18%, #14233f 0%, #0d1626 45%, #070b12 85%)', ground: '#0c1322', accent: '#7FB2FF' },
-    { sky: 'radial-gradient(circle at 50% 18%, #2d1b3a 0%, #1a1023 45%, #0c0813 85%)', ground: '#160f1c', accent: '#C39BD3' },
-    { sky: 'radial-gradient(circle at 50% 18%, #14342a 0%, #0c1f17 45%, #06120d 85%)', ground: '#0c1a13', accent: '#5CDB95' },
-  ];
-  return palettes[hashString(book.slug) % palettes.length];
+// ---- Palette (derived from the STORY'S tone, not the slug hash) ----
+//
+// PREVIOUSLY `paletteFor` picked one of 4 fixed palettes by `hashString
+// (book.slug) % 4` — so a tragedy and a wedding story with the same slug
+// hash got the same blood-red sky. The world's color did NOT read the
+// story. Now the palette family is derived from the book's DOMINANT mood
+// (or an LLM `WorldIdentity.paletteFamily` override), so a grim saga gets
+// cold desaturated skies and a celebration gets warm gold — universally.
+
+export type PaletteFamily =
+  | 'warm_gold' | 'blood' | 'cold_desaturated'
+  | 'violet' | 'verdant' | 'twilight' | 'dawn';
+
+const MOOD_PALETTE_FAMILY: Record<string, PaletteFamily> = {
+  joyful: 'warm_gold',
+  tense: 'blood',
+  dramatic: 'blood',
+  somber: 'cold_desaturated',
+  sacred: 'violet',
+  mysterious: 'twilight',
+  serene: 'verdant',
+};
+
+export const PALETTE_FAMILY_COLORS: Record<PaletteFamily, WorldPalette> = {
+  warm_gold: { sky: 'radial-gradient(circle at 50% 18%, #3a2a0a 0%, #1f1608 45%, #0c0906 85%)', ground: '#1a1208', accent: '#FFB840' },
+  blood: { sky: 'radial-gradient(circle at 50% 18%, #4A0404 0%, #1C120E 45%, #0C0806 85%)', ground: '#160F0B', accent: '#FF6b3b' },
+  cold_desaturated: { sky: 'radial-gradient(circle at 50% 18%, #1a2530 0%, #101820 45%, #080c10 85%)', ground: '#0c141c', accent: '#9fb8d0' },
+  violet: { sky: 'radial-gradient(circle at 50% 18%, #2d1b3a 0%, #1a1023 45%, #0c0813 85%)', ground: '#160f1c', accent: '#C39BD3' },
+  verdant: { sky: 'radial-gradient(circle at 50% 18%, #14342a 0%, #0c1f17 45%, #06120d 85%)', ground: '#0c1a13', accent: '#5CDB95' },
+  twilight: { sky: 'radial-gradient(circle at 50% 18%, #2a1f3a 0%, #161028 45%, #0a0818 85%)', ground: '#120e1c', accent: '#8a7fb0' },
+  dawn: { sky: 'radial-gradient(circle at 50% 18%, #3a2a4a 0%, #1f1830 45%, #0e0a18 85%)', ground: '#161020', accent: '#ff9ecb' },
+};
+
+/** Dominant mood across all scenes (mode of per-scene moods). Honors
+ *  `WorldIdentity` overrides when present. Falls back to 'serene'. */
+function dominantMood(scenes: Scene[], identity?: WorldIdentity | null): string {
+  const counts: Record<string, number> = {};
+  for (const s of scenes) {
+    const ov = identity?.nodes.find(n => n.sceneId === s.scene_id)?.mood;
+    const mood = sceneMood(s, ov);
+    counts[mood] = (counts[mood] || 0) + 1;
+  }
+  let best = 'serene', bestN = -1;
+  for (const [m, n] of Object.entries(counts)) {
+    if (n > bestN) { best = m; bestN = n; }
+  }
+  return best;
+}
+
+function paletteFor(book: Book, scenes: Scene[], identity?: WorldIdentity | null): WorldPalette {
+  const family = identity?.paletteFamily
+    ?? MOOD_PALETTE_FAMILY[dominantMood(scenes, identity)]
+    ?? 'verdant';
+  return PALETTE_FAMILY_COLORS[family];
+}
+
+/** Deterministic world identity from the universal lexicons — the NO-KEY
+ *  path. Produces a full `WorldIdentity` (palette family + per-scene
+ *  mood/biome) purely from scene text, so the "world reads from the
+ *  story" concept exists without any LLM call. The gated LLM pass
+ *  (worldIdentityAgent.ts) may return a richer version that overrides
+ *  this; when it doesn't (or can't), this is the source of truth. */
+export function deriveWorldIdentity(scenes: Scene[]): WorldIdentity {
+  const nodes: WorldIdentityNode[] = scenes.map(s => ({
+    sceneId: s.scene_id,
+    mood: sceneMood(s),
+    biome: sceneBiome(s),
+  }));
+  return {
+    paletteFamily: MOOD_PALETTE_FAMILY[dominantMood(scenes, null)] ?? 'verdant',
+    nodes,
+  };
 }
 
 // ---- Story graph (DAG) ----------------------------------------------
@@ -600,6 +787,19 @@ export function synthesizeWorldManifest(
   book: Book,
   scenes: Scene[],
   characters: Character[],
+  /** W3 — optional uint32 seed override. When provided, used instead
+   *  of `hashString(book.slug)` so a `?s=<seed>` URL reproduces the
+   *  exact same planet (same node placement, biome tint, terrain).
+   *  Invalid (non-uint32 / negative) values fall back to the slug hash. */
+  seedOverride?: number,
+  /** Optional LLM-derived world identity (universal rewrite). When
+   *  present, its per-scene mood/biome/ambient OVERRIDE the deterministic
+   *  universal lexicon, and its `paletteFamily` overrides the mood-derived
+   *  palette — so the world reads FROM the actual prose. When absent
+   *  (no key / gate off), the universal lexicon + mood-derived palette
+   *  are the source of truth. Use `deriveWorldIdentity(scenes)` to build
+   *  the deterministic equivalent without an LLM. */
+  worldIdentity?: WorldIdentity | null,
 ): WorldManifest {
   const ordered = [...scenes].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
   const characterById = new Map(characters.map(c => [c.slug, c]));
@@ -613,8 +813,11 @@ export function synthesizeWorldManifest(
     const succ = successors.get(scene.scene_id) ?? [];
     const primary = buildMissions(scene, scene.scene_id, succ);
     const side = buildSideMissions(scene, scene.scene_id, npcSlugs, characterById);
-    const mood = sceneMood(scene);
-    const biome = sceneBiome(scene);
+    // Universal rewrite: prefer the LLM WorldIdentity override for this
+    // scene's mood/biome/ambient; fall back to the universal lexicons.
+    const identNode = worldIdentity?.nodes.find(n => n.sceneId === scene.scene_id);
+    const mood = sceneMood(scene, identNode?.mood);
+    const biome = sceneBiome(scene, identNode?.biome);
     // Branching-aware unlock: a place unlocks when ALL its predecessors'
     // fragments have been delivered. The spawn (no predecessors) is
     // always unlocked. For a linear book this reduces to v1 behaviour.
@@ -630,6 +833,7 @@ export function synthesizeWorldManifest(
       bgImageUrl: scene.background_asset_url || '',
       mood,
       biome,
+      ambient: identNode?.ambient,
       lat,
       lon,
       npcSlugs,
@@ -673,6 +877,9 @@ export function synthesizeWorldManifest(
       const schedule = scheduleFor(slug, ordered);
       const homePlaceId = schedule[0] ?? node.id;
       const portraitUrl = char.image_url || undefined;
+      const replies = Array.isArray(char.replies) && char.replies.length > 0
+        ? char.replies
+        : undefined;
       npcs.push({
         slug: char.slug,
         name: char.name,
@@ -686,6 +893,7 @@ export function synthesizeWorldManifest(
         homePlaceId,
         schedule,
         voiceMood: char.character_bible?.speech_tone || node.mood,
+        replies,
       });
     }
   }
@@ -705,11 +913,14 @@ export function synthesizeWorldManifest(
     npcs,
     portals,
     paths,
-    palette: paletteFor(book),
+    palette: paletteFor(book, ordered, worldIdentity),
     planet: {
       radius: PLANET_RADIUS,
-      seed: hashString(book.slug),
-      skyDay: BIOME_COLORS[sceneBiome(ordered[0] ?? ordered[0])].sky,
+      seed: isUint32(seedOverride) ? seedOverride : hashString(book.slug),
+      // Spawn sky reads the FIRST place's biome (honoring any WorldIdentity
+      // override) so the planet's opening tint matches the story, not a
+      // generic 'wilds' fallback.
+      skyDay: BIOME_COLORS[nodes[0]?.biome ?? sceneBiome(ordered[0])].sky,
       skyNight: '#0a0e1a',
     },
     createdAt: 0, // stamped by the caller (Date is fine client-side)

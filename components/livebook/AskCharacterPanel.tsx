@@ -12,20 +12,39 @@ interface Props {
   suggestedQuestions: string[];
 }
 
+/** Generate a stable conversation thread id per (book, character) panel.
+ *  Uses crypto.randomUUID when available; falls back to a time+random
+ *  token. Initialised ONCE via useState lazy init so every ask from this
+ *  panel reuses the same thread — the character remembers across turns.
+ *  The server echoes it back; if it doesn't (older route), the panel
+ *  keeps working stateless with its local turns array. */
+function makeThreadId(bookSlug: string, characterSlug: string): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `t-${crypto.randomUUID()}`;
+  }
+  return `t-${bookSlug}-${characterSlug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function AskCharacterPanel({ bookSlug, sceneId, characterSlug, characterName, suggestedQuestions }: Props) {
   const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [response, setResponse] = useState<AskCharacterResponse | null>(null);
+  // S1 — local turn history so the panel remembers the conversation even
+  // if the server doesn't persist it. Each entry is one Q/A exchange.
+  const [turns, setTurns] = useState<Array<{ question: string; response: AskCharacterResponse }>>([]);
+  // Stable per-panel thread id, generated once. Sent on every ask so the
+  // server can load + append the durable thread (Aurora / Redis).
+  const [threadId] = useState<string>(() => makeThreadId(bookSlug, characterSlug));
   const [error, setError] = useState('');
   const [isResponseCollapsed, setIsResponseCollapsed] = useState(false);
 
   const askQuestion = async (q: string) => {
     if (!q.trim()) return;
-    
+
     setIsAsking(true);
     setError('');
     setQuestion(q);
-    
+
     try {
       const res = await fetch('/api/livebook/ask-character', {
         method: 'POST',
@@ -35,7 +54,8 @@ export default function AskCharacterPanel({ bookSlug, sceneId, characterSlug, ch
           sceneId,
           characterSlug,
           question: q,
-          mode: 'explanation'
+          mode: 'explanation',
+          threadId,
         }),
       });
 
@@ -50,9 +70,12 @@ export default function AskCharacterPanel({ bookSlug, sceneId, characterSlug, ch
         } catch { /* non-JSON body */ }
         throw new Error(serverMsg || `Failed to get answer (${res.status})`);
       }
-      const data = await res.json();
+      const data = await res.json() as AskCharacterResponse;
 
       setResponse(data);
+      // Record this exchange in the local history. Works whether or not
+      // the server persisted the thread (graceful degrade for old routes).
+      setTurns(prev => [...prev, { question: q, response: data }]);
       setIsResponseCollapsed(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred');

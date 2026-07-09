@@ -22,7 +22,8 @@ import WorldA11yLayer from '@/components/world/WorldA11yLayer';
 import MissionPanel from '@/components/world/MissionPanel';
 import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { useWebglAvailable } from '@/lib/hooks/useWebglAvailable';
-import { synthesizeWorldManifest, WORLD_WIDTH, WORLD_HEIGHT, type WorldManifest, type WorldMission, type WorldNpc, type WorldPortal } from '@/lib/world/worldManifest';
+import { synthesizeWorldManifest, replyFor, WORLD_WIDTH, WORLD_HEIGHT, type WorldManifest, type WorldMission, type WorldNpc, type WorldPortal, type WorldIdentity } from '@/lib/world/worldManifest';
+import { useWorldTTS, useWorldSTT, WORLD_TTS_ENABLED, WORLD_VOICE_INPUT_ENABLED } from '@/components/world/useWorldVoice';
 
 // Lazy-load the WebGL canvas. `ssr:false` is only legal inside a Client
 // Component (this file is `'use client'`) — Next 16 rejects it in a
@@ -55,16 +56,21 @@ import {
   type WorldSessionState,
 } from '@/lib/world/worldSession';
 import type { Book, Character, Scene } from '@/lib/types/livebook';
+import { isOpenAIConfigured } from '@/lib/openai/openaiClient';
 
 interface BookPayload {
-  book: Book;
+  // The /api/books/[slug] envelope returns the Book plus a few
+  // GeneratedBook-only fields the World engine consumes. They're
+  // optional (absent on the Ramayana seed + legacy books) — the
+  // synthesizer falls back to the deterministic universal lexicon.
+  book: Book & { worldIdentity?: WorldIdentity; language?: string };
   scenes: Scene[];
   characters: Character[];
 }
 
 type Overlay =
   | { kind: 'narration'; nodeId: string }
-  | { kind: 'speech'; npc: WorldNpc }
+  | { kind: 'speech'; npc: WorldNpc; dialogTurn: number; llmReply: string | null; llmLoading: boolean }
   | { kind: 'clue'; mission: WorldMission }
   | { kind: 'quiz'; mission: WorldMission; selected: number | null; feedback: string | null; correct: boolean }
   | { kind: 'hint'; text: string }
@@ -72,9 +78,22 @@ type Overlay =
 
 interface Props {
   bookSlug: string;
+  /** W3 — optional uint32 seed override for reproducible planets. */
+  seedOverride?: number;
 }
 
-export default function LivingWorldScreen({ bookSlug }: Props) {
+// Ambient biome audio is opt-in (default OFF) so a fresh visit never
+// surprises the user with sound. Uses NEXT_PUBLIC_ since it's read
+// client-side.
+const WORLD_AUDIO_ENABLED = process.env.NEXT_PUBLIC_KATHA_WORLD_AUDIO === '1';
+
+// Lazy-load the ambient audio engine only when the flag is on so the
+// base bundle stays lean.
+const WorldAudioEngine = dynamic(() => import('@/lib/audio/worldAudioEngine').then(m => m.WorldAudioEngine), {
+  ssr: false,
+});
+
+export default function LivingWorldScreen({ bookSlug, seedOverride }: Props) {
   const reducedMotion = usePrefersReducedMotion();
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
@@ -88,6 +107,10 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
   const [manifest, setManifest] = useState<WorldManifest | null>(null);
   const [session, setSession] = useState<WorldSessionState | null>(null);
   const [overlay, setOverlay] = useState<Overlay>(null);
+  // Book-level narration language (hi/en/auto) — drives TTS voice + STT
+  // recognition lang for the World speech flow. Absent on the seed + legacy
+  // books → 'auto' (TTS auto-detects, STT defaults to en-US).
+  const [bookLanguage, setBookLanguage] = useState<string | undefined>(undefined);
   // Remounts the stage on reset so the avatar re-spawns cleanly
   // without a synchronous setState-in-effect sync.
   const [resetNonce, setResetNonce] = useState(0);
@@ -113,8 +136,9 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
           throw new Error(('error' in json && json.error) || 'This story world is not ready yet.');
         }
         if (cancelled) return;
-        const m = synthesizeWorldManifest(json.book, json.scenes, json.characters);
+        const m = synthesizeWorldManifest(json.book, json.scenes, json.characters, seedOverride, json.book.worldIdentity);
         setManifest(m);
+        setBookLanguage(json.book.language);
         const stored = loadWorldSession(bookSlug);
         if (
           stored &&
@@ -136,7 +160,7 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [bookSlug]);
+  }, [bookSlug, seedOverride]);
 
   // ---- Session dispatch helper (pure updater; persistence is a
   //      separate effect below, so the setState updater stays clean) ----
@@ -211,9 +235,18 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
     [apply],
   );
 
-  const handleSpeakNpc = useCallback((npc: WorldNpc) => {
-    setOverlay({ kind: 'speech', npc });
+  // W2 — read the per-NPC dialogue turn from the persisted livingMemory blob.
+  const dialogTurnFor = useCallback((npcSlug: string): number => {
+    const s = sessionRef.current;
+    if (!s?.livingMemory) return 0;
+    const turns = (s.livingMemory as Record<string, Record<string, number>>).dialogTurns;
+    return turns?.[npcSlug] ?? 0;
   }, []);
+
+  const handleSpeakNpc = useCallback((npc: WorldNpc) => {
+    const turn = dialogTurnFor(npc.slug);
+    setOverlay({ kind: 'speech', npc, dialogTurn: turn, llmReply: null, llmLoading: false });
+  }, [dialogTurnFor]);
 
   const handleCollectClue = useCallback(
     (missionId: string) => {
@@ -228,6 +261,43 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
     [apply, manifest],
   );
 
+  // Fire an ask-character LLM call with an arbitrary question. Shared by
+  // the mission "Ask character" path (canned question) and the STT path
+  // (spoken question). Both gate on isOpenAIConfigured() + bookSlug; when
+  // no key is configured this is a no-op and the deterministic replyFor
+  // reply already shown stays on screen. threadId gives the character
+  // memory across turns (S1).
+  const fireLlmAsk = useCallback(
+    (npc: WorldNpc, question: string) => {
+      const s = sessionRef.current;
+      if (!s || !isOpenAIConfigured() || !bookSlug) return;
+      const turn = dialogTurnFor(npc.slug);
+      setOverlay({ kind: 'speech', npc, dialogTurn: turn, llmReply: null, llmLoading: true });
+      const threadId = `${s.bookSlug}:${npc.slug}`;
+      fetch('/api/livebook/ask-character', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookSlug,
+          sceneId: s.currentNodeId,
+          characterSlug: npc.slug,
+          question,
+          mode: 'canon',
+          threadId,
+        }),
+      })
+        .then(res => res.ok ? res.json() : Promise.reject(new Error(`ask-character → ${res.status}`)))
+        .then((data: { answer?: string }) => {
+          setOverlay({ kind: 'speech', npc, dialogTurn: turn, llmReply: data.answer ?? null, llmLoading: false });
+        })
+        .catch(() => {
+          // Graceful fallback: keep the deterministic reply already shown.
+          setOverlay({ kind: 'speech', npc, dialogTurn: turn, llmReply: null, llmLoading: false });
+        });
+    },
+    [bookSlug, dialogTurnFor],
+  );
+
   const handleAskCharacter = useCallback(
     (mission: WorldMission) => {
       const s = sessionRef.current;
@@ -235,9 +305,30 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
       if (s.completedMissionIds.includes(mission.id)) return;
       apply({ type: 'COMPLETE_MISSION', missionId: mission.id, rewardXP: mission.rewardXP });
       const npc = manifest.npcs.find(n => n.slug === mission.characterSlug);
-      if (npc) setOverlay({ kind: 'speech', npc });
+      if (!npc) return;
+      const turn = dialogTurnFor(npc.slug);
+      // Show the deterministic reply for the current turn. The "Ask again"
+      // button (onAdvanceDialog) dispatches ADVANCE_DIALOG to bump the
+      // persisted turn and cycle to the next reply.
+      setOverlay({ kind: 'speech', npc, dialogTurn: turn, llmReply: null, llmLoading: false });
+
+      // W2 LLM opt-in: when OpenAI is configured, call the ask-character
+      // route with a threadId so the character remembers across turns.
+      // Default (no key) → deterministic replyFor already shown.
+      fireLlmAsk(npc, 'Tell me more about your side of the story.');
     },
-    [apply, manifest],
+    [apply, manifest, fireLlmAsk, dialogTurnFor],
+  );
+
+  // STT path: a spoken question (captured by useWorldSTT in SpeechBody)
+  // re-fires the ask-character LLM flow with that question. When no key
+  // is configured this is a no-op — the spoken question is acknowledged
+  // by the UI but the deterministic reply stays.
+  const handleSpokenAsk = useCallback(
+    (npc: WorldNpc, question: string) => {
+      fireLlmAsk(npc, question);
+    },
+    [fireLlmAsk],
   );
 
   const handleAnswerQuiz = useCallback((mission: WorldMission) => {
@@ -369,12 +460,32 @@ export default function LivingWorldScreen({ bookSlug }: Props) {
         onReset={handleReset}
       />
 
+      {/* W1 — ambient biome audio. Opt-in (NEXT_PUBLIC_KATHA_WORLD_AUDIO=1)
+          AND only in the 3D path so the v1 DOM fallback stays silent.
+          Headless/no-AudioContext → no-op inside the engine. */}
+      {use3D && WORLD_AUDIO_ENABLED && manifest && session && (
+        <WorldAudioEngine manifest={manifest} session={session} />
+      )}
+
       {overlay && (
         <WorldOverlay
           overlay={overlay}
           manifest={manifest}
           onClose={() => setOverlay(null)}
           onQuizSelect={handleQuizSelect}
+          onAdvanceDialog={(npc) => {
+            // Advance the persisted turn (for next session restore) and
+            // bump the local overlay turn. We compute nextTurn from the
+            // overlay's current dialogTurn + 1 (not from the session ref)
+            // because the ref hasn't updated yet after the dispatch.
+            apply({ type: 'ADVANCE_DIALOG', npcSlug: npc.slug });
+            const currentTurn = overlay.kind === 'speech' ? overlay.dialogTurn : 0;
+            const nextTurn = currentTurn + 1;
+            setOverlay({ kind: 'speech', npc, dialogTurn: nextTurn, llmReply: null, llmLoading: false });
+          }}
+          onSpokenAsk={handleSpokenAsk}
+          bookLanguage={bookLanguage}
+          llmAvailable={isOpenAIConfigured()}
         />
       )}
     </main>
@@ -388,22 +499,36 @@ function WorldOverlay({
   manifest,
   onClose,
   onQuizSelect,
+  onAdvanceDialog,
+  onSpokenAsk,
+  bookLanguage,
+  llmAvailable,
 }: {
   overlay: Exclude<Overlay, null>;
   manifest: WorldManifest;
   onClose: () => void;
   onQuizSelect: (mission: WorldMission, optionIndex: number) => void;
+  onAdvanceDialog: (npc: WorldNpc) => void;
+  onSpokenAsk: (npc: WorldNpc, question: string) => void;
+  bookLanguage?: string;
+  llmAvailable: boolean;
 }) {
   return (
     <div className="world-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="world-overlay-card" onClick={e => e.stopPropagation()} data-world-overlay={overlay.kind}>
         {overlay.kind === 'narration' && <NarrationBody manifest={manifest} nodeId={overlay.nodeId} onClose={onClose} />}
         {overlay.kind === 'speech' && (
-          <div className="world-speech">
-            <div className="world-speech-name">{overlay.npc.emoji} {overlay.npc.name}</div>
-            <p className="world-speech-text">{overlay.npc.idlePhrase}</p>
-            <button type="button" className="btn-primary" onClick={onClose} style={{ borderRadius: 999 }}>Continue</button>
-          </div>
+          <SpeechBody
+            npc={overlay.npc}
+            dialogTurn={overlay.dialogTurn}
+            llmReply={overlay.llmReply}
+            llmLoading={overlay.llmLoading}
+            llmAvailable={llmAvailable}
+            bookLanguage={bookLanguage}
+            onClose={onClose}
+            onAdvance={() => onAdvanceDialog(overlay.npc)}
+            onSpokenAsk={(question) => onSpokenAsk(overlay.npc, question)}
+          />
         )}
         {overlay.kind === 'clue' && (
           <div className="world-speech">
@@ -448,6 +573,111 @@ function WorldOverlay({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---- W2 speech body (deterministic replies + LLM opt-in) ----
+// Plus voice: "Hear" speaks the reply (TTS route → speechSynthesis fallback),
+// "Speak" captures a spoken question via browser STT and re-fires the
+// ask-character LLM flow with it. Both gated by NEXT_PUBLIC_KATHA_WORLD_TTS /
+// NEXT_PUBLIC_KATHA_WORLD_VOICE_INPUT (default OFF) — the no-key/no-flag
+// path shows text replies only, which is the honest base experience.
+
+function SpeechBody({
+  npc,
+  dialogTurn,
+  llmReply,
+  llmLoading,
+  llmAvailable,
+  bookLanguage,
+  onClose,
+  onAdvance,
+  onSpokenAsk,
+}: {
+  npc: WorldNpc;
+  dialogTurn: number;
+  llmReply: string | null;
+  llmLoading: boolean;
+  llmAvailable: boolean;
+  bookLanguage?: string;
+  onClose: () => void;
+  onAdvance: () => void;
+  onSpokenAsk: (question: string) => void;
+}) {
+  const deterministicReply = replyFor(npc, dialogTurn);
+  const text = llmReply ?? deterministicReply;
+
+  const tts = useWorldTTS(text, bookLanguage);
+  const stt = useWorldSTT(bookLanguage);
+  const [heard, setHeard] = useState(false);
+
+  const handleHear = () => {
+    if (tts.speaking) { tts.stop(); return; }
+    setHeard(true);
+    void tts.speak();
+  };
+
+  const handleSpeak = () => {
+    if (stt.listening) { stt.stop(); return; }
+    stt.start((transcript) => {
+      // Feed the spoken question to the LLM ask-character flow. When no
+      // key is configured, fireLlmAsk is a no-op — the deterministic
+      // reply stays and the transcript is shown as an acknowledgement.
+      onSpokenAsk(transcript);
+    });
+  };
+
+  return (
+    <div className="world-speech">
+      <div className="world-speech-name">{npc.emoji} {npc.name}</div>
+      <p className="world-speech-text">{text}</p>
+      {llmLoading && <p style={{ fontSize: '0.78rem', opacity: 0.6, margin: '4px 0 8px' }}>Thinking…</p>}
+      {stt.listening && (
+        <p style={{ fontSize: '0.78rem', opacity: 0.7, margin: '4px 0 8px' }}>🎤 Listening… speak your question.</p>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {!llmLoading && (
+          <button type="button" className="btn-secondary" onClick={onAdvance} style={{ borderRadius: 999 }}>
+            Ask again
+          </button>
+        )}
+        {WORLD_TTS_ENABLED && (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleHear}
+            style={{ borderRadius: 999 }}
+            aria-label={tts.speaking ? 'Stop voice' : 'Hear this reply spoken'}
+          >
+            {tts.speaking ? '⏹ Stop voice' : '🔊 Hear'}
+          </button>
+        )}
+        {WORLD_VOICE_INPUT_ENABLED && stt.supported && (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleSpeak}
+            style={{ borderRadius: 999 }}
+            aria-label={stt.listening ? 'Stop listening' : 'Speak your question'}
+          >
+            {stt.listening ? '⏹ Listening…' : '🎤 Speak'}
+          </button>
+        )}
+        <button type="button" className="btn-primary" onClick={onClose} style={{ borderRadius: 999 }}>
+          {llmLoading ? 'Continue' : 'Done'}
+        </button>
+      </div>
+      {!llmAvailable && (
+        <p style={{ fontSize: '0.72rem', opacity: 0.45, margin: '6px 0 0' }}>
+          Deterministic replies. Set OPENAI_API_KEY for in-character LLM dialogue.
+        </p>
+      )}
+      {WORLD_TTS_ENABLED && heard && !llmAvailable && (
+        <p style={{ fontSize: '0.72rem', opacity: 0.45, margin: '4px 0 0' }}>
+          Voiced via your browser&apos;s built-in speech. Set a TTS key (Sarvam/Gemini) for warmer per-character voices.
+        </p>
+      )}
     </div>
   );
 }

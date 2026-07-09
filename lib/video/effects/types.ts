@@ -148,6 +148,34 @@ export interface BloomEffect {
   intensity?: number;
 }
 
+// ── Camera/lens approximations ──────────────────────────────
+// No-dependency CSS/SVG approximations of real lens effects. These
+// are overlays — they sit on top of the scene image and read as the
+// named effect without a full shader pipeline. Each keeps the same
+// `frame`/`fps`/`seedPrefix` contract the other layers use.
+
+export interface DepthOfFieldEffect {
+  type: 'depth_of_field';
+  /** 0..1 vertical center of the in-focus band. 0.5 = middle. */
+  focus?: number;
+  /** 0..1 blur strength at the edges. Higher = more blur. Default 0.6. */
+  blur?: number;
+}
+
+export interface ChromaticAberrationEffect {
+  type: 'chromatic_aberration';
+  /** Pixel offset of the RGB split channels. Default 4. */
+  amount?: number;
+}
+
+export interface MotionBlurEffect {
+  type: 'motion_blur';
+  /** Blur direction — 'horizontal' | 'vertical' | 'diagonal'. Default 'horizontal'. */
+  direction?: 'horizontal' | 'vertical' | 'diagonal';
+  /** 0..1 blur strength. Default 0.5. */
+  amount?: number;
+}
+
 // ── Atmospheric drift ────────────────────────────────────────
 // Slow horizontal mist that drifts across the lower third of the
 // scene. Distinct from `particles[mist]` (which is small motes) —
@@ -180,11 +208,15 @@ export type SceneEffect =
   | ParallaxEffect
   | DesaturationEffect
   | BloomEffect
-  | FogEffect;
+  | FogEffect
+  | DepthOfFieldEffect
+  | ChromaticAberrationEffect
+  | MotionBlurEffect;
 
 export const EFFECT_TYPES: SceneEffect['type'][] = [
   'particles', 'glow', 'flash', 'tint', 'vignette', 'rim_light',
   'dust_shaft', 'shake', 'ripple', 'parallax', 'desaturation', 'bloom', 'fog',
+  'depth_of_field', 'chromatic_aberration', 'motion_blur',
 ];
 
 // ── Topic vector ────────────────────────────────────────────

@@ -34,6 +34,7 @@ function topicEffects(topic: string): SceneEffect[] {
         { type: 'particles', kind: 'spark', density: 0.4 },
         { type: 'flash', rateHz: 0.3, color: 'rgba(255,240,210,0.45)' },
         { type: 'vignette', intensity: 0.35 },
+        { type: 'motion_blur', direction: 'horizontal', amount: 0.4 },
       ];
     case 'divine':
       return [
@@ -42,6 +43,7 @@ function topicEffects(topic: string): SceneEffect[] {
         { type: 'dust_shaft', angle: 35, color: 'rgba(255,225,140,0.18)', density: 0.5 },
         { type: 'rim_light', angle: 65, color: 'rgba(255,225,140,0.28)' },
         { type: 'tint', color: 'rgba(255,200,90,0.06)', blendMode: 'screen' },
+        { type: 'bloom', threshold: 0.7, intensity: 1.3 },
       ];
     case 'forest':
       return [
@@ -94,12 +96,14 @@ function topicEffects(topic: string): SceneEffect[] {
         // into a real cinematic atmosphere.
         { type: 'fog', intensity: 0.30, color: 'rgba(190,180,210,1)', speed: 0.5 },
         { type: 'parallax', factor: 0.18 },
+        { type: 'chromatic_aberration', amount: 3 },
       ];
     case 'magic':
       return [
         { type: 'flash', rateHz: 0.5, color: 'rgba(180,140,255,0.4)' },
         { type: 'particles', kind: 'spark', density: 0.5, color: '#C8A0FF' },
         { type: 'glow', color: 'rgba(180,140,255,0.4)', radius: 0.5 },
+        { type: 'chromatic_aberration', amount: 5 },
       ];
     case 'court':
       return [
@@ -155,6 +159,8 @@ const TYPE_PRIORITY: Record<SceneEffect['type'], number> = {
   dust_shaft: 4, rim_light: 5, fog: 6, particles: 7,
   // Punctuation: glow / flash / shake / ripple / parallax / bloom.
   glow: 8, flash: 9, shake: 10, ripple: 11, parallax: 12, bloom: 13,
+  // Post-processing lens treatments — drawn last (top of stack).
+  depth_of_field: 14, chromatic_aberration: 15, motion_blur: 16,
 };
 
 /**

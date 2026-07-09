@@ -16,15 +16,30 @@
 
 import React from 'react';
 import {
-  AbsoluteFill, Audio, Img, Sequence, interpolate, random, spring,
+  AbsoluteFill, Audio, Easing, Img, Sequence, interpolate, random, spring,
   staticFile, useCurrentFrame, useVideoConfig,
 } from 'remotion';
 
 import type { SceneMotion } from '../lib/video/motion';
-import { motionForMood, motionParams } from '../lib/video/motion';
+import { motionForMood, motionEasing, motionParams, type EasingSpec } from '../lib/video/motion';
 import type { SubtitleCue } from '../lib/video/subtitlePlanner';
 import type { SceneEffect } from '../lib/video/effects/types';
 import { EffectStack, shakeOffset } from '../lib/video/effects/layers';
+
+/** Resolve a serializable EasingSpec (from motion.ts, server-safe) to a
+ *  real remotion Easing curve. Lives HERE (client-side composition) so
+ *  motion.ts never imports the `remotion` package and stays importable
+ *  from server routes. Mirrors the curve table in lib/video/motion.ts. */
+function resolveEasing(spec: EasingSpec) {
+  switch (spec) {
+    case 'inOutCubic': return Easing.inOut(Easing.cubic);
+    case 'inOutQuad':  return Easing.inOut(Easing.quad);
+    case 'inOutSin':   return Easing.inOut(Easing.sin);
+    case 'outCubic':   return Easing.out(Easing.cubic);
+    case 'linear':     return Easing.linear;
+    default:           return Easing.inOut(Easing.cubic);
+  }
+}
 
 /** Position + type for a per-character ambient overlay in the
  *  movie composition. Mirrors the live reader's hotspot model; only
@@ -136,6 +151,15 @@ export interface BookMovieScene {
     text: string;
     kind?: 'speech' | 'thought' | 'caption' | 'shout';
   }>;
+  /** Concatenated per-character voiced dialogue audio. Either http(s)
+   *  or `/`-prefixed local path. Null/absent → narrate-only (today's
+   *  behaviour). When present, a <Sequence>+<Audio> is mounted alongside
+   *  the narration audio so each character's lines are voiced. */
+  dialogueAudioUrl?: string | null;
+  /** Per-line durations in ms for the dialogue audio, in dialogue[] order.
+   *  Used by RemotionBubbleLayer to derive accurate bubble slot timing
+   *  when a dialogue audio track exists. Absent → equal-slot timing. */
+  dialogueCueMs?: number[];
 }
 
 export interface BookMovieManifest {
@@ -422,8 +446,8 @@ const SceneShot: React.FC<{
   const parallaxX = parallaxFactor ? Math.sin(frame * 0.05) * parallaxFactor * 10 : 0;
   const parallaxY = parallaxFactor ? Math.cos(frame * 0.04) * parallaxFactor * 5 : 0;
 
-  const fadeIn = interpolate(frame, [0, SCENE_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const fadeOut = interpolate(frame, [durationInFrames - SCENE_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const fadeIn = interpolate(frame, [0, SCENE_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.cubic) });
+  const fadeOut = interpolate(frame, [durationInFrames - SCENE_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.cubic) });
   const opacity = Math.min(fadeIn, fadeOut);
 
   const audioStart = 6;
@@ -471,6 +495,16 @@ const SceneShot: React.FC<{
     [beats.length, cues, durationInFrames],
   );
 
+  // Active beat image — the beat whose window contains the current
+  // frame. Threaded into EffectStack so Bloom can duplicate the actual
+  // scene art for its luminance-keyed overlay. During a cross-fade the
+  // entering beat wins (its startF ≤ frame); this is the dominant image.
+  const activeBeatImage = (() => {
+    const idx = beatWindows.findIndex(w => frame >= w.startF && frame < w.endF);
+    const beat = idx >= 0 ? beats[idx] : beats[0];
+    return beat ? resolveAsset(beat.imagePath) : undefined;
+  })();
+
   return (
     <AbsoluteFill style={{ backgroundColor: '#0C0806', opacity }}>
       {/* ── Background image(s) with per-beat motion-driven camera ──
@@ -502,11 +536,12 @@ const SceneShot: React.FC<{
           // scratch instead of continuing the previous beat's drift.
           const beatMotion = beat.motion ?? sceneMotion;
           const bp = motionParams(beatMotion);
+          const beatEase = resolveEasing(motionEasing(beatMotion));
           const localT = (frame - win.startF) / beatLen;
           const tClamped = Math.max(0, Math.min(1, localT));
-          const beatScale = interpolate(tClamped, [0, 1], [bp.startScale, bp.endScale]);
-          const beatTx = interpolate(tClamped, [0, 1], [0, bp.panX]);
-          const beatTy = interpolate(tClamped, [0, 1], [0, bp.panY]);
+          const beatScale = interpolate(tClamped, [0, 1], [bp.startScale, bp.endScale], { easing: beatEase });
+          const beatTx = interpolate(tClamped, [0, 1], [0, bp.panX], { easing: beatEase });
+          const beatTy = interpolate(tClamped, [0, 1], [0, bp.panY], { easing: beatEase });
 
           // Hard cut between beats — cinematic, not slideshow.
           // A 2-frame micro-dissolve prevents a single-frame pop on
@@ -543,7 +578,7 @@ const SceneShot: React.FC<{
           is determined by the recipe layer; render order in EffectStack
           matches the manifest array. */}
       {effects.length > 0 ? (
-        <EffectStack effects={effects} frame={frame} fps={fps} seedPrefix={scene.sceneId} />
+        <EffectStack effects={effects} frame={frame} fps={fps} seedPrefix={scene.sceneId} imageSrc={activeBeatImage} />
       ) : (
         // Legacy fallback: motion table's own tint + divine glow
         // overlay for older manifests without effects[].
@@ -607,6 +642,7 @@ const SceneShot: React.FC<{
           frame={frame}
           fps={fps}
           durationInFrames={durationInFrames}
+          dialogueCueMs={scene.dialogueCueMs}
         />
       ) : (
         <SubtitlePanel
@@ -623,6 +659,18 @@ const SceneShot: React.FC<{
       {(scene.audioPath || scene.narrationAudioUrl) && (
         <Sequence from={audioStart}>
           <Audio src={resolveAsset((scene.audioPath || scene.narrationAudioUrl) as string)} />
+        </Sequence>
+      )}
+
+      {/* ── Per-character voiced dialogue audio (opt-in) ──
+          Mounted alongside the narration audio when a dialogue audio
+          track exists (dialogueAudioUrl is truthy). Skipped when null/
+          absent — the scene plays narration only (today's behaviour).
+          Starts at the same offset as narration so both tracks are
+          time-aligned with the bubble slots. */}
+      {scene.dialogueAudioUrl && (
+        <Sequence from={audioStart}>
+          <Audio src={resolveAsset(scene.dialogueAudioUrl)} volume={0.9} />
         </Sequence>
       )}
 
@@ -818,15 +866,57 @@ const RemotionBubbleLayer: React.FC<{
   frame: number;
   fps: number;
   durationInFrames: number;
-}> = ({ dialogue, hotspots, frame, fps, durationInFrames }) => {
+  /** Per-line durations in ms, in dialogue[] order. When present and
+   *  matching dialogue.length, bubble slots snap to the real audio
+   *  cue boundaries instead of equal-slot thirds. Absent → equal slots. */
+  dialogueCueMs?: number[];
+}> = ({ dialogue, hotspots, frame, fps, durationInFrames, dialogueCueMs }) => {
   const beatCount = dialogue.length;
+
+  // Build per-line slot boundaries. When dialogueCueMs is present and
+  // its length matches dialogue.length, convert cumulative ms → frame
+  // boundaries (mirrors buildPerCueSubtitles in the build script). When
+  // absent or mismatched, fall back to equal-slot distribution.
+  const useCueTiming =
+    !!dialogueCueMs && dialogueCueMs.length === beatCount &&
+    dialogueCueMs.every(d => d > 0);
+
+  // useMemo must run before any early return (rules of hooks).
+  const slotBoundaries = React.useMemo(() => {
+    if (beatCount === 0) return [0];
+    if (!useCueTiming || !dialogueCueMs) {
+      // Equal slots: boundary[i] = i * (durationInFrames / beatCount)
+      const slot = durationInFrames / beatCount;
+      return Array.from({ length: beatCount + 1 }, (_, i) => i * slot);
+    }
+    // Cue-based: convert cumulative ms to frames. The last boundary
+    // snaps to durationInFrames so the final bubble holds to scene end.
+    const boundaries: number[] = [];
+    let cursorMs = 0;
+    for (let i = 0; i < beatCount; i++) {
+      boundaries.push(Math.round((cursorMs / 1000) * fps));
+      cursorMs += dialogueCueMs[i];
+    }
+    boundaries.push(durationInFrames);
+    return boundaries;
+  }, [useCueTiming, dialogueCueMs, beatCount, durationInFrames, fps]);
+
   if (beatCount === 0) return null;
-  // Equal-slot distribution across the scene's full duration.
-  // Each slot reveals over the first 70%, holds for 30%.
-  const slotFrames = durationInFrames / beatCount;
-  const rawIdx = Math.floor(frame / slotFrames);
-  const idx = Math.max(0, Math.min(beatCount - 1, rawIdx));
-  const within = (frame - idx * slotFrames) / slotFrames;
+
+  // Find the active bubble index from the frame boundaries.
+  let idx = 0;
+  for (let i = 0; i < beatCount; i++) {
+    if (frame >= slotBoundaries[i] && frame < slotBoundaries[i + 1]) {
+      idx = i;
+      break;
+    }
+  }
+  if (frame >= slotBoundaries[beatCount]) idx = beatCount - 1;
+
+  const slotStart = slotBoundaries[idx];
+  const slotEnd = slotBoundaries[idx + 1];
+  const slotLen = Math.max(1, slotEnd - slotStart);
+  const within = Math.max(0, Math.min(1, (frame - slotStart) / slotLen));
   const holdFrac = 0.30;
   const reveal = Math.min(1, within / (1 - holdFrac));
   const entry = dialogue[idx];
@@ -837,7 +927,7 @@ const RemotionBubbleLayer: React.FC<{
   // first ~7 frames of the slot. Looks like the page-turn snap of a
   // comic panel. Pure interpolation — no CSS keyframes (Remotion
   // doesn't run those on the server-render path reliably).
-  const localFrame = frame - idx * slotFrames;
+  const localFrame = frame - slotStart;
   const popScale = Math.min(1, 0.7 + (localFrame / Math.max(1, fps * 0.22)) * 0.3);
   const popAlpha = Math.min(1, localFrame / Math.max(1, fps * 0.15));
 

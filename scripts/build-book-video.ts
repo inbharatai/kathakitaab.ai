@@ -37,6 +37,8 @@ import { buildSceneEffects, describeRecipe } from '../lib/video/effects/effectRe
 import type { SceneEffect } from '../lib/video/effects/types';
 import { concatWav } from '../lib/audio/concatWav';
 import { detectTone } from '../lib/audio/emotionTagger';
+import { isSarvamConfigured } from '../lib/audio/sarvamClient';
+import { isGeminiConfigured } from '../lib/openai/client';
 
 const PUBLIC_DIR = join(process.cwd(), 'public');
 const MANIFESTS_DIR = join(process.cwd(), 'remotion', 'manifests');
@@ -89,6 +91,17 @@ interface ManifestScene {
   /** Comic-book dialogue overlay. Only rendered when stylePreset is
    *  'comic_book'; other presets keep the bottom subtitle bar. */
   dialogue?: Array<{ speaker: string; text: string; kind?: string }>;
+  /** Concatenated per-character voiced dialogue audio (absolute http(s)
+   *  URL or `/`-prefixed local path). Null when dialogue TTS is disabled
+   *  (the default — narrate-only) or when no TTS provider is configured.
+   *  When present, BookMovie mounts a <Sequence>+<Audio> alongside the
+   *  narration audio so each character's lines are voiced individually. */
+  dialogueAudioUrl?: string | null;
+  /** Per-line durations in ms for the dialogue audio, in the same order
+   *  as `dialogue[]`. Used by BookMovie's RemotionBubbleLayer to derive
+   *  accurate bubble slot timing when a dialogue audio track exists.
+   *  Absent → equal-slot timing (legacy behaviour). */
+  dialogueCueMs?: number[];
   /** Universal effects DSL — particles, glow, vignette, etc. Same
    *  vocabulary the live reader and the Remotion compositions read.
    *  Derived from narration topics + mood at build time. */
@@ -112,15 +125,18 @@ function parseSlugArg(): string {
   throw new Error('book slug required: pass --slug=<slug> or as the first positional arg');
 }
 
-async function fetchBook(slug: string): Promise<{ scenes: Scene[]; bookTitle: string; stylePreset?: Manifest['stylePreset'] }> {
+async function fetchBook(slug: string): Promise<{ scenes: Scene[]; bookTitle: string; stylePreset?: Manifest['stylePreset']; language?: string }> {
   const res = await fetch(`${BASE}/api/books/${slug}`);
   if (!res.ok) throw new Error(`/api/books/${slug} → ${res.status}`);
-  const data = (await res.json()) as { scenes: Scene[]; book?: { title: string; stylePreset?: Manifest['stylePreset'] } };
+  const data = (await res.json()) as { scenes: Scene[]; book?: { title: string; stylePreset?: Manifest['stylePreset']; language?: string } };
   const title = data.book?.title || slug;
   if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
     throw new Error(`/api/books/${slug} returned no scenes`);
   }
-  return { scenes: data.scenes, bookTitle: title, stylePreset: data.book?.stylePreset };
+  // Defensive: the `language` field is added to GeneratedBook by another
+  // agent; read it defensively so this script never crashes if the field
+  // is absent on older books.
+  return { scenes: data.scenes, bookTitle: title, stylePreset: data.book?.stylePreset, language: data.book?.language };
 }
 
 /** Build subtitle cues from real per-clip durations. The cumulative
@@ -201,6 +217,88 @@ async function ttsPerCueToFile(
   const fileName = `${basename}.wav`;
   writeFileSync(join(outDir, fileName), result.buffer);
   return { fileName, perCueMs: result.durationsMs, sentences };
+}
+
+/** Per-character voiced dialogue TTS. Mirrors `ttsPerCueToFile` but
+ *  voices each `dialogue[]` entry with the speaker's own voice
+ *  (`characterSlug`), detected per-line tone, and the book's language.
+ *  Each per-line call is wrapped in try/catch — a failed line is skipped
+ *  (not concatenated) so one bad line never crashes the whole build.
+ *  Returns null when zero lines succeeded (all skipped or empty).
+ *
+ *  GATED: the caller checks `KATHA_DIALOGUE_TTS_ENABLED === '1'` AND
+ *  `isSarvamConfigured() || isGeminiConfigured()` before calling. When
+ *  the gate is off, the caller sets `dialogueAudioUrl: null` and the
+ *  manifest stays narrate-only (today's behaviour). */
+async function ttsDialogueToFile(
+  scene: Scene,
+  outDir: string,
+  basename: string,
+  bookSlug: string,
+  mood: string | undefined,
+  language: string | undefined,
+): Promise<{ fileName: string; perLineMs: number[]; lineCount: number } | null> {
+  const entries = scene.dialogue ?? [];
+  if (entries.length === 0) return null;
+
+  const buffers: Buffer[] = [];
+  const perLineMs: number[] = [];
+  let lineCount = 0;
+  console.log(`[movie-build]    dialogue TTS: ${entries.length} line(s) for ${scene.scene_id}`);
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const text = (entry.text ?? '').trim();
+    if (!text) continue;
+    const tone = detectTone(text);
+    try {
+      const res = await fetch(`${BASE}/api/livebook/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text.slice(0, 1450),
+          voice: 'dialogue',
+          characterSlug: entry.speaker,
+          bookSlug,
+          tone,
+          mood,
+          language: language ?? 'auto',
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        console.warn(`[movie-build]      dialogue[${i}] ${entry.speaker}: TTS → ${res.status} ${txt.slice(0, 120)} — skipping`);
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.subarray(0, 4).toString('ascii') !== 'RIFF') {
+        console.warn(`[movie-build]      dialogue[${i}] ${entry.speaker}: non-WAV response — skipping`);
+        continue;
+      }
+      buffers.push(buf);
+      lineCount++;
+      console.log(`[movie-build]      dialogue[${i}] ${entry.speaker} (${tone}, ${text.length} chars): OK`);
+    } catch (err) {
+      console.warn(`[movie-build]      dialogue[${i}] ${entry.speaker}: failed —`,
+        err instanceof Error ? err.message : err, '— skipping');
+      continue;
+    }
+  }
+
+  if (buffers.length === 0) {
+    console.warn(`[movie-build]    dialogue TTS: 0/${entries.length} lines succeeded for ${scene.scene_id} — narrate-only`);
+    return null;
+  }
+
+  const result = concatWav(buffers);
+  const fileName = `${basename}.wav`;
+  writeFileSync(join(outDir, fileName), result.buffer);
+  // perLineMs corresponds to the lines that actually succeeded (in order).
+  // The caller stores these alongside dialogue[] so BookMovie can derive
+  // accurate bubble slot timing. Lines that were skipped are not in the
+  // audio — BookMovie's bubble layer handles a count mismatch by falling
+  // back to equal-slot timing when the counts don't match.
+  perLineMs.push(...result.durationsMs);
+  return { fileName, perLineMs, lineCount };
 }
 
 async function ttsToFile(
@@ -296,7 +394,7 @@ async function main() {
 
   console.log(`[movie-build] slug: ${slug} | base: ${BASE} | per-cue=${perCue}`);
 
-  const { scenes, bookTitle, stylePreset } = await fetchBook(slug);
+  const { scenes, bookTitle, stylePreset, language } = await fetchBook(slug);
   console.log(`[movie-build] ${scenes.length} scenes`);
 
   // Preserve hand-authored fields from the existing manifest so a
@@ -304,6 +402,7 @@ async function main() {
   const moodBySceneId: Record<string, string> = {};
   const motionBySceneId: Record<string, SceneMotion> = {};
   const musicUrlBySceneId: Record<string, string> = {};
+  const dialogueCueMsBySceneId: Record<string, number[]> = {};
   if (existsSync(manifestPath)) {
     try {
       const prev = JSON.parse(readFileSync(manifestPath, 'utf8')) as Manifest;
@@ -311,12 +410,23 @@ async function main() {
         if (s.mood) moodBySceneId[s.sceneId] = s.mood;
         if (s.motion) motionBySceneId[s.sceneId] = s.motion;
         if (s.backgroundMusicUrl) musicUrlBySceneId[s.sceneId] = s.backgroundMusicUrl;
+        if (s.dialogueCueMs) dialogueCueMsBySceneId[s.sceneId] = s.dialogueCueMs;
       }
       console.log(`[movie-build] preserving ${Object.keys(moodBySceneId).length} mood, ${Object.keys(motionBySceneId).length} motion, ${Object.keys(musicUrlBySceneId).length} music overrides from prior manifest`);
     } catch (err) {
       console.warn(`[movie-build] could not read prior manifest: ${err}`);
     }
   }
+
+  // Per-character voiced dialogue TTS — gated behind an env flag AND a
+  // configured TTS provider. Default OFF: when the flag is unset or no
+  // provider key is available, every scene gets `dialogueAudioUrl: null`
+  // and the manifest stays narrate-only (today's behaviour). The gate is
+  // checked once here so the per-scene loop stays clean.
+  const dialogueTtsEnabled =
+    process.env.KATHA_DIALOGUE_TTS_ENABLED === '1' &&
+    (isSarvamConfigured() || isGeminiConfigured());
+  console.log(`[movie-build] dialogue TTS: ${dialogueTtsEnabled ? 'enabled' : 'disabled (narrate-only)'}`);
 
   const out: ManifestScene[] = [];
   for (const scene of scenes) {
@@ -361,6 +471,44 @@ async function main() {
     const audioUrl = await uploadToStorage(audioFileAbs, slug, fileName);
     console.log(`[movie-build]    uploaded: ${audioUrl}`);
 
+    // ── Per-character voiced dialogue TTS (opt-in) ──
+    // Gated by KATHA_DIALOGUE_TTS_ENABLED=1 AND a configured TTS provider.
+    // When off (the default) OR no provider key, dialogueAudioUrl stays
+    // null and BookMovie plays narration only — today's behaviour.
+    let dialogueAudioUrl: string | null = null;
+    let dialogueCueMs: number[] | undefined = undefined;
+    if (dialogueTtsEnabled && scene.dialogue && scene.dialogue.length > 0) {
+      const dialogueBasename = `${scene.scene_id}.dialogue`;
+      const dialogueRel = `movies/audio/${slug}/${dialogueBasename}.wav`;
+      const dialogueAbs = join(PUBLIC_DIR, dialogueRel);
+      if (existsSync(dialogueAbs)) {
+        console.log(`[movie-build]    dialogue tts: ${scene.scene_id} (cached: ${dialogueRel})`);
+      } else {
+        const result = await ttsDialogueToFile(scene, audioDir, dialogueBasename, slug, sceneMood, language);
+        if (result) {
+          // perLineMs from the succeeded lines; preserved into the manifest
+          // so BookMovie can derive accurate bubble slot timing.
+          dialogueCueMs = result.perLineMs;
+        } else {
+          // All lines failed — narrate-only for this scene.
+          console.warn(`[movie-build]    dialogue tts: ${scene.scene_id} — no lines succeeded, narrate-only`);
+        }
+      }
+      if (existsSync(dialogueAbs)) {
+        try {
+          dialogueAudioUrl = await uploadToStorage(dialogueAbs, slug, `${dialogueBasename}.wav`);
+          console.log(`[movie-build]    dialogue uploaded: ${dialogueAudioUrl}`);
+          // Use preserved per-line durations when the audio was cached
+          // (fresh renders set dialogueCueMs above).
+          if (!dialogueCueMs) dialogueCueMs = dialogueCueMsBySceneId[scene.scene_id];
+        } catch (err) {
+          console.warn(`[movie-build]    dialogue upload failed — narrate-only:`,
+            err instanceof Error ? err.message : err);
+          dialogueAudioUrl = null;
+        }
+      }
+    }
+
     const imagePath = scene.background_asset_url || `/images/scene_${scene.scene_id}.png`;
     const mood = sceneMood;
     const motion = motionBySceneId[scene.scene_id] ?? motionForMood(mood);
@@ -395,6 +543,8 @@ async function main() {
       ambientSoundUrl: scene.ambient_sound || undefined,
       beats: sceneBeats,
       dialogue: scene.dialogue && scene.dialogue.length > 0 ? scene.dialogue : undefined,
+      dialogueAudioUrl,
+      dialogueCueMs,
       effects,
     });
   }

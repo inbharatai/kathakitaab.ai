@@ -23,6 +23,16 @@
 //                        gentle vignette breath
 // ============================================================
 
+// NOTE: this module is imported SERVER-SIDE by the manifest synthesizer
+// (lib/video/manifestSynthesizer.ts → motionForMood), which the
+// /api/books/[slug] route pulls in during Next page-data collection. It
+// MUST NOT import the `remotion` package at runtime — doing so evaluates
+// remotion's React.createContext at module load, which is undefined in a
+// React Server Component context and crashes the build. So the easing is
+// exported as a SERIALIZABLE spec (a string key); the Remotion
+// compositions resolve that spec to a real `Easing` curve client-side
+// (see resolveEasing() in remotion/BookMovie.tsx + BookTrailer.tsx).
+
 export type SceneMotion =
   | 'slow_zoom_in'
   | 'slow_zoom_out'
@@ -61,6 +71,42 @@ const MOTION_TABLE: Record<SceneMotion, MotionParams> = {
 
 export function motionParams(motion: SceneMotion): MotionParams {
   return MOTION_TABLE[motion] ?? MOTION_TABLE.slow_zoom_in;
+}
+
+// ── Easing per motion ───────────────────────────────────────
+// Pairs each camera motion with a tasteful easing curve so the
+// interpolation feels cinematic instead of metronomic. The `interpolate`
+// call in BookMovie / BookTrailer passes `{ easing: resolveEasing(motionEasing(m)) }`
+// and the curve shapes the 0..1 progress across the beat window.
+//
+// Exported as a SERIALIZABLE spec (string) — NOT a remotion Easing value
+// — so this module stays server-safe (see the NOTE at the top). The
+// compositions resolve the spec to a real `Easing` curve client-side.
+//
+//   slow_zoom_in   → inOutCubic : gentle settle into the close-up
+//   slow_zoom_out  → inOutCubic : gentle pull back
+//   pan_left/right → inOutQuad  : drift that eases at both ends
+//   divine_glow    → inOutSin   : ethereal softness
+//   battle_push    → outCubic   : aggressive slam that decelerates
+//   fade_only      → linear     : no motion shape to ease
+export type EasingSpec = 'inOutCubic' | 'inOutQuad' | 'inOutSin' | 'outCubic' | 'linear';
+
+const MOTION_EASING: Record<SceneMotion, EasingSpec> = {
+  slow_zoom_in:  'inOutCubic',
+  slow_zoom_out: 'inOutCubic',
+  pan_left:      'inOutQuad',
+  pan_right:     'inOutQuad',
+  divine_glow:   'inOutSin',
+  battle_push:   'outCubic',
+  fade_only:     'linear',
+};
+
+/** Resolve the easing spec for a motion token. Mirrors `motionParams`
+ *  so the composition passes a single `{ easing }` arg to `interpolate`.
+ *  Returns a serializable string, NOT a remotion Easing value — the
+ *  composition maps it to `Easing` via resolveEasing(). */
+export function motionEasing(motion: SceneMotion): EasingSpec {
+  return MOTION_EASING[motion] ?? MOTION_EASING.slow_zoom_in;
 }
 
 // Mapping from mood → default motion when the manifest does not

@@ -9,7 +9,27 @@ import LivingWorldScreen from '@/components/world/LivingWorldScreen';
 // WorldManifest locally (offline-capable against the seed canon).
 // ============================================================
 
-export default async function WorldPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function WorldPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { slug } = await params;
-  return <LivingWorldScreen bookSlug={slug} />;
+  // W3 — seeded-replay URLs. Parse ?s=<uint32>; invalid/absent → undefined
+  // (slug-derived hash). Next 16 app-router: searchParams is a Promise
+  // prop alongside params (see node_modules/next/dist/docs/01-app/01-getting-started/
+  // 03-layouts-and-pages.md).
+  const sp = await searchParams;
+  const rawSeed = sp.s;
+  const seedStr = Array.isArray(rawSeed) ? rawSeed[0] : rawSeed;
+  let seedOverride: number | undefined;
+  if (seedStr !== undefined) {
+    const parsed = Number(seedStr);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 0xffffffff) {
+      seedOverride = parsed;
+    }
+  }
+  return <LivingWorldScreen bookSlug={slug} seedOverride={seedOverride} />;
 }

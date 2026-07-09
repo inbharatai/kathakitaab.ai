@@ -165,6 +165,10 @@ export interface Character {
   character_bible: CharacterBible;
   source_notes: string;
   talk_examples: string[];
+  /** Deterministic in-character replies for the World dialogue tree
+   *  (W2). Optional — seed characters populate this; AI-generated
+   *  characters may leave it empty and fall back to LLM ask-character. */
+  replies?: string[];
   image_url?: string;
   created_at: string;
   updated_at: string;
@@ -226,6 +230,11 @@ export interface AskCharacterRequest {
   characterSlug: string;
   question: string;
   mode: 'canon' | 'explanation' | 'interpretation' | 'creative';
+  /** Optional conversation thread id (S1). When present + Aurora +
+   *  OpenAI configured, the route loads the prior turn history for
+   *  this (owner, book, character) thread and appends the new turn,
+   *  so a character remembers across turns. Absent → stateless. */
+  threadId?: string;
 }
 
 export interface AskCharacterResponse {
@@ -234,6 +243,8 @@ export interface AskCharacterResponse {
   source_note: string;
   next_options: string[];
   safety_note: string;
+  /** Echoes the thread id the server persisted for this turn (S1). */
+  threadId?: string;
 }
 
 // ---- Generated Response (DB) ----

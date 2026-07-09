@@ -18,14 +18,28 @@
 
 import React from 'react';
 import {
-  AbsoluteFill, Audio, Img, Sequence, interpolate, random, spring,
+  AbsoluteFill, Audio, Easing, Img, Sequence, interpolate, random, spring,
   staticFile, useCurrentFrame, useVideoConfig,
 } from 'remotion';
 
-import { motionForMood, motionParams } from '../lib/video/motion';
+import { motionForMood, motionEasing, motionParams, type EasingSpec } from '../lib/video/motion';
 import { EffectStack, shakeOffset } from '../lib/video/effects/layers';
 import type { SceneEffect } from '../lib/video/effects/types';
 import type { BookMovieManifest, BookMovieScene } from './BookMovie';
+
+/** Resolve a serializable EasingSpec (server-safe, from motion.ts) to a
+ *  real remotion Easing curve. Client-side only — keeps motion.ts free of
+ *  any `remotion` runtime import. Mirrors remotion/BookMovie.tsx. */
+function resolveEasing(spec: EasingSpec) {
+  switch (spec) {
+    case 'inOutCubic': return Easing.inOut(Easing.cubic);
+    case 'inOutQuad':  return Easing.inOut(Easing.quad);
+    case 'inOutSin':   return Easing.inOut(Easing.sin);
+    case 'outCubic':   return Easing.out(Easing.cubic);
+    case 'linear':     return Easing.linear;
+    default:           return Easing.inOut(Easing.cubic);
+  }
+}
 
 export const TRAILER_FPS = 30;
 const SCENE_FRAMES = 6 * TRAILER_FPS;        // 6s per dramatic shot
@@ -103,9 +117,10 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
   // Faster, punchier camera than BookMovie — bigger scale change
   // over the shorter window so the motion reads.
   const t = frame / Math.max(1, durationInFrames);
-  const scale = interpolate(t, [0, 1], [params.startScale + 0.04, params.endScale + 0.06]);
-  const tx = interpolate(t, [0, 1], [0, params.panX * 1.2]);
-  const ty = interpolate(t, [0, 1], [0, params.panY * 1.2]);
+  const trailerEase = resolveEasing(motionEasing(motion));
+  const scale = interpolate(t, [0, 1], [params.startScale + 0.04, params.endScale + 0.06], { easing: trailerEase });
+  const tx = interpolate(t, [0, 1], [0, params.panX * 1.2], { easing: trailerEase });
+  const ty = interpolate(t, [0, 1], [0, params.panY * 1.2], { easing: trailerEase });
   // Trailer shake is amplified ~1.4× from the DSL value for a punchier feel.
   const dslShake = shakeOffset(effects, frame);
   const motionShakeX = params.shake ? Math.sin(frame * 0.41) * params.shake * 1.4 : 0;
@@ -163,7 +178,7 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
 
       {/* Universal effects stack with legacy tint fallback. */}
       {effects.length > 0 ? (
-        <EffectStack effects={effects} frame={frame} fps={fps} seedPrefix={`trailer-${scene.sceneId}`} />
+        <EffectStack effects={effects} frame={frame} fps={fps} seedPrefix={`trailer-${scene.sceneId}`} imageSrc={resolveAsset(scene.imagePath)} />
       ) : (
         params.tint && (
           <div style={{ position: 'absolute', inset: 0, background: params.tint, mixBlendMode: 'multiply' }} />

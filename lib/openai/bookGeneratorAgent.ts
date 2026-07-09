@@ -20,6 +20,17 @@ import type { CanonEntry } from '@/lib/types/canon';
 import { inferArchetypeFromRole, type CharacterArchetype } from '@/lib/audio/characterVoices';
 import type { StylePreset } from '@/lib/types/style';
 import { scoreBook, type QualityReport } from '@/lib/engine/qualityScorer';
+// S2 — whole-arc QA critic (opt-in via KATHA_ARC_CRITIC_ENABLED).
+import { critiqueArc } from '@/lib/agents/arcCriticAgent';
+// Universal World-engine identity (opt-in via KATHA_WORLD_IDENTITY_ENABLED).
+import { synthesizeWorldIdentity } from '@/lib/agents/worldIdentityAgent';
+// S3 — vision-verify hotspots against the rendered image (opt-in via
+// KATHA_VISION_HOTSPOTS_ENABLED). analyzeImageForTargets already no-ops
+// when unconfigured (visionAgent.ts:70-72), but the gate is checked once
+// outside the hot path so default-OFF adds zero cost.
+import { analyzeImageForTargets } from '@/lib/agents/visionAgent';
+// S4 — outline language directive helper.
+import { outlineLanguageDirective } from './modePrompts';
 
 // Universal moods + themes that downstream modules already consume.
 // Keep these in sync with lib/video/manifestSchema.ts and the
@@ -164,6 +175,25 @@ async function pMapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: n
   const firstError = errors.find(Boolean);
   if (firstError) throw firstError;
   return out as R[];
+}
+
+/**
+ * Fetch a remote (or same-origin /-prefixed) image URL and return it as a
+ * base64 string suitable for analyzeImageForTargets (visionAgent.ts accepts
+ * either a `data:` URL or raw base64). Returns '' on any fetch / decode
+ * failure so the S3 vision-verify pass can skip the scene instead of
+ * crashing generation. Server-side only — the generator runs in the API
+ * route, never on the client. */
+async function fetchImageAsBase64(url: string): Promise<string> {
+  if (!url) return '';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return '';
+    const buf = Buffer.from(await res.arrayBuffer());
+    return buf.toString('base64');
+  } catch {
+    return '';
+  }
 }
 
 // ---- Output types ----
@@ -427,6 +457,27 @@ export interface GeneratedBook {
   movieStatus?: 'ready' | 'pending' | 'partial' | 'failed';
   /** List of missing assets when movieStatus is partial. */
   movieMissingAssets?: Array<{ sceneId: string; missing: string }>;
+  /** Whole-arc QA notes (S2). Populated by the opt-in arc critic
+   *  (KATHA_ARC_CRITIC_ENABLED=1) when its score < 80 — a serialised
+   *  list of arc-level breaks (unpaid setups, flat arcs, contradictions).
+   *  Absent when the critic is off, not configured, or scored >= 80.
+   *  Non-blocking: never triggers regeneration. */
+  qaNotes?: string;
+  /** Book-level narration language route (S4). 'hi' = Hindi (Devanagari)
+   *  narration + dialogue; 'en' = English; 'auto' = unspecified / mixed.
+   *  Derived from the mode metadata (classroom / personalized language
+   *  field) at generation time. The Movie build agent + TTS route read
+   *  this defensively to pick a matching voice. Absent on legacy books. */
+  language?: 'hi' | 'en' | 'auto';
+  /** Universal World-engine identity (universal rewrite). Per-scene
+   *  mood/biome/ambient + a book-level palette family, used by
+   *  `synthesizeWorldManifest` to OVERRIDE the deterministic universal
+   *  lexicon so the explorable world reads FROM this story's actual
+   *  prose. Populated by the opt-in world-identity agent
+   *  (KATHA_WORLD_IDENTITY_ENABLED=1) when a key is configured; absent
+   *  otherwise, in which case the World engine derives an identity
+   *  deterministically via `deriveWorldIdentity` (no key needed). */
+  worldIdentity?: import('@/lib/world/worldManifest').WorldIdentity;
 }
 
 /** Optional knobs for non-world generation modes. The pipeline is
@@ -447,6 +498,14 @@ export interface GenerateBookOptions {
   /** Called after each major step completes with the intermediate
    *  data so the caller can persist it for resume. */
   onStepComplete?: (step: 'outline' | 'portraits' | 'scenes' | 'images', data: unknown) => void | Promise<void>;
+  /** Book-level narration language route (S4). When 'hi', a Hindi
+   *  directive is appended to the outline + scene-detail system
+   *  prompts and the field is persisted on the GeneratedBook so the
+   *  Movie build agent + TTS route can pick a matching voice. The
+   *  generation route is expected to derive this from the mode
+   *  metadata (classroom / personalized language field). Absent /
+   *  'auto' → unchanged English pipeline. */
+  language?: 'hi' | 'en' | 'auto';
 }
 
 // ---- Main Generator (OpenAI primary, Gemini fallback) ----
@@ -473,6 +532,23 @@ async function generateBookOpenAI(
   const model = getOpenAIModel();
   const slug = bookTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
+  // S4 — language route. The directive is appended to the English system
+  // prompts (outline + scene-details) so the model writes narration + dialogue
+  // in Hindi when routed. outlineLanguageDirective returns '' for 'en'/'auto'
+  // so the default English system prompts are byte-identical to pre-S4.
+  const languageCode = options.language;
+  const langDirective = outlineLanguageDirective(languageCode);
+  const outlineSystem = 'You are an expert educational book architect. Create engaging, accurate, age-appropriate interactive books. Respond with valid JSON.' + langDirective;
+
+  // S3 — vision-verify hotspots gate. Checked ONCE here, outside the image
+  // loop, so the default-OFF path adds zero per-beat cost. When enabled,
+  // after the establishing (beat 0) image lands for each scene we run
+  // analyzeImageForTargets and overwrite the LLM-guessed hotspot coords
+  // with vision-verified ones. analyzeImageForTargets itself no-ops when
+  // OpenAI vision isn't configured (visionAgent.ts:70-72), so even with
+  // the flag on, a missing key degrades to the LLM-guessed coords.
+  const visionHotspotsEnabled = process.env.KATHA_VISION_HOTSPOTS_ENABLED === '1';
+
   // STEP 1: Scene outline + characters
   // Default to the world-mode prompt (extracted into modePrompts.ts)
   // when the route hasn't supplied a mode-specific override.
@@ -482,7 +558,7 @@ async function generateBookOpenAI(
   const outlineRes = await withRetry(() => client.chat.completions.create({
     model,
     messages: [
-      { role: 'system', content: 'You are an expert educational book architect. Create engaging, accurate, age-appropriate interactive books. Respond with valid JSON.' },
+      { role: 'system', content: outlineSystem },
       { role: 'user', content: outlineUserContent },
     ],
     response_format: { type: 'json_object' },
@@ -539,7 +615,7 @@ async function generateBookOpenAI(
     const strictOutlineRes = await withRetry(() => client.chat.completions.create({
       model,
       messages: [
-        { role: 'system', content: 'You are an expert educational book architect. Create engaging, accurate, age-appropriate interactive books. Respond with valid JSON. IMPORTANT: produce EXACTLY 8-10 scenes. No more, no less.' },
+        { role: 'system', content: outlineSystem + ' IMPORTANT: produce EXACTLY 8-10 scenes. No more, no less.' },
         { role: 'user', content: outlineUserContent + '\n\nSTRICT REQUIREMENT: Return exactly 8-10 scenes. Not fewer than 8, not more than 10.' },
       ],
       response_format: { type: 'json_object' },
@@ -707,7 +783,7 @@ motion guide:
 - battle_push: combat, chase, peak intensity
 - divine_glow: blessings, miracles, transformative moments
 - pan_left / pan_right: travel, journey, reveal-by-sweep
-- fade_only: dialogue scenes where the camera should stay still` },
+- fade_only: dialogue scenes where the camera should stay still` + langDirective },
         { role: 'user', content: `Book: "${bookTitle}"
 Scene: "${scene.title}" — ${scene.short_summary}
 Mood: ${scene.mood ?? 'serene'}
@@ -911,6 +987,39 @@ Generate the scene JSON now.` },
     baseScenes[i].beats = beats.length >= 1 ? beats : undefined;
   }
 
+  // ── S3: Vision-verify hotspots against the rendered establishing image ──
+  // For each scene with at least one hotspot, fetch the beat-0 image and
+  // ask GPT-4o vision where each hotspot label actually is, then overwrite
+  // the LLM-guessed x/y/width/height with the verified coords. Targets the
+  // model doesn't find (found=false) keep their LLM-guessed coords so we
+  // never zero out a good guess. Skipped entirely when the flag is off —
+  // the gate is computed once above, so default-OFF is a no-op.
+  if (visionHotspotsEnabled) {
+    for (let i = 0; i < baseScenes.length; i++) {
+      const scene = baseScenes[i];
+      const img = scene.background_asset_url || scene.beats?.[0]?.imageUrl;
+      const hotspots = scene.hotspots;
+      if (!img || !hotspots || hotspots.length === 0) continue;
+      const labels = hotspots.map(h => h.label);
+      try {
+        const b64 = await fetchImageAsBase64(img);
+        if (!b64) continue;
+        const targets = await analyzeImageForTargets(b64, labels);
+        for (const t of targets) {
+          if (!t.found) continue;
+          const hs = hotspots.find(h => h.label.toLowerCase().trim() === t.label.toLowerCase().trim());
+          if (!hs) continue;
+          hs.x = t.x;
+          hs.y = t.y;
+          hs.width = t.width;
+          hs.height = t.height;
+        }
+      } catch (err) {
+        console.warn(`[BookGenerator] vision hotspot verify failed for scene ${scene.scene_id}:`, err instanceof Error ? err.message : err);
+      }
+    }
+  }
+
   await options.onStepComplete?.('images', { scenes: baseScenes });
 
   onProgress?.('Scenes illustrated', 80);
@@ -925,6 +1034,9 @@ Generate the scene JSON now.` },
     scenes: baseScenes,
     characters,
     generatedAt: Date.now(),
+    // S4 — persist the language route so the Movie build agent + TTS path
+    // can pick a matching voice on later reads.
+    language: languageCode,
   };
 
   // ── Quality scoring ──
@@ -935,6 +1047,65 @@ Generate the scene JSON now.` },
     }
   } catch (err) {
     console.warn('[BookGenerator] Quality scoring failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
+
+  // ── S2: Whole-arc QA critic (opt-in, non-blocking) ──
+  // Runs ONE gpt-4o-mini pass over the full arc after scenes finalize to
+  // catch setup-without-payoff, flatlining character arcs, and cross-scene
+  // contradictions. Default OFF (KATHA_ARC_CRITIC_ENABLED=1 to enable).
+  // When the critic isn't configured it returns score:100 (degrade-to-skip,
+  // mirroring branchQAAgent.ts:93-95). NEVER auto-regenerates — issues are
+  // serialised into book.qaNotes for the operator / UI to surface.
+  if (process.env.KATHA_ARC_CRITIC_ENABLED === '1') {
+    try {
+      const critique = await critiqueArc({
+        title: book.title,
+        scenes: book.scenes.map(s => ({ scene_id: s.scene_id, title: s.title, narration: s.narration })),
+        characters: book.characters.map(c => ({ name: c.name, role: c.role, short_summary: c.short_summary })),
+      });
+      if (critique.score < 80 && critique.issues.length > 0) {
+        book.qaNotes = critique.issues
+          .map((issue, idx) => `${idx + 1}. ${issue}`)
+          .join('\n');
+        console.warn(`[BookGenerator] Arc critic score ${critique.score}: ${critique.issues.length} issue(s). Notes recorded (non-blocking).`);
+      }
+    } catch (err) {
+      // Non-blocking: a critic failure must never break generation.
+      console.warn('[BookGenerator] Arc critic failed (non-fatal):', err instanceof Error ? err.message : err);
+    }
+  }
+
+  // ── Universal World-engine identity (opt-in, non-blocking) ──
+  // ONE gpt-4o-mini pass reading the book's actual prose assigns each
+  // scene a mood/biome/ambient + a book-level palette family, stored on
+  // `book.worldIdentity`. `synthesizeWorldManifest` uses it to OVERRIDE
+  // the deterministic universal lexicon so the explorable world reads
+  // FROM this story (deserts read as deserts, tragedies feel cold) — the
+  // universality lever the old Ramayana-tinted keyword dicts lacked.
+  // Default OFF (KATHA_WORLD_IDENTITY_ENABLED=1). When off or no key,
+  // the agent returns null and the World engine derives an identity
+  // deterministically via `deriveWorldIdentity` (no key needed) — so the
+  // no-key path is always real.
+  if (process.env.KATHA_WORLD_IDENTITY_ENABLED === '1') {
+    try {
+      const identity = await synthesizeWorldIdentity({
+        title: book.title,
+        scenes: book.scenes.map(s => ({
+          scene_id: s.scene_id,
+          title: s.title,
+          visual_description: s.visual_description,
+          short_summary: s.short_summary,
+        })),
+      });
+      if (identity) {
+        book.worldIdentity = identity;
+        console.log(`[BookGenerator] World identity synthesized: ${identity.paletteFamily}, ${identity.nodes.length} nodes.`);
+      } else {
+        console.log('[BookGenerator] World identity agent returned null — deterministic lexicon will drive the world.');
+      }
+    } catch (err) {
+      console.warn('[BookGenerator] World identity failed (non-fatal):', err instanceof Error ? err.message : err);
+    }
   }
 
   // ── Accuracy / canon label ──

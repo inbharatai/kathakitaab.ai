@@ -45,15 +45,39 @@ function parseArgs(): Args {
   return { slug, modes, force };
 }
 
-function hashManifest(manifest: unknown, mode: string): string {
-  return createHash('sha1').update(JSON.stringify({ manifest, mode })).digest('hex').slice(0, 12);
+// Render-quality env knobs — byte-identical contract with the API route
+// (app/api/livebook/render-movie/route.ts). Kept duplicated rather than
+// shared to avoid the CLI pulling in the Next.js route module graph.
+//   KATHA_RENDER_SCALE : {0.5,1.0,2.0}, default 0.5 (540p)
+//   KATHA_RENDER_CRF   : integer 18..32, default 28
+const ALLOWED_SCALES = new Set([0.5, 1.0, 2.0]);
+const DEFAULT_SCALE = 0.5;
+const DEFAULT_CRF = 28;
+
+function readRenderScale(): number {
+  const raw = process.env.KATHA_RENDER_SCALE;
+  if (raw === undefined || raw === '') return DEFAULT_SCALE;
+  const val = Number(raw);
+  return ALLOWED_SCALES.has(val) ? val : DEFAULT_SCALE;
+}
+
+function readRenderCrf(): number {
+  const raw = process.env.KATHA_RENDER_CRF;
+  if (raw === undefined || raw === '') return DEFAULT_CRF;
+  const val = Math.round(Number(raw));
+  if (!Number.isFinite(val)) return DEFAULT_CRF;
+  return Math.max(18, Math.min(32, val));
+}
+
+function hashManifest(manifest: unknown, mode: string, scale: number): string {
+  return createHash('sha1').update(JSON.stringify({ manifest, mode, scale })).digest('hex').slice(0, 12);
 }
 
 async function renderOne(slug: string, mode: 'movie' | 'trailer', force: boolean): Promise<void> {
   const manifest = getManifestForSlug(slug);
   if (!manifest) throw new Error(`No manifest for slug "${slug}"`);
 
-  const manifestHash = hashManifest(manifest, mode);
+  const manifestHash = hashManifest(manifest, mode, readRenderScale());
   const compositionId = mode === 'trailer' ? 'BookTrailer' : 'BookMovie';
   const filenameStem = mode === 'trailer' ? 'trailer' : 'movie';
   const localName = `${slug}.${filenameStem}.${manifestHash}.mp4`;
@@ -91,10 +115,11 @@ async function renderOne(slug: string, mode: 'movie' | 'trailer', force: boolean
       outputLocation: outFile,
       inputProps: { manifest },
       // Mirror the route's settings so this CLI produces byte-identical
-      // output (modulo timestamps) to the API path. 540p, CRF 28, 96k
-      // audio — share-grade fidelity at <50MB, streams fast over CloudFront.
-      scale: 0.5,
-      crf: 28,
+      // output (modulo timestamps) to the API path. Scale + CRF are
+      // env-gated (KATHA_RENDER_SCALE / KATHA_RENDER_CRF) — defaults
+      // 540p / CRF 28 / 96k audio = share-grade fidelity at <50MB.
+      scale: readRenderScale(),
+      crf: readRenderCrf(),
       audioBitrate: '96k',
       onProgress: ({ progress }) => {
         // Single-line, not noisy — log every ~10% so a tail makes sense.

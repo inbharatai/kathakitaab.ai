@@ -6,13 +6,16 @@ import { saveGeneratedBook, deleteBook, getBook, acquireGenerationLock, releaseG
 import { saveScenes, type PersistedScene } from '@/lib/data/sceneRegistry';
 import { hydrateBookAudio } from '@/lib/video/manifestSynthesizer';
 
-const SHOWCASE = [
-  { slug: 'mahabharata', title: 'Mahabharata' },
-  { slug: 'akbar-and-birbal', title: 'Akbar and Birbal' },
-  { slug: 'vikram-and-betaal', title: 'Vikram and Betaal' },
-  { slug: 'panchatantra', title: 'Panchatantra' },
-  { slug: 'tenali-raman', title: 'Tenali Raman' },
-];
+// Previously this listed mahabharata / akbar-and-birbal /
+// vikram-and-betaal / panchatantra / tenali-raman. All of those were
+// seeded against the now-decommissioned Supabase asset bucket, so their
+// scene images and narration audio 404 today — surfacing them would
+// send readers to broken stories. They have been removed. Ramayana is
+// the only working seed and lives in lib/data/ramayanaSeed.ts (not
+// here). The dead stories will be regenerated via the universal engine
+// (educator page) later, at which point a new SHOWCASE list can be
+// re-added with S3-backed assets.
+const SHOWCASE: { slug: string; title: string }[] = [];
 
 /** Admin-only endpoint to batch-regenerate showcase books.
  *
@@ -41,6 +44,12 @@ export async function POST(request: Request) {
   }
 
   const toRegenerate = snapshot.filter(s => s.action === 'regenerate');
+  if (SHOWCASE.length === 0) {
+    return NextResponse.json({
+      message: 'No showcase seeds are configured. The previous Supabase-backed seeds (mahabharata, akbar-and-birbal, vikram-and-betaal, panchatantra, tenali-raman) were removed because their assets 404. Regenerate stories via the universal engine on the educator page instead.',
+      snapshot,
+    });
+  }
   if (toRegenerate.length === 0) {
     return NextResponse.json({
       message: 'All showcase books already exist. Pass ?force=true to regenerate.',

@@ -11,6 +11,9 @@ import { getOwnerIdFromRequest } from '@/lib/auth/ownerId';
 import { getSessionFromRouteRequest } from '@/lib/auth/session';
 import { isAdminSession } from '@/lib/auth/adminAllowlist';
 import { resolveBookVisibility } from '@/lib/auth/bookAccess';
+// S1 — persistent character memory thread (Aurora durable, Redis fallback).
+import { isAuroraEnabled, getCharacterThread, appendCharacterTurn } from '@/lib/db/aurora';
+import { getRedis } from '@/lib/redis';
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, { scope: 'default' });
@@ -18,7 +21,7 @@ export async function POST(request: Request) {
 
   try {
     const body: AskCharacterRequest = await request.json();
-    const { bookSlug, sceneId, characterSlug, question, mode } = body;
+    const { bookSlug, sceneId, characterSlug, question, mode, threadId } = body;
 
     // Validate input
     if (!bookSlug || !sceneId || !characterSlug || !question) {
@@ -102,7 +105,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Book, scene, or character not found' }, { status: 404 });
     }
 
-    // Check cache
+    // Check cache — include threadId (S1) so two threads for the same
+    // (book, scene, character, question, mode) don't collide. Absent
+    // threadId keeps the legacy cache key byte-identical.
     const cacheKey = buildCacheKey({
       type: 'character-qa',
       bookId: book.id,
@@ -110,6 +115,7 @@ export async function POST(request: Request) {
       characterId: character.slug,
       question,
       mode: safeMode,
+      threadId: threadId ?? '',
     });
 
     const cached = await getCachedResponse(cacheKey);
@@ -140,6 +146,45 @@ export async function POST(request: Request) {
       ? `${canonFragment}\n\n---\n\n${baseSourceContext}`
       : baseSourceContext;
 
+    // S1 — load prior conversation thread for this (owner, book, character).
+    // Aurora is the durable store (migration 0004); when Aurora is off we
+    // fall back to a Redis JSON array; when neither is configured (or no
+    // threadId was sent) we stay stateless — today's behaviour. The history
+    // is prepended between the system prompt and the new user question inside
+    // askCharacter so the character answers with memory.
+    const threadOwnerId = getOwnerIdFromRequest(request);
+    let history: { role: string; content: string }[] | undefined;
+    const useThread = !!threadId && !!threadOwnerId;
+    const redisThreadKey = useThread
+      ? `kk:charthread:${threadOwnerId}:${bookSlug}:${characterSlug}`
+      : '';
+
+    if (useThread) {
+      if (isAuroraEnabled()) {
+        try {
+          history = await getCharacterThread(threadOwnerId!, bookSlug, characterSlug);
+        } catch (err) {
+          console.warn('[ask-character] thread load failed (Aurora):', err instanceof Error ? err.message : err);
+          history = undefined;
+        }
+      } else {
+        const r = getRedis();
+        if (r) {
+          try {
+            const existing = await r.get<{ role: string; content: string }[]>(redisThreadKey);
+            if (Array.isArray(existing)) history = existing;
+          } catch (err) {
+            console.warn('[ask-character] thread load failed (Redis):', err instanceof Error ? err.message : err);
+          }
+        }
+      }
+    }
+
+    // S4 — route the answer to Hindi when the book is a Hindi book. The
+    // Movie build / TTS path already threads language; askCharacter only
+    // needs it to tell the model which script to answer in.
+    const bookLanguage = registryBook?.language;
+
     // Call OpenAI
     const response = await askCharacter({
       book: { id: book.id, slug: book.slug, title: book.title },
@@ -154,7 +199,38 @@ export async function POST(request: Request) {
       userQuestion: question,
       mode: safeMode as 'canon' | 'explanation' | 'interpretation',
       sourceContext: sourceContextWithCanon,
-    });
+    }, history, bookLanguage);
+
+    // S1 — append the (user, question) + (assistant, answer) turns to the
+    // thread so the next turn sees them. Best-effort: a write failure never
+    // costs the user their answer — we already have `response`.
+    if (useThread) {
+      const answer = response.answer ?? '';
+      if (isAuroraEnabled()) {
+        try {
+          await appendCharacterTurn(threadOwnerId!, bookSlug, characterSlug, 'user', question);
+          if (answer) await appendCharacterTurn(threadOwnerId!, bookSlug, characterSlug, 'assistant', answer);
+        } catch (err) {
+          console.warn('[ask-character] thread append failed (Aurora):', err instanceof Error ? err.message : err);
+        }
+      } else {
+        const r = getRedis();
+        if (r) {
+          try {
+            const existing = (await r.get<{ role: string; content: string }[]>(redisThreadKey)) ?? [];
+            existing.push({ role: 'user', content: question });
+            if (answer) existing.push({ role: 'assistant', content: answer });
+            // Cap the thread at 40 turns so a runaway conversation stays cheap.
+            const trimmed = existing.slice(-40);
+            await r.set(redisThreadKey, trimmed, { ex: 60 * 60 * 24 * 30 });
+          } catch (err) {
+            console.warn('[ask-character] thread append failed (Redis):', err instanceof Error ? err.message : err);
+          }
+        }
+      }
+      // Echo the thread id so the client can store + reuse it.
+      response.threadId = threadId;
+    }
 
     // Cache the response
     await setCachedResponse(cacheKey, response, getOpenAIModel());

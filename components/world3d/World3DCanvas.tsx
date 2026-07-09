@@ -20,7 +20,7 @@
 // cozy low-noise. We do not copy Messenger's art/characters/name.
 // ============================================================
 
-import { Component, Suspense, useMemo, useRef, type ReactNode } from 'react';
+import { Component, Suspense, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Billboard, Image as DreiImage, Text, Ring } from '@react-three/drei';
 import * as THREE from 'three';
@@ -80,16 +80,63 @@ class TextureErrorBoundary extends Component<{ fallback: ReactNode; children: Re
   render() { return this.state.failed ? this.props.fallback : this.props.children; }
 }
 
+/**
+ * Configure a drei `<Image>` mesh's texture for crisp display at any
+ * viewing angle: anisotropy at the renderer's max, sRGB color space,
+ * and linear (mipmapped) filtering — never NearestFilter, which reads
+ * as pixel art. drei's `<Image>` shader handles colorSpace via its
+ * `<colorspace_fragment>` include, but it does NOT set anisotropy
+ * (defaults to 1 → blurry at oblique billboard angles) or guarantee
+ * the filter modes. We reach the texture through the mesh ref (NOT a
+ * hook return value) and set these once per mount. A 1536×1024 source
+ * displayed on a small planet tile is a sharp downscale — the only
+ * way it reads as "pixels" is if min/mag filtering or anisotropy is
+ * wrong, which this fixes.
+ */
+function useCrispImageTexture(meshRef: React.RefObject<THREE.Mesh | null>) {
+  const { gl } = useThree();
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    // drei's imageMaterial exposes the texture as `material.map`.
+    const mat = mesh.material as (THREE.ShaderMaterial & { map?: THREE.Texture }) | undefined;
+    const tex = mat?.map;
+    if (!tex) return;
+    const maxAniso = gl.capabilities.getMaxAnisotropy();
+    // These are THREE.Texture / material field assignments — the documented
+    // way to configure an existing texture for crisp display (anisotropy +
+    // linear + mipmap filtering + sRGB color space). The react-hooks/
+    // immutability rule conservatively flags writes to ref-derived objects;
+    // here the mutation is intentional and required (Three owns the texture,
+    // we're tuning it once per mount), so we scope a disable to this block.
+    /* eslint-disable react-hooks/immutability */
+    tex.anisotropy = maxAniso;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.generateMipmaps = true;
+    tex.needsUpdate = true;
+    mat.needsUpdate = true;
+    /* eslint-enable react-hooks/immutability */
+  }, [gl, meshRef]);
+}
+
 /** Loads a live scene-art URL as a textured billboard plane. Suspends while
  *  loading; throws on CORS/404 → caught by TextureErrorBoundary above. Uses
- *  drei's `<Image>` (handles sRGB colorSpace + anisotropy internally, so we
- *  never mutate a hook-returned texture — that trips react-hooks/immutability).
- *  toneMapped={false} keeps destination art reading like a true-color painting. */
+ *  drei's `<Image>`; we additionally force anisotropy + linear filtering via
+ *  {@link useCrispImageTexture} so the art stays sharp at oblique angles and
+ *  never reads as pixel art. `toneMapped={false}` keeps destination art
+ *  reading like a true-color painting. Scale matches the 1536×1024 (1.5:1)
+ *  scene aspect so the painting fills the tile without letterbox gaps. */
 function TextureTile({ url, opacity }: { url: string; opacity: number }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  useCrispImageTexture(meshRef);
   return (
     <DreiImage
+      ref={meshRef}
       url={url}
-      scale={[0.5, 0.32]}
+      // 0.5 × 0.3333 = 1.5:1, matching gpt-image-1's 1536×1024 scene size.
+      scale={[0.5, 0.3333]}
       transparent
       opacity={opacity}
       toneMapped={false}
@@ -275,10 +322,16 @@ function tangentRotation(pos: THREE.Vector3): [number, number, number] {
 // ---- NPC sprite ------------------------------------------------------
 
 function NpcPortrait({ url }: { url: string }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  useCrispImageTexture(meshRef);
   return (
     <DreiImage
+      ref={meshRef}
       url={url}
-      scale={[0.22, 0.22]}
+      // 0.18 × 0.27 = 2:3 portrait aspect, matching gpt-image-1's
+      // 1024×1536 portrait size — so the figure reads as a warm
+      // illustrated portrait, not a letterboxed square thumbnail.
+      scale={[0.18, 0.27]}
       position={[0, 0.2, 0]}
       transparent
       toneMapped={false}
