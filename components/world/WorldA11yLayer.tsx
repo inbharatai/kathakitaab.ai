@@ -30,6 +30,7 @@ import { useCallback } from 'react';
 import {
   clueEmoji,
   isNodeUnlocked,
+  npcCurrentPlaceId,
   type WorldManifest,
   type WorldNpc,
   type WorldNode,
@@ -207,21 +208,28 @@ export default function WorldA11yLayer({
         <div className="world-compass-section" aria-label="Characters">
           <div className="world-compass-head">Characters</div>
           <ul className="world-compass-list">
-            {manifest.npcs.map(npc => (
+            {manifest.npcs.map(npc => {
+              // NPCs migrate along their canon-accurate schedule; surface
+              // "here now" when they stand at the avatar's current place.
+              const hereNow = npcCurrentPlaceId(npc, session) === session.currentNodeId;
+              return (
               <li key={npc.slug}>
                 <button
                   type="button"
                   className="world-npc"
                   style={{ borderRadius: 999 }}
                   onClick={() => onSpeakNpc(npc)}
-                  aria-label={`Speak with ${npc.name}`}
+                  aria-label={`Speak with ${npc.name}${hereNow ? ' (here now)' : ''}`}
                   data-world-npc={npc.slug}
+                  data-world-npc-here={hereNow}
                 >
                   <span aria-hidden>{npc.emoji}</span>
                   <span className="world-node-label">{npc.name}</span>
+                  {hereNow && <span aria-hidden style={{ marginLeft: 4, fontSize: '0.85em' }}>·</span>}
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}

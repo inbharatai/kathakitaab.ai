@@ -21,7 +21,7 @@ interface ManifestScene {
   title?: string;
   narration?: string;
   imagePath?: string;
-  audioPath?: string;
+  audioPath?: string | null;
   narrationAudioUrl?: string;
   durationSeconds?: number;
   subtitles?: ManifestSubtitleCue[];
@@ -79,7 +79,8 @@ function verify(slug: string): Issue[] {
     if (!scene.title)          issues.push({ scene: id, field: 'title',          problem: 'missing' });
     if (!scene.narration)      issues.push({ scene: id, field: 'narration',      problem: 'missing' });
     if (!scene.imagePath)      issues.push({ scene: id, field: 'imagePath',      problem: 'missing' });
-    if (!scene.audioPath)      issues.push({ scene: id, field: 'audioPath',      problem: 'missing' });
+    if (scene.audioPath === undefined)      issues.push({ scene: id, field: 'audioPath',      problem: 'missing' });
+    else if (scene.audioPath === null)       issues.push({ scene: id, field: 'audioPath',      problem: 'narration unavailable (null) — regenerate the manifest to restore voiced narration' });
     if (!scene.narrationAudioUrl) issues.push({ scene: id, field: 'narrationAudioUrl', problem: 'missing (Phase 10 contract)' });
 
     // Numeric duration.

@@ -849,11 +849,11 @@ export default function HomePage() {
             ['🎭', 'Puppet states — Talk speeds breath, Fight quickens sway'],
             ['🗣️', 'Emotional narration — pace + pitch shaped per mood'],
             ['💬', 'Sentence cues with explicit ms timing in the manifest'],
-            ['🎼', 'Procedural mood bed, ducked to 0.10 under speech'],
+            ['🎼', 'Static mood bed (6 pre-synthesized WAVs), auto-ducked under narration'],
             ['✨', 'Universal effects DSL — particles, dust shafts, fog, rim light'],
             ['👁', 'Audio-driven mouth pulse + geometric gaze toward addressees'],
             ['🛡️', 'Verb-aware QA — Talk, Fight, Honor each feel distinct'],
-            ['📥', 'Downloadable MP4 export — coming soon'],
+            ['📥', 'MP4 export — opt-in via KATHA_MP4_EXPORT_ENABLED=1'],
           ].map(([icon, text]) => (
             <li key={text} style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,

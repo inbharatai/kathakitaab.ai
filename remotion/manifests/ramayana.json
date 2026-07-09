@@ -29,7 +29,7 @@
           "motion": "battle_push"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/ayodhya_intro.wav",
+      "audioPath": null,
       "durationSeconds": 29,
       "mood": "serene",
       "motion": "fade_only",
@@ -153,7 +153,7 @@
           "motion": "slow_zoom_out"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/mithila_bow.wav",
+      "audioPath": null,
       "durationSeconds": 30,
       "mood": "serene",
       "motion": "fade_only",
@@ -269,7 +269,7 @@
           "motion": "pan_left"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/exile.wav",
+      "audioPath": null,
       "durationSeconds": 30,
       "mood": "serene",
       "motion": "fade_only",
@@ -388,7 +388,7 @@
           "motion": "pan_left"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/forest_life.wav",
+      "audioPath": null,
       "durationSeconds": 27,
       "mood": "serene",
       "motion": "fade_only",
@@ -507,7 +507,7 @@
           "motion": "pan_left"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/ravana_jatayu.wav",
+      "audioPath": null,
       "durationSeconds": 34,
       "mood": "serene",
       "motion": "fade_only",
@@ -618,7 +618,7 @@
           "motion": "pan_right"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/hanuman_meets_rama.wav",
+      "audioPath": null,
       "durationSeconds": 27,
       "mood": "serene",
       "motion": "fade_only",
@@ -729,7 +729,7 @@
           "motion": "pan_right"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/hanuman_lanka.wav",
+      "audioPath": null,
       "durationSeconds": 34,
       "mood": "serene",
       "motion": "fade_only",
@@ -850,7 +850,7 @@
           "motion": "pan_right"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/bridge_to_lanka.wav",
+      "audioPath": null,
       "durationSeconds": 30,
       "mood": "serene",
       "motion": "fade_only",
@@ -956,7 +956,7 @@
           "motion": "slow_zoom_out"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/battle_lanka.wav",
+      "audioPath": null,
       "durationSeconds": 27,
       "mood": "serene",
       "motion": "fade_only",
@@ -1077,7 +1077,7 @@
           "motion": "divine_glow"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/return_ayodhya.wav",
+      "audioPath": null,
       "durationSeconds": 31,
       "mood": "serene",
       "motion": "fade_only",
@@ -1206,7 +1206,7 @@
           "motion": "pan_left"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/lessons.wav",
+      "audioPath": null,
       "durationSeconds": 34,
       "mood": "serene",
       "motion": "fade_only",
@@ -1336,7 +1336,7 @@
           "motion": "slow_zoom_out"
         }
       ],
-      "audioPath": "https://esaypdyvmymsmlgxxylv.supabase.co/storage/v1/object/public/scene-images/ramayana/movie-audio/closing.wav",
+      "audioPath": null,
       "durationSeconds": 33,
       "mood": "serene",
       "motion": "fade_only",

@@ -20,14 +20,16 @@
 // cozy low-noise. We do not copy Messenger's art/characters/name.
 // ============================================================
 
-import { Suspense, useMemo, useRef } from 'react';
+import { Component, Suspense, useMemo, useRef, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { Billboard, Text, Ring } from '@react-three/drei';
+import { Billboard, Image as DreiImage, Text, Ring } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   BIOME_COLORS,
   latLonToVec3,
+  npcCurrentPlaceId,
   slerpLatLon,
+  type Biome,
   type WorldManifest,
   type WorldNode,
   type WorldPortal,
@@ -66,9 +68,63 @@ function valueNoise(seed: number, x: number, y: number, z: number): number {
   return (h & 0xffff) / 0x8000 - 1; // [-1,1]
 }
 
+// ---- Texture loading (graceful: dead/slow URL → procedural tile) ----
+
+/** Catches a failed useTexture/useLoader load and renders the procedural
+ *  fallback instead. Keyed by url at the call site so a url change
+ *  remounts and resets the boundary. */
+class TextureErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { /* swallow — fallback renders */ }
+  render() { return this.state.failed ? this.props.fallback : this.props.children; }
+}
+
+/** Loads a live scene-art URL as a textured billboard plane. Suspends while
+ *  loading; throws on CORS/404 → caught by TextureErrorBoundary above. Uses
+ *  drei's `<Image>` (handles sRGB colorSpace + anisotropy internally, so we
+ *  never mutate a hook-returned texture — that trips react-hooks/immutability).
+ *  toneMapped={false} keeps destination art reading like a true-color painting. */
+function TextureTile({ url, opacity }: { url: string; opacity: number }) {
+  return (
+    <DreiImage
+      url={url}
+      scale={[0.5, 0.32]}
+      transparent
+      opacity={opacity}
+      toneMapped={false}
+    />
+  );
+}
+
+/** Procedural biome-colored tile — the dead-media fallback. */
+function BiomeTile({ color, opacity }: { color: string; opacity: number }) {
+  return (
+    <mesh>
+      <planeGeometry args={[0.5, 0.32]} />
+      <meshStandardMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={0.25}
+        roughness={0.8}
+        transparent
+        opacity={opacity}
+      />
+    </mesh>
+  );
+}
+
 // ---- Planet ----------------------------------------------------------
 
-function PlanetMesh({ seed, groundColor }: { seed: number; groundColor: string }) {
+function PlanetMesh({
+  seed,
+  groundColor,
+  nodes,
+}: {
+  seed: number;
+  groundColor: string;
+  nodes: { lat: number; lon: number; biome: Biome }[];
+}) {
   const geo = useMemo(() => {
     const g = new THREE.IcosahedronGeometry(R, 12);
     const pos = g.attributes.position as THREE.BufferAttribute;
@@ -76,6 +132,16 @@ function PlanetMesh({ seed, groundColor }: { seed: number; groundColor: string }
     const base = new THREE.Color(groundColor);
     const hi = base.clone().offsetHSL(0, 0, 0.08);
     const lo = base.clone().offsetHSL(0, 0, -0.06);
+    // Precompute each place's unit vector + biome terrain color so vertices
+    // near a place tint toward that biome — forest vs battlefield read from
+    // orbit instead of one global ground color.
+    const nodeUnits = nodes.map(nd => {
+      const nx = Math.cos(nd.lat) * Math.cos(nd.lon);
+      const ny = Math.sin(nd.lat);
+      const nz = Math.cos(nd.lat) * Math.sin(nd.lon);
+      return { nx, ny, nz, terrain: new THREE.Color(BIOME_COLORS[nd.biome].terrain) };
+    });
+    const FALLOFF = 0.6; // radians of biome influence around each place
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
       const n = valueNoise(seed, x, y, z);
@@ -86,6 +152,21 @@ function PlanetMesh({ seed, groundColor }: { seed: number; groundColor: string }
       const latN = y / len;
       const mix = THREE.MathUtils.clamp((latN + 1) / 2 + n * 0.2, 0, 1);
       const c = lo.clone().lerp(hi, mix);
+      // Biome tint: blend toward the nearest place's terrain color with a
+      // smooth angular falloff so regions read distinctly on the planet.
+      if (nodeUnits.length > 0) {
+        const ux = x / len, uy = y / len, uz = z / len;
+        let nearestDot = -2;
+        let nearestTerrain = c;
+        for (const nd of nodeUnits) {
+          const dot = nd.nx * ux + nd.ny * uy + nd.nz * uz;
+          if (dot > nearestDot) { nearestDot = dot; nearestTerrain = nd.terrain; }
+        }
+        const angDist = Math.acos(THREE.MathUtils.clamp(nearestDot, -1, 1));
+        const inf = THREE.MathUtils.clamp(1 - angDist / FALLOFF, 0, 1);
+        const smooth = inf * inf * (3 - 2 * inf); // smoothstep
+        if (smooth > 0) c.lerp(nearestTerrain, smooth * 0.7);
+      }
       colors[i * 3] = c.r;
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;
@@ -93,7 +174,7 @@ function PlanetMesh({ seed, groundColor }: { seed: number; groundColor: string }
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     g.computeVertexNormals();
     return g;
-  }, [seed, groundColor]);
+  }, [seed, groundColor, nodes]);
 
   return (
     <mesh geometry={geo} receiveShadow castShadow>
@@ -136,6 +217,7 @@ function PlaceMarker({
   const biomeColor = BIOME_COLORS[node.biome].accent;
   const pos = vec3FromLatLon(node.lat, node.lon, R + 0.04);
   const ringColor = current ? '#FFD66B' : biomeColor;
+  const tileOpacity = unlocked ? 0.96 : 0.35;
 
   return (
     <group position={pos}>
@@ -147,22 +229,19 @@ function PlaceMarker({
         <meshBasicMaterial color={ringColor} side={THREE.DoubleSide} transparent opacity={unlocked ? 0.9 : 0.25} />
       </Ring>
       <Billboard position={[0, 0.28, 0]}>
-        {/* Scene art tile (procedural color when media is dead). */}
-        <mesh>
-          <planeGeometry args={[0.5, 0.32]} />
-          {media.kind === 'live' ? (
-            <meshBasicMaterial transparent opacity={unlocked ? 0.96 : 0.35} />
-          ) : (
-            <meshStandardMaterial
-              color={biomeColor}
-              emissive={biomeColor}
-              emissiveIntensity={0.25}
-              roughness={0.8}
-              transparent
-              opacity={unlocked ? 0.9 : 0.3}
-            />
-          )}
-        </mesh>
+        {/* Scene art tile. Live URL → loaded texture (sRGB, true colors);
+            dead/missing URL → biome-colored procedural tile. The error
+            boundary + suspense mean a slow/CORS-blocked image degrades to
+            the cozy procedural tile instead of a blank plane. */}
+        {media.kind === 'live' ? (
+          <TextureErrorBoundary key={media.url} fallback={<BiomeTile color={biomeColor} opacity={tileOpacity} />}>
+            <Suspense fallback={<BiomeTile color={biomeColor} opacity={tileOpacity} />}>
+              <TextureTile url={media.url} opacity={tileOpacity} />
+            </Suspense>
+          </TextureErrorBoundary>
+        ) : (
+          <BiomeTile color={biomeColor} opacity={unlocked ? 0.9 : 0.3} />
+        )}
         <Text
           fontSize={0.16}
           color={unlocked ? '#fff' : '#9aa0a6'}
@@ -195,13 +274,34 @@ function tangentRotation(pos: THREE.Vector3): [number, number, number] {
 
 // ---- NPC sprite ------------------------------------------------------
 
-function NpcSprite({ lat, lon, emoji, name, atCurrent }: {
-  lat: number; lon: number; emoji: string; name: string; atCurrent: boolean;
+function NpcPortrait({ url }: { url: string }) {
+  return (
+    <DreiImage
+      url={url}
+      scale={[0.22, 0.22]}
+      position={[0, 0.2, 0]}
+      transparent
+      toneMapped={false}
+    />
+  );
+}
+
+function NpcSprite({ lat, lon, emoji, name, atCurrent, portraitUrl }: {
+  lat: number; lon: number; emoji: string; name: string; atCurrent: boolean; portraitUrl?: string;
 }) {
   const pos = vec3FromLatLon(lat, lon, R + 0.05);
   return (
     <group position={pos}>
       <Billboard position={[0, 0.22, 0]}>
+        {/* Character portrait when available; emoji is the graceful
+            fallback (error boundary + suspense hide a dead/slow URL). */}
+        {portraitUrl && (
+          <TextureErrorBoundary key={portraitUrl} fallback={null}>
+            <Suspense fallback={null}>
+              <NpcPortrait url={portraitUrl} />
+            </Suspense>
+          </TextureErrorBoundary>
+        )}
         <Text fontSize={0.2} anchorX="center" anchorY="middle">
           {emoji}
         </Text>
@@ -379,7 +479,7 @@ export default function World3DCanvas({ manifest, session, reducedMotion, onMove
           skyNight={manifest.planet.skyNight}
           dayPhase={dayPhase}
         />
-        <PlanetMesh seed={manifest.planet.seed} groundColor={manifest.palette.ground} />
+        <PlanetMesh seed={manifest.planet.seed} groundColor={manifest.palette.ground} nodes={manifest.nodes} />
         {manifest.nodes.map(node => (
           <PlaceMarker
             key={node.id}
@@ -397,7 +497,11 @@ export default function World3DCanvas({ manifest, session, reducedMotion, onMove
           <PortalRing key={p.id} portal={p} session={session} />
         ))}
         {manifest.npcs.map(npc => {
-          const node = manifest.nodes.find(n => n.id === npc.nodeId);
+          // NPCs migrate along their canon-accurate schedule as the avatar
+          // unlocks later scenes (npcCurrentPlaceId), not a static home.
+          const placeId = npcCurrentPlaceId(npc, session);
+          const node = manifest.nodes.find(n => n.id === placeId) ??
+            manifest.nodes.find(n => n.id === npc.nodeId);
           if (!node) return null;
           return (
             <NpcSprite
@@ -407,6 +511,7 @@ export default function World3DCanvas({ manifest, session, reducedMotion, onMove
               emoji={npc.emoji}
               name={npc.name}
               atCurrent={node.id === session.currentNodeId}
+              portraitUrl={npc.portraitUrl}
             />
           );
         })}

@@ -733,6 +733,25 @@ export function isNodeUnlocked(manifest: WorldManifest, completedMissionIds: str
   return node.unlockedBy.every(id => completedMissionIds.includes(id));
 }
 
+/** The place an NPC currently stands at, given session progress.
+ *  Walks the canon-accurate `schedule` in story order and returns the
+ *  furthest place the avatar has visited (or is currently at) — so NPCs
+ *  migrate as the story unlocks. Falls back to the home place when no
+ *  schedule entry is reached yet. */
+export function npcCurrentPlaceId(
+  npc: WorldNpc,
+  session: { currentNodeId: string; visitedNodeIds: string[] },
+): string {
+  const visited = new Set(session.visitedNodeIds);
+  let placeId = npc.homePlaceId || npc.nodeId;
+  for (const id of npc.schedule) {
+    if (id === session.currentNodeId || visited.has(id)) {
+      placeId = id;
+    }
+  }
+  return placeId;
+}
+
 export function clueEmoji(seed: string): string {
   return CLUE_EMOJI[hashString(seed) % CLUE_EMOJI.length];
 }

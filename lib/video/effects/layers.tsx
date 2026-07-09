@@ -334,6 +334,43 @@ const Fog: React.FC<LayerProps & { effect: Extract<SceneEffect, { type: 'fog' }>
   );
 };
 
+// ── Ripple ───────────────────────────────────────────────────
+// Expanding concentric rings from an origin point — reads as water
+// ripples on a still surface. Two phase-offset rings expand outward
+// and fade, deterministic from `frame` so the live reader and the
+// Remotion export match frame-for-frame.
+const Ripple: React.FC<LayerProps & { effect: Extract<SceneEffect, { type: 'ripple' }> }> = ({ frame, fps, effect }) => {
+  const ox = effect.originX ?? 0.5;
+  const oy = effect.originY ?? 0.7;
+  const freq = effect.freq ?? 0.06; // cycles per second
+  const amp = effect.amplitude ?? 1.4;
+  const t = frame / fps;
+  const rings = [0, 0.5];
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', mixBlendMode: 'screen' }}>
+      {rings.map((phase, i) => {
+        const cycle = ((t * freq) + phase) % 1; // 0..1 expansion
+        const sizePct = cycle * 80; // ring grows to 80% of viewport
+        const alpha = (1 - cycle) * 0.18 * amp;
+        return (
+          <div key={i} style={{
+            position: 'absolute',
+            left: `${ox * 100}%`,
+            top: `${oy * 100}%`,
+            width: `${sizePct}%`,
+            height: `${sizePct}%`,
+            transform: 'translate(-50%, -50%)',
+            borderRadius: '50%',
+            border: `${1 + amp}px solid rgba(180, 220, 255, ${alpha})`,
+            boxShadow: `0 0 ${4 * amp}px rgba(180,220,255,${alpha * 0.6}) inset`,
+            willChange: 'transform, opacity',
+          }} />
+        );
+      })}
+    </div>
+  );
+};
+
 // ── Public dispatcher ────────────────────────────────────────
 
 interface RenderEffectProps {
@@ -356,12 +393,11 @@ export const RenderEffect: React.FC<RenderEffectProps> = ({ effect, frame, fps, 
     case 'bloom':        return <Bloom effect={effect} />;
     case 'desaturation': return <Desaturation effect={effect} />;
     case 'fog':          return <Fog effect={effect} frame={frame} fps={fps} seedPrefix={seedPrefix} />;
-    // shake / ripple / parallax modify the *underlying image transform*,
-    // not an overlay. They're consumed by the host (BookMovie applies
-    // shake to its <Img>; SceneCanvas applies parallax to its scene
-    // wrapper). RenderEffect just no-ops for those.
+    case 'ripple':       return <Ripple effect={effect} frame={frame} fps={fps} />;
+    // shake + parallax modify the *underlying image transform*, not an
+    // overlay. BookMovie consumes shake (shakeOffset) + parallax (a slow
+    // parallax-style sway on the beat transform). RenderEffect no-ops.
     case 'shake':        return null;
-    case 'ripple':       return null;
     case 'parallax':     return null;
     default:             return null;
   }

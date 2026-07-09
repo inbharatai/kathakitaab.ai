@@ -47,7 +47,7 @@ Transform KathaKitaab from a static AI flipbook into a real Living AI Story Engi
 
 **Created**
 - `lib/agents/branchAgent.ts` — single owner of (verb → narration). Both brain and pregen route delegate here.
-- `lib/audio/proceduralWav.ts` — Node-side PCM synthesizer; emits CC0 mood beds with no licensed assets
+- `lib/audio/proceduralWav.ts` — Node-side PCM synthesizer; emits CC0 mood beds with no licensed assets (run once at build time by `build-mood-music.ts`; the 6 WAVs ship as static files, not generated at runtime)
 - `scripts/build-mood-music.ts` — runs the synth, writes 6 WAVs to `public/audio/mood/`
 - `app/api/livebook/scene-stream/[sceneId]/route.ts` — unified scene+entities+action-status manifest endpoint
 - `app/api/livebook/stream-updates/[sceneId]/route.ts` — SSE stream emitting `branch_ready` events as warming completes

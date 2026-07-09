@@ -76,7 +76,8 @@ interface ManifestScene {
    *  mood overrides. */
   mood?: string;
   /** Explicit ambient bed URL. When unset, the Remotion composition
-   *  falls back to the procedural mood WAV at /audio/mood/{mood}.wav.
+   *  falls back to the static mood-bed WAV at /audio/mood/{mood}.wav
+   *  (synthesized once by build-mood-music, shipped as a static file).
    *  Setting this to a real CDN URL lets each book ship its own bed. */
   backgroundMusicUrl?: string;
   /** Looping ambient soundscape for this scene. Mixed very low beneath

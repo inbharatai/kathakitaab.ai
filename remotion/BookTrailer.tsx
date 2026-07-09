@@ -24,6 +24,7 @@ import {
 
 import { motionForMood, motionParams } from '../lib/video/motion';
 import { EffectStack, shakeOffset } from '../lib/video/effects/layers';
+import type { SceneEffect } from '../lib/video/effects/types';
 import type { BookMovieManifest, BookMovieScene } from './BookMovie';
 
 export const TRAILER_FPS = 30;
@@ -112,6 +113,16 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
   const shakeX = effects.some(e => e.type === 'shake') ? dslShake.x * 1.4 : motionShakeX;
   const shakeY = effects.some(e => e.type === 'shake') ? dslShake.y * 1.4 : motionShakeY;
 
+  // Parallax (effects DSL) — slow parallax-style sway on the transform,
+  // scaled by `factor` (mirrors BookMovie). True multi-depth parallax is
+  // roadmap; this renders the declared effect instead of no-op'ing.
+  const parallaxEffect = effects.find(
+    (e): e is Extract<SceneEffect, { type: 'parallax' }> => e.type === 'parallax',
+  );
+  const parallaxFactor = parallaxEffect?.factor ?? 0;
+  const parallaxX = parallaxFactor ? Math.sin(frame * 0.05) * parallaxFactor * 10 : 0;
+  const parallaxY = parallaxFactor ? Math.cos(frame * 0.04) * parallaxFactor * 5 : 0;
+
   const fadeIn = interpolate(frame, [0, TRAILER_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const fadeOut = interpolate(frame, [durationInFrames - TRAILER_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const opacity = Math.min(fadeIn, fadeOut);
@@ -144,7 +155,7 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
         src={resolveAsset(scene.imagePath)}
         style={{
           width: '100%', height: '100%', objectFit: 'cover',
-          transform: `scale(${scale}) translate(${tx + shakeX}px, ${ty + shakeY}px)`,
+          transform: `scale(${scale}) translate(${tx + shakeX + parallaxX}px, ${ty + shakeY + parallaxY}px)`,
           filter: 'brightness(0.82) saturate(1.18)',
         }}
       />
@@ -174,9 +185,13 @@ const TrailerShot: React.FC<{ scene: BookMovieScene; index: number }> = ({ scene
         </p>
       </div>
 
-      <Sequence from={0}>
-        <Audio src={resolveAsset(scene.audioPath)} volume={audioVolume} />
-      </Sequence>
+      {/* Narration tease — skipped when audioPath is null (dead source
+          nullified); the mood bed still plays so the trailer isn't silent. */}
+      {(scene.audioPath || scene.narrationAudioUrl) && (
+        <Sequence from={0}>
+          <Audio src={resolveAsset((scene.audioPath || scene.narrationAudioUrl) as string)} volume={audioVolume} />
+        </Sequence>
+      )}
 
       {moodSrc && (
         <Sequence from={6}>

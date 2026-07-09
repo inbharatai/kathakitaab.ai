@@ -90,14 +90,18 @@ export interface BookMovieScene {
    *  `motion` get one assigned deterministically by index so even
    *  legacy books look more alive on re-render. */
   beats?: BookMovieBeat[];
-  /** Either an absolute http(s) URL (S3 / CloudFront CDN) or `/`-prefixed local path. */
-  audioPath: string;
+  /** Either an absolute http(s) URL (S3 / CloudFront CDN) or `/`-prefixed
+   *  local path. Null when no narration audio is available (e.g. dead
+   *  source URL nullified); the scene then plays the mood bed only. */
+  audioPath: string | null;
   /** Per Phase 10 spec — alias of audioPath but explicit. Either is fine. */
   narrationAudioUrl?: string;
   durationSeconds: number;
   /** Mood tag (serene|dramatic|somber|joyful|sacred|mysterious).
-   *  Drives the default motion + the procedural ambient bed when
-   *  no explicit `backgroundMusicUrl` is supplied. */
+   *  Drives the default motion + the static mood-bed WAV
+   *  (audio/mood/{mood}.wav — synthesized once by build-mood-music,
+   *  shipped as a static file) when no explicit `backgroundMusicUrl`
+   *  is supplied. */
   mood?: string;
   /** Per-scene camera motion. Falls back to a mood-derived default
    *  if absent. See `lib/video/motion.ts` for the vocabulary. */
@@ -406,6 +410,18 @@ const SceneShot: React.FC<{
   const shakeX = effects.some(e => e.type === 'shake') ? dslShake.x : motionShakeX;
   const shakeY = effects.some(e => e.type === 'shake') ? dslShake.y : motionShakeY;
 
+  // Parallax (effects DSL) — a slow parallax-style sway added to the
+  // beat transform, scaled by the effect's `factor`. True multi-depth
+  // parallax needs per-beat depth metadata (roadmap); this gives a
+  // visible depth-of-field drift on scenes that declare a parallax
+  // effect, instead of leaving the declared effect unrendered.
+  const parallaxEffect = effects.find(
+    (e): e is Extract<SceneEffect, { type: 'parallax' }> => e.type === 'parallax',
+  );
+  const parallaxFactor = parallaxEffect?.factor ?? 0;
+  const parallaxX = parallaxFactor ? Math.sin(frame * 0.05) * parallaxFactor * 10 : 0;
+  const parallaxY = parallaxFactor ? Math.cos(frame * 0.04) * parallaxFactor * 5 : 0;
+
   const fadeIn = interpolate(frame, [0, SCENE_FADE_FRAMES], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const fadeOut = interpolate(frame, [durationInFrames - SCENE_FADE_FRAMES, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const opacity = Math.min(fadeIn, fadeOut);
@@ -429,7 +445,8 @@ const SceneShot: React.FC<{
   // Music ducking — base 0.18, ducked 0.10, ramps over 18 frames
   // (~600ms at 30fps). Fade in over 18 frames, fade out over 18.
   // The mood bed source comes from the manifest (`backgroundMusicUrl`)
-  // when present, else the procedural mood WAV inferred from the mood tag.
+  // when present, else the static mood-bed WAV (audio/mood/{mood}.wav)
+  // inferred from the mood tag.
   const musicVolume = React.useMemo(
     () => makeMusicVolume(cues, 0.18, 0.10, 18, durationInFrames, 18, 18),
     [cues, durationInFrames],
@@ -511,7 +528,7 @@ const SceneShot: React.FC<{
               style={{
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%', objectFit: 'cover',
-                transform: `scale(${beatScale}) translate(${beatTx + shakeX}px, ${beatTy + shakeY}px)`,
+                transform: `scale(${beatScale}) translate(${beatTx + shakeX + parallaxX}px, ${beatTy + shakeY + parallaxY}px)`,
                 filter: 'brightness(0.86) saturate(1.15)',
                 opacity: beatOpacity,
               }}
@@ -600,10 +617,14 @@ const SceneShot: React.FC<{
         />
       )}
 
-      {/* ── Narration audio (Sarvam Bulbul) ── */}
-      <Sequence from={audioStart}>
-        <Audio src={resolveAsset(scene.audioPath)} />
-      </Sequence>
+      {/* ── Narration audio (Sarvam Bulbul) ──
+          Skipped when audioPath is null (dead source nullified) — the
+          mood bed still plays, so the scene is never silent-dead. */}
+      {(scene.audioPath || scene.narrationAudioUrl) && (
+        <Sequence from={audioStart}>
+          <Audio src={resolveAsset((scene.audioPath || scene.narrationAudioUrl) as string)} />
+        </Sequence>
+      )}
 
       {/* ── Mood bed with frame-accurate ducking ──
           Delayed by 9 frames (~300ms) so BGM doesn't clash with the
