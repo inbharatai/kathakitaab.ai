@@ -588,27 +588,36 @@ function buildSideMissions(
 }
 
 /**
- * #6 — escort missions. For each NPC standing at this node, if their
- * canon-accurate schedule has a next place after this node, emit an
- * "Escort {NPC} onward" side mission whose target is that next place.
- * The mission completes when the avatar walks them there (the screen
- * handler checks the target is reachable — unlocked — before moving).
+ * #6 — escort missions. For each NPC whose canon-accurate schedule
+ * INCLUDES this node (and this isn't their last stop), emit an
+ * "Escort {NPC} onward" side mission whose target is their next
+ * scheduled place. The mission completes when the avatar walks them
+ * there (the screen handler checks the target is reachable — unlocked
+ * — before moving).
  *
- * NPCs placed by the round-robin fallback (no `characters_present`
- * data) have a schedule that does NOT contain this node, so they get
- * no escort — only canon-traversing characters do. Deterministic: a
+ * "Who is here" is derived from the schedule (`scheduleBySlug`), NOT
+ * from the static per-node `npcSlugs` placement. Placement is
+ * first/home-only by design (one WorldNpc per character, to avoid
+ * duplicate sprites); the schedule is the canon-accurate record of
+ * where a character stands at each point in the story. Deriving escorts
+ * from the schedule means a traversing NPC (present across several
+ * scenes) gets a real escort chain — one at each stop except the last —
+ * not just a single escort from their home. The NPC's rendered
+ * position (`npcCurrentPlaceId`) migrates with the avatar, so when the
+ * avatar reaches a stop the NPC is visibly there to be escorted onward.
+ *
+ * Round-robin NPCs (no `characters_present` data → empty schedule) and
+ * single-scene NPCs (schedule length 1) get no escort. Deterministic: a
  * given (book, scenes, characters) always emits the same escort set.
  */
 function buildEscortMissions(
   nodeId: string,
-  npcSlugs: string[],
   characterById: Map<string, Character>,
   scheduleBySlug: Map<string, string[]>,
   titleByNodeId: Map<string, string>,
 ): WorldMission[] {
   const missions: WorldMission[] = [];
-  for (const slug of npcSlugs) {
-    const schedule = scheduleBySlug.get(slug);
+  for (const [slug, schedule] of scheduleBySlug) {
     if (!schedule || schedule.length < 2) continue;
     const idx = schedule.indexOf(nodeId);
     if (idx < 0 || idx >= schedule.length - 1) continue; // not here, or last stop
@@ -871,7 +880,7 @@ export function synthesizeWorldManifest(
     const succ = successors.get(scene.scene_id) ?? [];
     const primary = buildMissions(scene, scene.scene_id, succ);
     const side = buildSideMissions(scene, scene.scene_id, npcSlugs, characterById);
-    const escort = buildEscortMissions(scene.scene_id, npcSlugs, characterById, scheduleBySlug, titleByNodeId);
+    const escort = buildEscortMissions(scene.scene_id, characterById, scheduleBySlug, titleByNodeId);
     // Universal rewrite: prefer the LLM WorldIdentity override for this
     // scene's mood/biome/ambient; fall back to the universal lexicons.
     const identNode = worldIdentity?.nodes.find(n => n.sceneId === scene.scene_id);

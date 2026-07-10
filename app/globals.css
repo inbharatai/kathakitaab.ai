@@ -1285,7 +1285,14 @@ body {
 .world-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 3;
+  /* Above every portal (base z-index 4, .is-open/.is-ready 8) so a
+   * destination node is never un-clickable because a path-marker
+   * portal's hit box overlaps it — on a 12-place map many portals sit
+   * close to a destination node. Below .world-clue (10) so a clue
+   * marker sitting on the current node still wins. Locked nodes are
+   * `disabled` → pointer-events:none, so they never wrongly intercept
+   * a ready portal underneath. */
+  z-index: 9;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1408,7 +1415,9 @@ body {
 .world-clue:hover { transform: translate(-50%, -50%) scale(1.12); }
 /* Clues are the actionable mission target — they must sit above NPCs
    so a tap always lands on the clue even when markers overlap. */
-.world-clue { z-index: 6; }
+/* Above .world-node (9): a clue marker sits on the current node and
+ * must remain clickable even though the node's hit box underlies it. */
+.world-clue { z-index: 10; }
 
 .world-npc {
   position: absolute;

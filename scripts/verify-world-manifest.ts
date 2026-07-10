@@ -38,6 +38,10 @@ import {
   isNodeUnlocked,
   deliverMissionId,
   clueEmoji,
+  deriveWorldIdentity,
+  PALETTE_FAMILY_COLORS,
+  type Biome,
+  type PaletteFamily,
 } from '../lib/world/worldManifest';
 import {
   createInitialSession,
@@ -279,9 +283,278 @@ clearWorldSession(book.slug);
 check('totalMissionCount > 0', totalMissionCount(m1) > 0, 'totalMissionCount must be positive');
 check('unlockedNodeIds at start', unlockedNodeIds(m1, init).size >= 1, 'unlockedNodeIds must include the spawn at start');
 
+// ---- #12 universality: cross-genre fixtures ---------------------------
+//
+// The universal lexicons (MOOD_KEYWORDS / BIOME_KEYWORDS / palette family)
+// are only proven "universal" if NON-Ramayana stories produce DISTINCT,
+// tonally + geographically appropriate worlds — not the old collapse where
+// everything fell back to mood='serene' / biome='wilds'. Below are four
+// synthetic books (Norse saga / sci-fi / Korean folktale / desert+underwater)
+// with zero Ramayana vocabulary. For each we assert:
+//   · determinism + structure (nodes === scenes, spawn unlocked)
+//   · palette family reads the story's dominant tone (not the slug hash)
+//   · biome coverage is non-trivial (≥3 distinct biomes, none 'wilds')
+//   · dominant mood is the EXPECTED one for that genre
+//   · canon-traversing NPCs derive a real schedule + escort missions
+//   · round-robin NPCs (no presence data) get NO escort (no false escort)
+// And cross-fixture: the 4 palette families + 4 biome-sets are all DISTINCT,
+// proving the lexicon separates genres instead of flattening them.
+
+type Fixture = {
+  name: string;
+  book: Book;
+  scenes: Scene[];
+  characters: Character[];
+  expectedPaletteFamily: PaletteFamily;
+  expectedDominantMood: string;
+  expectedBiomes: Biome[]; // biomes that MUST appear (subset of what's synthesized)
+  traversingSlug: string; // a character present in every scene (schedule length = #scenes)
+  roundRobinSlug: string; // a character with NO presence data (round-robin placed)
+};
+
+function mkBook(slug: string, title: string): Book {
+  return {
+    id: `book-${slug}`, slug, title, subtitle: title, description: title,
+    status: 'published', cover_image_url: '', created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  } as unknown as Book;
+}
+
+function mkScene(
+  bookSlug: string,
+  sceneId: string,
+  title: string,
+  orderIndex: number,
+  visual: string,
+  summary: string,
+  nextId: string | null,
+  prevId: string | null,
+  present: string[],
+): Scene {
+  return {
+    id: `${bookSlug}-${sceneId}`, book_id: `book-${bookSlug}`, scene_id: sceneId,
+    title, order_index: orderIndex, narration: summary, short_summary: summary,
+    visual_description: visual, background_asset_url: '', previous_scene_id: prevId,
+    next_scene_id: nextId, mode: 'story', learning_points: [], quiz_questions: [],
+    source_notes: '', created_at: '2026-01-01', updated_at: '2026-01-01',
+    characters_present: present,
+  } as unknown as Scene;
+}
+
+function mkChar(bookSlug: string, slug: string, name: string, role: string, tone: string): Character {
+  return {
+    id: `${bookSlug}-${slug}`, book_id: `book-${bookSlug}`, slug, name, role,
+    short_summary: `${name}, ${role}.`, traits: [], relationships: {},
+    character_bible: {
+      canonical_identity: name, role, traits: [], relationships: {},
+      speech_tone: tone, visual_description: '', clothing_style: '',
+      color_palette: [], emotional_range: [], forbidden_changes: [], source_notes: '',
+    },
+    source_notes: '', talk_examples: [`I am ${name}.`], image_url: undefined,
+    created_at: '2026-01-01', updated_at: '2026-01-01',
+  } as unknown as Character;
+}
+
+// Fixture A — Norse saga. Cold, somber, frozen north.
+// Texts are crafted so each scene hits exactly one biome keyword + the
+// intended mood keyword, avoiding substring traps (the lexicon matches
+// by `.includes`, so e.g. "toward" contains "war", "sealed" contains
+// "sea") and lexicon precedence (biome words like "forest"/"river" are
+// also serene mood keywords, which would override a sacred mood).
+const norseBook = mkBook('norse-saga', "Fjorn's Last Winter");
+const norseScenes: Scene[] = [
+  mkScene('norse-saga', 'fjord', 'Frozen Fjord', 0,
+    'Fjorn stands alone on the ice, grief in his heart, a sorrowful farewell.',
+    'He leaves home for the last time.', null, null, ['fjorn', 'sigrid']),
+  mkScene('norse-saga', 'pass', 'High Pass', 1,
+    'Fjorn climbs the mountain alone, grief on the ridge, a sorrowful ascent to meet his foe.',
+    'A lonely climb into the cold.', 'fjord', 'fjord', ['fjorn']),
+  mkScene('norse-saga', 'battle', 'Field of Swords', 2,
+    'War on the battlefield. Armies clash, blood on the swords, a siege broken.',
+    'Fjorn meets his enemy on the field.', 'pass', 'pass', ['fjorn']),
+  mkScene('norse-saga', 'pyre', 'Burning Shore', 3,
+    'On the frozen shore, Fjorn mourns the dead. Tears and farewell, ice on the water.',
+    'Grief without end by the water.', null, 'battle', ['fjorn']),
+];
+const norseChars: Character[] = [
+  mkChar('norse-saga', 'fjorn', 'Fjorn', 'warrior', 'grave'),
+  mkChar('norse-saga', 'sigrid', 'Sigrid', 'sister', 'soft'),
+  mkChar('norse-saga', 'wolf', 'The Grey Wolf', 'omen', 'silent'), // round-robin (no presence)
+];
+
+// Fixture B — Sci-fi derelict station. Mysterious, twilight.
+const scifiBook = mkBook('station-acheron', 'Station Acheron');
+const scifiScenes: Scene[] = [
+  mkScene('station-acheron', 'dock', 'Docking Ring', 0,
+    'Vera steps into the city-station, the gate locked, shadow everywhere, a whisper in the dark, a secret kept.',
+    'A mystery waits inside the station.', null, null, ['vera', 'aria']),
+  mkScene('station-acheron', 'tunnels', 'Service Tunnels', 1,
+    'Underground tunnels, a cavern of shadow and whisper, the unknown ahead, a riddle in the dark.',
+    'A riddle below the station.', 'dock', 'dock', ['vera']),
+  mkScene('station-acheron', 'reactor', 'Reactor Core', 2,
+    'The reactor runs hot, lava in the crater, embers and danger, a weapon primed.',
+    'Danger at the heart of the station.', 'tunnels', 'tunnels', ['vera', 'aria']),
+  mkScene('station-acheron', 'pod', 'Escape Pod', 3,
+    'Vera drifts into the open sea, deep water all around, a mystery solved, the unknown behind her.',
+    'A way out into the open sea.', null, 'reactor', ['vera']),
+];
+const scifiChars: Character[] = [
+  mkChar('station-acheron', 'vera', 'Vera', 'engineer', 'calm'),
+  mkChar('station-acheron', 'aria', 'ARIA', 'station AI', 'cool'),
+  mkChar('station-acheron', 'drone', 'Repair Drone', 'drone', 'flat'), // round-robin
+];
+
+// Fixture C — Korean folktale. Sacred, violet.
+const koreanBook = mkBook('tiger-lantern', 'The Tiger\'s Lantern');
+const koreanScenes: Scene[] = [
+  mkScene('tiger-lantern', 'village', 'The Village at Dawn', 0,
+    'Min-jun prays in the village, a sacred dawn over the cottages, faith in his heart.',
+    'A sacred journey begins.', null, null, ['minjun']),
+  mkScene('tiger-lantern', 'summit', 'The Summit Shrine', 1,
+    'Min-jun climbs to the mountain shrine, an altar of snow, a holy ritual, the spirit of the tiger.',
+    'A ritual at the summit.', 'village', 'village', ['minjun', 'tiger']),
+  mkScene('tiger-lantern', 'temple', 'The Inner Temple', 2,
+    'Inside the temple, the monk chants a prayer, faith and grace before the altar.',
+    'A prayer inside the temple.', 'summit', 'summit', ['minjun', 'tiger']),
+  mkScene('tiger-lantern', 'festival', 'The Lantern Festival', 3,
+    'At the palace the village holds a celebration, a wedding of light, joy and laughter.',
+    'A joyful reunion at the festival.', null, 'temple', ['minjun']),
+];
+const koreanChars: Character[] = [
+  mkChar('tiger-lantern', 'minjun', 'Min-jun', 'scholar', 'gentle'),
+  mkChar('tiger-lantern', 'tiger', 'The Tiger Spirit', 'guardian', 'low'),
+  mkChar('tiger-lantern', 'monk', 'Old Monk', 'teacher', 'wise'), // round-robin
+];
+
+// Fixture D — Desert + underwater odyssey. Joyful, warm_gold.
+const desertBook = mkBook('pearl-amar', 'The Pearl of Amar');
+const desertScenes: Scene[] = [
+  mkScene('pearl-amar', 'oasis', 'The Oasis', 0,
+    'At the desert oasis, a wedding feast, joy and celebration, a gift for the bride.',
+    'A celebration at the oasis.', null, null, ['amara', 'merchant']),
+  mkScene('pearl-amar', 'dunes', 'The Dune Crossing', 1,
+    'Across the dunes, danger: a beast hunts the caravan, the heat of the sand, an arid road.',
+    'Danger in the dunes.', 'oasis', 'oasis', ['amara']),
+  mkScene('pearl-amar', 'drowned', 'The Open Sea Ruin', 2,
+    'Beneath the open sea, deep water and shadow, a mystery in the ruin, a whisper in the dark.',
+    'A mystery beneath the open sea.', 'dunes', 'dunes', ['amara']),
+  mkScene('pearl-amar', 'pearl', 'The Pearl Chamber', 3,
+    'The pearl glows in the cave, a reunion and a gift, joy at the journey\'s end, a celebration of light.',
+    'A joyful reunion in the cave.', null, 'drowned', ['amara']),
+];
+const desertChars: Character[] = [
+  mkChar('pearl-amar', 'amara', 'Amara', 'diver', 'warm'),
+  mkChar('pearl-amar', 'merchant', 'The Merchant', 'trader', 'bright'),
+  mkChar('pearl-amar', 'serpent', 'The Sand Serpent', 'beast', 'hiss'), // round-robin (no presence)
+];
+
+const fixtures: Fixture[] = [
+  { name: 'Norse saga', book: norseBook, scenes: norseScenes, characters: norseChars,
+    expectedPaletteFamily: 'cold_desaturated', expectedDominantMood: 'somber',
+    expectedBiomes: ['snow', 'mountain', 'battlefield', 'shore'],
+    traversingSlug: 'fjorn', roundRobinSlug: 'wolf' },
+  { name: 'Sci-fi station', book: scifiBook, scenes: scifiScenes, characters: scifiChars,
+    expectedPaletteFamily: 'twilight', expectedDominantMood: 'mysterious',
+    expectedBiomes: ['city', 'cave', 'volcano', 'ocean'],
+    traversingSlug: 'vera', roundRobinSlug: 'drone' },
+  { name: 'Korean folktale', book: koreanBook, scenes: koreanScenes, characters: koreanChars,
+    expectedPaletteFamily: 'violet', expectedDominantMood: 'sacred',
+    expectedBiomes: ['village', 'mountain', 'temple', 'palace'],
+    traversingSlug: 'minjun', roundRobinSlug: 'monk' },
+  { name: 'Desert + underwater', book: desertBook, scenes: desertScenes, characters: desertChars,
+    expectedPaletteFamily: 'warm_gold', expectedDominantMood: 'joyful',
+    expectedBiomes: ['desert', 'ocean', 'cave'],
+    traversingSlug: 'amara', roundRobinSlug: 'serpent' },
+];
+
+const fixturePaletteFamilies: PaletteFamily[] = [];
+const fixtureBiomeSets: string[] = [];
+for (const fx of fixtures) {
+  const fm1 = synthesizeWorldManifest(fx.book, fx.scenes, fx.characters);
+  const fm2 = synthesizeWorldManifest(fx.book, fx.scenes, fx.characters);
+  fm1.createdAt = 0; fm2.createdAt = 0;
+  check(`${fx.name} determinism`, JSON.stringify(fm1) === JSON.stringify(fm2), `${fx.name}: not deterministic`);
+  check(`${fx.name} node count`, fm1.nodes.length === fx.scenes.length, `${fx.name}: nodes ${fm1.nodes.length} ≠ scenes ${fx.scenes.length}`);
+  check(`${fx.name} spawn unlocked`, isNodeUnlocked(fm1, [], fm1.spawnNodeId), `${fx.name}: spawn not unlocked`);
+  check(`${fx.name} second locked`, fm1.nodes.length > 1 && !isNodeUnlocked(fm1, [], fm1.nodes[1].id), `${fx.name}: second node not locked at start`);
+
+  // Palette family reads the dominant tone (cross-checked two ways: the
+  // synthesized palette's accent must equal the expected family's accent,
+  // AND deriveWorldIdentity must report the same family).
+  const expectedAccent = PALETTE_FAMILY_COLORS[fx.expectedPaletteFamily].accent;
+  check(`${fx.name} palette family`, fm1.palette.accent === expectedAccent,
+    `${fx.name}: palette accent ${fm1.palette.accent} ≠ ${fx.expectedPaletteFamily} (${expectedAccent})`);
+  const ident = deriveWorldIdentity(fx.scenes);
+  check(`${fx.name} identity palette`, ident.paletteFamily === fx.expectedPaletteFamily,
+    `${fx.name}: deriveWorldIdentity palette ${ident.paletteFamily} ≠ ${fx.expectedPaletteFamily}`);
+
+  // Dominant mood is the expected genre mood (proves mood derivation is
+  // genre-sensitive, not the old "everything → serene" collapse).
+  const moodCounts: Record<string, number> = {};
+  for (const n of fm1.nodes) moodCounts[n.mood] = (moodCounts[n.mood] || 0) + 1;
+  const dominant = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  check(`${fx.name} dominant mood`, dominant === fx.expectedDominantMood,
+    `${fx.name}: dominant mood ${dominant} ≠ ${fx.expectedDominantMood} (counts=${JSON.stringify(moodCounts)})`);
+
+  // Biome coverage: ≥3 distinct biomes, NONE 'wilds' (the old fallback).
+  const biomes = new Set(fm1.nodes.map(n => n.biome));
+  check(`${fx.name} biomes ≥3 distinct`, biomes.size >= 3, `${fx.name}: only ${biomes.size} distinct biome(s): ${[...biomes].join(',')}`);
+  check(`${fx.name} no wilds fallback`, !biomes.has('wilds'), `${fx.name}: a scene fell back to 'wilds' — lexicon gap`);
+  for (const b of fx.expectedBiomes) {
+    check(`${fx.name} biome ${b} present`, biomes.has(b), `${fx.name}: expected biome ${b} not synthesized (got ${[...biomes].join(',')})`);
+  }
+
+  // Canon-traversing NPC: full schedule, home = first stop, escorts at
+  // every stop except the last.
+  const trav = fm1.npcs.find(n => n.slug === fx.traversingSlug);
+  check(`${fx.name} traversing npc placed`, !!trav, `${fx.name}: traversing NPC ${fx.traversingSlug} not placed`);
+  if (trav) {
+    const validIds = new Set(fm1.nodes.map(n => n.id));
+    check(`${fx.name} traversing schedule full`, trav.schedule.length === fx.scenes.length,
+      `${fx.name}: ${fx.traversingSlug} schedule ${trav.schedule.length} ≠ ${fx.scenes.length}`);
+    check(`${fx.name} traversing schedule valid`, trav.schedule.every(id => validIds.has(id)),
+      `${fx.name}: ${fx.traversingSlug} schedule has unknown ids`);
+    check(`${fx.name} traversing home first`, trav.homePlaceId === trav.schedule[0],
+      `${fx.name}: ${fx.traversingSlug} homePlaceId ≠ schedule[0]`);
+    const escorts = fm1.nodes.flatMap(n => n.missions.filter(m => m.kind === 'escort' && m.characterSlug === fx.traversingSlug));
+    check(`${fx.name} traversing escorts`, escorts.length === fx.scenes.length - 1,
+      `${fx.name}: ${fx.traversingSlug} expected ${fx.scenes.length - 1} escorts, got ${escorts.length}`);
+    for (const e of escorts) {
+      const srcIdx = trav.schedule.indexOf(e.nodeId);
+      const tgtIdx = e.targetNodeId ? trav.schedule.indexOf(e.targetNodeId) : -1;
+      check(`${fx.name} escort ${e.id} advances`, srcIdx >= 0 && tgtIdx === srcIdx + 1,
+        `${fx.name}: escort ${e.id} target not next stop`);
+    }
+  }
+
+  // Round-robin NPC (no presence data): placed somewhere, schedule empty,
+  // NO escort mission (guards against false escorts from round-robin).
+  const rr = fm1.npcs.find(n => n.slug === fx.roundRobinSlug);
+  check(`${fx.name} roundrobin placed`, !!rr, `${fx.name}: round-robin NPC ${fx.roundRobinSlug} not placed`);
+  if (rr) {
+    check(`${fx.name} roundrobin no schedule`, rr.schedule.length === 0,
+      `${fx.name}: ${fx.roundRobinSlug} (no presence) got a schedule of length ${rr.schedule.length}`);
+    const rrEscorts = fm1.nodes.flatMap(n => n.missions.filter(m => m.kind === 'escort' && m.characterSlug === fx.roundRobinSlug));
+    check(`${fx.name} roundrobin no escort`, rrEscorts.length === 0,
+      `${fx.name}: ${fx.roundRobinSlug} (no presence) got ${rrEscorts.length} false escort(s)`);
+  }
+
+  fixturePaletteFamilies.push(ident.paletteFamily);
+  fixtureBiomeSets.push([...biomes].sort().join(','));
+}
+
+// Cross-fixture distinctness: the 4 genres must yield 4 DIFFERENT palette
+// families and 4 DIFFERENT biome sets — the core universality proof. If
+// any two fixtures collapse to the same family + biome set, the lexicon
+// is not actually separating genres.
+check('cross-fixture palettes distinct', new Set(fixturePaletteFamilies).size === fixtures.length,
+  `palette families not distinct across genres: ${fixturePaletteFamilies.join(', ')}`);
+check('cross-fixture biome sets distinct', new Set(fixtureBiomeSets).size === fixtures.length,
+  `biome sets not distinct across genres:\n  ${fixtures.map((f, i) => `${f.name}: {${fixtureBiomeSets[i]}}`).join('\n  ')}`);
+
 // ---- Report ------------------------------------------------------------
 
-console.log(`[world:verify] ran ${checks} check(s) against the Ramayana seed + ${backupSlugs.length} showcase backup(s).`);
+console.log(`[world:verify] ran ${checks} check(s) against the Ramayana seed + ${backupSlugs.length} showcase backup(s) + ${fixtures.length} cross-genre fixtures.`);
 if (failures.length === 0) {
   console.log('[world:verify] OK — manifest v2 engine passes all accuracy checks.');
   process.exit(0);

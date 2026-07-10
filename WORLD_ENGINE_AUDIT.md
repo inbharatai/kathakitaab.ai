@@ -218,12 +218,23 @@ on `feat/world-engine-tier1` (not pushed/merged).
 
 ### #6 — Wider mission grammar: escort
 - A 5th `MissionKind` `'escort'` + `WorldMission.targetNodeId`. Synthesized
-  in `buildEscortMissions`: at each NPC's canon place except their last,
-  an "Escort {NPC} onward → {next place}" side mission whose target is the
-  NPC's next scheduled place (`scheduleFor`). Deterministic; only
-  canon-traversing characters (those with `characters_present` data) get
-  escorts — round-robin-placed NPCs have no schedule entry for the node, so
-  no false escort.
+  in `buildEscortMissions`: for each NPC whose canon **schedule** includes
+  this place (and this isn't their last stop), an "Escort {NPC} onward →
+  {next place}" side mission whose target is the NPC's next scheduled
+  place (`scheduleFor`). Deterministic; only canon-traversing characters
+  (those with `characters_present` data across ≥2 scenes) get escorts —
+  round-robin-placed NPCs (no presence data → empty schedule) and
+  single-scene NPCs get none, so no false escort.
+- **Honesty correction (this pass):** the first implementation derived
+  "who is here" from the static per-node `npcSlugs` placement, which is
+  first/home-only by design (one `WorldNpc` per character, to avoid
+  duplicate sprites). That meant a traversing NPC got exactly ONE escort
+  (from home), not the chain "at each canon place except the last" this
+  section originally claimed. Fixed: escorts now derive from the canon
+  schedule (`scheduleBySlug`), so a character present in scenes 0,1,2,3
+  gets three escorts (0→1, 1→2, 2→3). The NPC's rendered position
+  (`npcCurrentPlaceId`) migrates with the avatar, so when the avatar
+  reaches a stop the NPC is visibly there to be escorted onward.
 - Completes via the existing `COMPLETE_MISSION` reducer (no new session
   surface). The screen handler walks the avatar to the target through
   `VISIT_NODE` (reusing visit + fragment auto-pickup) when the target is
@@ -269,3 +280,57 @@ The visual confirmation that the gateway highlight pulse + the escort
 process images). The code path compiles, builds, and the e2e drives the
 world + reader mounts without regression. Env-gated e2e (API routes that
 need OpenAI/Sarvam keys) was not run this pass — no keys in this env.
+
+---
+
+## 9. Phase 1 follow-on — universality fixtures (#12) + courier-loop fix
+
+Shipped + gate-verified this pass on `feat/world-engine-tier1` (not pushed/merged).
+
+### #12 — Cross-genre universality fixtures
+The universal lexicons were only ever exercised against the Ramayana seed.
+Added four synthetic books to `scripts/verify-world-manifest.ts` (Norse saga,
+sci-fi station, Korean folktale, desert + underwater) with **zero Ramayana
+vocabulary**, and asserted for each:
+- determinism + structure (nodes === scenes, spawn unlocked, 2nd locked),
+- palette family reads the story's dominant tone (cross-checked via the
+  synthesized palette accent AND `deriveWorldIdentity`) — cold_desaturated /
+  twilight / violet / warm_gold,
+- dominant mood is the genre's expected one (somber / mysterious / sacred /
+  joyful) — not the old "everything → serene" collapse,
+- biome coverage ≥3 distinct, **none `wilds`** (the old fallback),
+- canon-traversing NPC gets a full schedule + an escort at every stop except
+  the last; round-robin NPCs (no presence) get none,
+- cross-fixture: the 4 palette families AND 4 biome-sets are all DISTINCT
+  (the core universality proof — the lexicon separates genres, not flattens).
+
+`world:verify` now runs **296 checks** (was 91) and passes. Writing these
+fixtures surfaced two real defects, fixed this pass:
+
+1. **Escort emission was first-stop-only** (see the honesty correction in §8
+   above) — the engine now emits an escort at every scheduled stop.
+2. **The lexicon matches by `.includes` (substring)**, so `toward` contains
+   `war` (→ tense / battlefield), `sealed` contains `sea` (→ ocean), and a
+   scene titled "Docking Bay" hits `bay` (→ shore). This is pre-existing and
+   out of scope to change (it would shift Ramayana's derived moods/biomes),
+   but it is a real robustness gap worth a future pass: word-boundary matching
+   would stop false positives. The fixtures are crafted to avoid the traps.
+
+### Courier-loop pointer-intercept fix (pre-existing `:37`, now green)
+The `living-world.spec.ts:37` courier-loop test was the one red test at the
+parent commit — a portal button's hit box overlapped the destination node
+and intercepted the click. Root cause: the marker z-order was portals
+(4 / `.is-open`+`.is-ready` 8) above nodes (3), so any portal near a node
+blocked it. Fixed by establishing the full marker order **clue (10) > node
+(9) > all portals (4/8)**: a destination node is never un-clickable because
+a path-marker portal sits on it, a clue marker on the current node still
+wins, and locked nodes (`disabled` → `pointer-events: none`) never wrongly
+intercept a ready portal. `living-world` e2e now **6/6** (chromium + Mobile
+Safari), including the previously-red courier loop.
+
+### Gate (this pass)
+`tsc --noEmit` 0 · `eslint .` 0 errors (11 pre-existing warnings tolerated)
+· `next build --webpack` success · `world:verify` 296/296 · `living-world`
+e2e 6/6 (chromium + Mobile Safari). Visual/audible confirmation still
+outstanding (I can't process images/audio); env-gated e2e (OpenAI/Sarvam
+keys) not run — no keys in this env.
