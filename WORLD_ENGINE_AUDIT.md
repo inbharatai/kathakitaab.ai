@@ -334,3 +334,41 @@ Safari), including the previously-red courier loop.
 e2e 6/6 (chromium + Mobile Safari). Visual/audible confirmation still
 outstanding (I can't process images/audio); env-gated e2e (OpenAI/Sarvam
 keys) not run — no keys in this env.
+### Rigged 3D humans — gap #10 closed (2026-07-10)
+The avatar was a capsule + 🧑‍🚀 emoji "dummy" and NPCs were flat PNG
+portraits / emoji billboards (audit gap #10). Replaced both with a real
+**rigged skinned humanoid GLB** (Quaternius "Character Animated", CC0 —
+bundled at `public/models/character-animated.glb`, see
+`public/models/CHARACTER_ANIMATED_LICENSE.txt`). New component
+`components/world3d/RiggedCharacter.tsx`:
+- Each character is a `SkeletonUtils.clone` of the cached scene (independent
+  skeleton + AnimationMixer) so avatar + every NPC animate independently.
+- **Avatar**: walks when moving, idles when still, turns to face its travel
+  direction (great-circle tangent), feet planted on the sphere, head outward.
+- **NPCs**: stand on the surface at their `npcCurrentPlaceId`, idle, and turn
+  to face the player. Each NPC is shirt-tinted by a deterministic FNV-1a hue
+  of its slug so people read as distinct without bundling extra models.
+- Scaled to a target height at runtime from the model's real bounding box
+  (the GLB's accessor min/max is unreliable for the rigged meshes).
+- **Emoji is the no-asset fallback**: a `ModelErrorBoundary` + `Suspense`
+  render the old emoji capsule if the GLB ever fails to load, so the world
+  never breaks.
+
+HONESTY — what I can and cannot verify (cannot process images):
+- The GLB's 24 clips are **unlabeled** ("0".."23"). I selected IDLE (19)
+  and WALK (22) by offline motion analysis (per-node translation extent
+  per clip). Only 5 of the 24 clips have finite translations everywhere;
+  the other 19 carry garbage IK-helper translation channels that would
+  teleport the figure, so the usable set is small and neither safe clip is
+  a pure static idle. **I cannot visually confirm** these are the right
+  clips — they are the best blind picks and are exposed as two easy-to-tweak
+  constants (`IDLE_CLIP`/`WALK_CLIP`) plus `FORWARD_SIGN` (flip to -1 if the
+  character walks backward). Eyeballing in a browser is the outstanding
+  visual confirmation I cannot do.
+- I cannot eye-confirm the figure stands/orients/animates correctly on the
+  sphere. The emoji fallback is the safety net until a human tunes it.
+
+Gate (this pass): `tsc` 0 · `eslint .` 0 errors (11 pre-existing warnings)
+· `next build --webpack` success · `world:verify` 296/296 · `living-world`
+e2e 6/6 (chromium + Mobile Safari). Branch `feat/world-engine-tier1`, still
+NOT pushed/merged.

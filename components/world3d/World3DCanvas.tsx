@@ -36,6 +36,7 @@ import {
 } from '@/lib/world/worldManifest';
 import { isPortalOpenFor, type WorldSessionState } from '@/lib/world/worldSession';
 import { resolvePlaceMedia } from '@/lib/world/mediaResolver';
+import { RiggedAvatar, RiggedNpc } from './RiggedCharacter';
 
 // ---- helpers ---------------------------------------------------------
 
@@ -321,57 +322,46 @@ function tangentRotation(pos: THREE.Vector3): [number, number, number] {
 
 // ---- NPC sprite ------------------------------------------------------
 
-function NpcPortrait({ url }: { url: string }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  useCrispImageTexture(meshRef);
-  return (
-    <DreiImage
-      ref={meshRef}
-      url={url}
-      // 0.18 × 0.27 = 2:3 portrait aspect, matching gpt-image-1's
-      // 1024×1536 portrait size — so the figure reads as a warm
-      // illustrated portrait, not a letterboxed square thumbnail.
-      scale={[0.18, 0.27]}
-      position={[0, 0.2, 0]}
-      transparent
-      toneMapped={false}
-    />
-  );
-}
+// NPCs are now rigged 3D humanoids (see RiggedCharacter) standing on the
+// surface, idling and turning to face the player — not flat PNG portraits
+// or emoji. The emoji is the no-asset fallback if the GLB fails to load.
 
-function NpcSprite({ lat, lon, emoji, name, atCurrent, portraitUrl }: {
-  lat: number; lon: number; emoji: string; name: string; atCurrent: boolean; portraitUrl?: string;
+function NpcSprite({
+  lat,
+  lon,
+  emoji,
+  name,
+  slug,
+  atCurrent,
+  avatarPos,
+  reducedMotion,
+}: {
+  lat: number; lon: number; emoji: string; name: string; slug: string;
+  atCurrent: boolean; avatarPos: THREE.Vector3; reducedMotion: boolean;
 }) {
-  const pos = vec3FromLatLon(lat, lon, R + 0.05);
+  const pos = vec3FromLatLon(lat, lon, R + 0.02);
   return (
     <group position={pos}>
-      <Billboard position={[0, 0.22, 0]}>
-        {/* Character portrait when available; emoji is the graceful
-            fallback (error boundary + suspense hide a dead/slow URL). */}
-        {portraitUrl && (
-          <TextureErrorBoundary key={portraitUrl} fallback={null}>
-            <Suspense fallback={null}>
-              <NpcPortrait url={portraitUrl} />
-            </Suspense>
-          </TextureErrorBoundary>
-        )}
-        <Text fontSize={0.2} anchorX="center" anchorY="middle">
-          {emoji}
-        </Text>
-        {atCurrent && (
+      <RiggedNpc
+        faceTargetPos={avatarPos}
+        slug={slug}
+        emoji={emoji}
+        reducedMotion={reducedMotion}
+      />
+      {atCurrent && (
+        <Billboard position={[0, 0.34, 0]}>
           <Text
             fontSize={0.1}
             color="#fff"
             outlineWidth={0.008}
             outlineColor="#000"
             anchorX="center"
-            anchorY="top"
-            position={[0, 0.18, 0]}
+            anchorY="bottom"
           >
             {name}
           </Text>
-        )}
-      </Billboard>
+        </Billboard>
+      )}
     </group>
   );
 }
@@ -436,11 +426,15 @@ function AvatarAndCamera({
       const d = Math.abs(next.lat - target.lat) + Math.abs(next.lon - target.lon);
       current.current = d < 1e-3 ? { lat: target.lat, lon: target.lon } : next;
     }
-    const p = vec3FromLatLon(current.current.lat, current.current.lon, R + 0.12);
+    // R + 0.02 puts the avatar's feet on the planet surface (the rigged
+    // figure's local origin is at its feet — see RiggedCharacter).
+    const p = vec3FromLatLon(current.current.lat, current.current.lon, R + 0.02);
     if (avatarRef.current) avatarRef.current.position.copy(p);
 
     // Soft follow-cam: orbit above + behind the avatar, looking at it.
-    const camTarget = p.clone().multiplyScalar(1.0);
+    // Aim slightly above the feet (chest height) so the rigged human is
+    // framed in shot, not cut off at the ankles.
+    const camTarget = p.clone().add(p.clone().normalize().multiplyScalar(0.13));
     const offset = p.clone().normalize().multiplyScalar(7).add(new THREE.Vector3(0, 3.2, 0));
     const desired = camTarget.clone().add(offset);
     const lerp = reducedMotion ? 1 : Math.min(1, delta * 2.5);
@@ -461,20 +455,17 @@ function AvatarAndCamera({
   return (
     <>
       <group ref={avatarRef}>
-        <Billboard>
-          <mesh>
-            <capsuleGeometry args={[0.07, 0.12, 4, 8]} />
-            <meshStandardMaterial color="#FF9933" emissive="#FF9933" emissiveIntensity={0.3} roughness={0.5} />
-          </mesh>
-          <Text fontSize={0.18} anchorX="center" anchorY="bottom" position={[0, 0.16, 0]}>
-            🧑‍🚀
-          </Text>
-          {session.carriedFragmentNodeId && (
-            <Text fontSize={0.14} anchorX="center" anchorY="top" position={[0, 0.2, 0]}>
+        {/* Rigged humanoid avatar — walks when moving, idles when still,
+            faces its travel direction. Emoji capsule is the no-asset
+            fallback (handled inside RiggedAvatar). */}
+        <RiggedAvatar reducedMotion={reducedMotion} carryFragment={!!session.carriedFragmentNodeId} />
+        {session.carriedFragmentNodeId && (
+          <Billboard position={[0, 0.34, 0]}>
+            <Text fontSize={0.14} anchorX="center" anchorY="bottom">
               ✉️
             </Text>
-          )}
-        </Billboard>
+          </Billboard>
+        )}
       </group>
       {/* Invisible large sphere capturing clicks anywhere on the planet. */}
       <mesh
@@ -515,6 +506,14 @@ export default function World3DCanvas({ manifest, session, reducedMotion, onMove
   const dayPhase = currentNode
     ? currentNode.sceneIndex / Math.max(1, manifest.nodes.length - 1)
     : 0;
+
+  // Avatar surface point — NPCs turn to face the player. Derived from
+  // session (updated on move dispatch); NPCs re-face on each render.
+  const avatarSurface = useMemo(() => {
+    const lat = session.avatarLat ?? manifest.nodes[0]?.lat ?? 0;
+    const lon = session.avatarLon ?? manifest.nodes[0]?.lon ?? 0;
+    return vec3FromLatLon(lat, lon, R + 0.02);
+  }, [session.avatarLat, session.avatarLon, manifest.nodes]);
 
   return (
     <Canvas
@@ -563,8 +562,10 @@ export default function World3DCanvas({ manifest, session, reducedMotion, onMove
               lon={node.lon}
               emoji={npc.emoji}
               name={npc.name}
+              slug={npc.slug}
               atCurrent={node.id === session.currentNodeId}
-              portraitUrl={npc.portraitUrl}
+              avatarPos={avatarSurface}
+              reducedMotion={reducedMotion}
             />
           );
         })}
